@@ -1,17 +1,13 @@
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+// Production backend deployed on Render.
+// For local development, set EXPO_PUBLIC_API_URL in a .env.local file:
+// EXPO_PUBLIC_API_URL=http://192.168.1.x:4000
+const PRODUCTION_URL = 'https://beauty-app-g16l.onrender.com';
 
-// The backend listens on port 4000 (see Backend/.env). On web / iOS
-// simulator "localhost" reaches the dev machine directly. On a physical
-// device (Expo Go) "localhost" means the phone itself, so we derive the
-// dev machine's LAN IP from the Metro bundler's host address instead.
 function resolveApiBaseUrl() {
-  const hostUri = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost;
-  if (hostUri && Platform.OS !== 'web') {
-    const host = hostUri.split(':')[0];
-    if (host) return `http://${host}:4000`;
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
   }
-  return 'http://localhost:4000';
+  return PRODUCTION_URL;
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
