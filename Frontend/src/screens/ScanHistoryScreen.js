@@ -1,57 +1,185 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  StatusBar,
+  View, Text, StyleSheet, SafeAreaView, FlatList,
+  TouchableOpacity, StatusBar, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { useAuthedRequest } from '../api/useAuthedRequest';
+
+function formatDate(iso) {
+  try {
+    return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch { return ''; }
+}
+
+function formatTime(iso) {
+  try {
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch { return ''; }
+}
+
+function ScanCard({ scan, onPress }) {
+  const zones = scan.zones || [];
+  const avgScore = zones.length > 0
+    ? Math.round(zones.reduce((s, z) => s + (z.score || 0), 0) / zones.length)
+    : 0;
+  const good = avgScore >= 80;
+
+  return (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => onPress(scan)}
+      activeOpacity={0.82}
+      accessibilityRole="button"
+      accessibilityLabel={`Scan from ${formatDate(scan.createdAt)}`}
+    >
+      <View style={styles.cardLeft}>
+        <View style={styles.scanIconWrap}>
+          <Ionicons name="scan-outline" size={20} color={colors.primary} />
+        </View>
+        <View>
+          <Text style={styles.cardDate}>{formatDate(scan.createdAt)}</Text>
+          <Text style={styles.cardTime}>{formatTime(scan.createdAt)}</Text>
+          <View style={styles.zonesRow}>
+            {zones.map((z) => (
+              <View key={z.key} style={styles.zoneTag}>
+                <Text style={styles.zoneTagText}>{z.title}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+      <View style={[styles.scorePill, { backgroundColor: good ? '#E6F9F0' : '#FFF0E6', borderColor: good ? '#A8E8C0' : '#F5C4A0' }]}>
+        <Text style={[styles.scoreText, { color: good ? '#1EA868' : '#D06030' }]}>{avgScore}</Text>
+        <Text style={[styles.scoreLabel, { color: good ? '#1EA868' : '#D06030' }]}>AVG</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function EmptyState({ onScan }) {
+  return (
+    <View style={styles.emptyBody}>
+      <View style={styles.illustration}>
+        <View style={styles.corner} />
+        <Ionicons name="scan-outline" size={40} color={colors.primary} style={styles.scanIcon} />
+      </View>
+      <Text style={styles.emptyTitle}>Your Journey Starts Here</Text>
+      <Text style={styles.emptyDesc}>
+        Take your first face scan to start tracking your skin, hair, and brow progress over time.
+      </Text>
+      <TouchableOpacity
+        style={styles.cta}
+        activeOpacity={0.85}
+        onPress={onScan}
+        accessibilityRole="button"
+        accessibilityLabel="Start your first scan"
+      >
+        <Text style={styles.ctaText}>Start Your First Scan</Text>
+      </TouchableOpacity>
+      <Text style={styles.ctaHint}>TAKES LESS THAN 30 SECONDS</Text>
+    </View>
+  );
+}
 
 export default function ScanHistoryScreen({ navigation }) {
+  const request = useAuthedRequest();
+  const [scans, setScans] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      setLoading(true);
+      request('/api/scans')
+        .then(({ scans: data }) => {
+          if (!cancelled) setScans(data || []);
+        })
+        .catch(() => { if (!cancelled) setScans([]); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+      return () => { cancelled = true; };
+    }, [request])
+  );
+
+  const openScan = (scan) => {
+    navigation?.navigate('ScanResults', { zones: scan.zones, ancillary: scan.ancillary });
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-
       <ScreenHeader
         title="Scan History"
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
 
-      <View style={styles.body}>
-        <View style={styles.illustration}>
-          <View style={styles.corner} pointerEvents="none" />
-          <Ionicons name="scan-outline" size={40} color={colors.primary} style={styles.scanIcon} />
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={colors.primary} />
         </View>
-
-        <Text style={styles.title}>Your Journey Starts Here</Text>
-        <Text style={styles.desc}>
-          Take your first face scan to start tracking your skin, hair, and brow progress over time.
-        </Text>
-
-        <TouchableOpacity
-          style={styles.cta}
-          activeOpacity={0.85}
-          onPress={() => navigation?.navigate('ScanFace')}
-          accessibilityRole="button"
-          accessibilityLabel="Start your first scan"
-        >
-          <Text style={styles.ctaText}>Start Your First Scan</Text>
-        </TouchableOpacity>
-        <Text style={styles.ctaHint}>TAKES LESS THAN 30 SECONDS</Text>
-      </View>
+      ) : scans.length === 0 ? (
+        <EmptyState onScan={() => navigation?.navigate('ScanFace')} />
+      ) : (
+        <FlatList
+          data={scans}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => <ScanCard scan={item} onPress={openScan} />}
+          ListHeaderComponent={
+            <Text style={styles.listHeader}>{scans.length} scan{scans.length !== 1 ? 's' : ''} recorded</Text>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.primaryBg },
-  body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
+  listHeader: {
+    fontSize: 12, fontWeight: '700', color: colors.textFaint,
+    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 12,
+  },
 
+  card: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: colors.white, borderRadius: 16, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: colors.borderLight,
+    shadowColor: colors.shadow, shadowOpacity: 0.06,
+    shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
+  },
+  cardLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, flex: 1 },
+  scanIconWrap: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: colors.primaryPale,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: colors.accentDark,
+  },
+  cardDate: { fontSize: 14, fontWeight: '700', color: colors.textDark },
+  cardTime: { fontSize: 12, color: colors.textLight, fontWeight: '500', marginTop: 2 },
+  zonesRow: { flexDirection: 'row', gap: 4, marginTop: 6, flexWrap: 'wrap' },
+  zoneTag: {
+    backgroundColor: colors.sectionBg, borderRadius: 100,
+    paddingHorizontal: 8, paddingVertical: 2,
+    borderWidth: 1, borderColor: colors.borderLight,
+  },
+  zoneTagText: { fontSize: 10, fontWeight: '600', color: colors.textMid },
+
+  scorePill: {
+    alignItems: 'center', justifyContent: 'center',
+    width: 52, height: 52, borderRadius: 14, borderWidth: 1,
+  },
+  scoreText: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  scoreLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+
+  emptyBody: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   illustration: {
     width: 180, height: 180, borderRadius: 24, marginBottom: 28,
     backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderLight,
@@ -62,10 +190,8 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: colors.primaryPaleDeep, borderRadius: 16,
   },
   scanIcon: { opacity: 0.85 },
-
-  title: { fontSize: 22, fontWeight: '800', color: colors.textDark, textAlign: 'center', marginBottom: 10 },
-  desc: { fontSize: 14, color: colors.textMid, textAlign: 'center', lineHeight: 21, marginBottom: 26 },
-
+  emptyTitle: { fontSize: 22, fontWeight: '800', color: colors.textDark, textAlign: 'center', marginBottom: 10 },
+  emptyDesc: { fontSize: 14, color: colors.textMid, textAlign: 'center', lineHeight: 21, marginBottom: 26 },
   cta: {
     alignSelf: 'stretch', backgroundColor: colors.primary, borderRadius: 100,
     paddingVertical: 15, alignItems: 'center',

@@ -1,20 +1,34 @@
-const { query } = require('./database');
+const { supabase } = require('./database');
 
 async function findByEmail(email) {
-  const { rows } = await query('SELECT * FROM users WHERE lower(email) = lower($1)', [email]);
-  return rows[0];
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .ilike('email', email)
+    .single();
+  if (error) return null;
+  return data;
 }
 
 async function findById(id) {
-  const { rows } = await query('SELECT * FROM users WHERE id = $1', [id]);
-  return rows[0];
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) return null;
+  return data;
 }
 
 async function insertUser(user) {
-  await query(
-    'INSERT INTO users (id, name, email, password_hash, created_at) VALUES ($1, $2, $3, $4, $5)',
-    [user.id, user.name, user.email, user.passwordHash, user.createdAt]
-  );
+  const { error } = await supabase.from('users').insert({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    password_hash: user.passwordHash,
+    created_at: user.createdAt,
+  });
+  if (error) throw new Error(error.message);
   return user;
 }
 

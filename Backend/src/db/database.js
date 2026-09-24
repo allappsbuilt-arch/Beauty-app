@@ -1,81 +1,27 @@
-const { Pool } = require('pg');
-const { databaseUrl } = require('../config');
+const { createClient } = require('@supabase/supabase-js');
+const { supabaseUrl, supabaseAnonKey } = require('../config');
 
-if (!databaseUrl) {
+if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
-    'DATABASE_URL is not set. Add your Supabase connection string to Backend/.env (see .env.example).'
+    'SUPABASE_URL and SUPABASE_ANON_KEY must be set in Backend/.env\n' +
+    'Find them at: Supabase → Settings → API'
   );
 }
 
-const pool = new Pool({
-  connectionString: databaseUrl,
-  ssl: { rejectUnauthorized: false },
-});
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-async function query(text, params) {
-  return pool.query(text, params);
-}
-
-const MIGRATIONS_SQL = `
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS routine_step_completions (
-    id SERIAL PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    period TEXT NOT NULL,
-    step_key TEXT NOT NULL,
-    date TEXT NOT NULL,
-    completed_at TIMESTAMPTZ NOT NULL,
-    UNIQUE(user_id, period, step_key, date)
-  );
-
-  CREATE TABLE IF NOT EXISTS routine_finishes (
-    id SERIAL PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    date TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
-    UNIQUE(user_id, date)
-  );
-
-  CREATE TABLE IF NOT EXISTS checkins (
-    id SERIAL PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    date TEXT NOT NULL,
-    feeling TEXT,
-    UNIQUE(user_id, date)
-  );
-
-  CREATE TABLE IF NOT EXISTS scans (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL,
-    zones_json JSONB NOT NULL,
-    ancillary_json JSONB NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS points_ledger (
-    id SERIAL PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    label TEXT NOT NULL,
-    points INTEGER NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS notification_prefs (
-    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    mute_all BOOLEAN NOT NULL DEFAULT FALSE,
-    categories_json JSONB NOT NULL
-  );
-`;
-
+// Verify connection and run table migrations via Supabase RPC or direct calls.
+// Supabase manages the underlying Postgres — tables are created via the dashboard
+// or by running the SQL below once in the Supabase SQL editor.
 async function migrate() {
-  await pool.query(MIGRATIONS_SQL);
+  // Check connection is alive by doing a lightweight query
+  const { error } = await supabase.from('users').select('id').limit(1);
+  if (error && error.code !== 'PGRST116') {
+    // PGRST116 = table doesn't exist yet, that's ok on first run
+    // any other error means connection failed
+    throw new Error(`Supabase connection failed: ${error.message}`);
+  }
+  console.log('Supabase connected successfully.');
 }
 
-module.exports = { pool, query, migrate };
+module.exports = { supabase, migrate };

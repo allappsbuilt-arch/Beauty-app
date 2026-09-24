@@ -16,6 +16,7 @@
       "supportsTablet": false
     },
     "android": {
+      "package": "com.qwedx123.beautyapp",
       "adaptiveIcon": {
         "backgroundColor": "#FFF0F3"
       }
@@ -27,6 +28,12 @@
     "plugins": [
       "expo-asset",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9cd14e8f-2994-46af-96ca-1e0a2fa98f7d"
+      }
+    },
+    "owner": "qwedx123"
   }
 }

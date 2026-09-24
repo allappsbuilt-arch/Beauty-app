@@ -6,6 +6,9 @@ const checkinsRoutes = require('./routes/checkins.routes');
 const scansRoutes = require('./routes/scans.routes');
 const pointsRoutes = require('./routes/points.routes');
 const settingsRoutes = require('./routes/settings.routes');
+const coachRoutes = require('./routes/coach.routes');
+const leaderboardRoutes = require('./routes/leaderboard.routes');
+const weeklyReportRoutes = require('./routes/weeklyReport.routes');
 
 const app = express();
 
@@ -22,6 +25,9 @@ app.use('/api/checkins', checkinsRoutes);
 app.use('/api/scans', scansRoutes);
 app.use('/api/points', pointsRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/coach', coachRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/weekly-report', weeklyReportRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });

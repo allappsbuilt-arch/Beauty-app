@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,12 @@ import {
   Easing,
   Dimensions,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { useAuthedRequest } from '../api/useAuthedRequest';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -440,7 +442,38 @@ function AncillaryCard({ zone }) {
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
-export default function FullScanAnalysisScreen({ navigation }) {
+import { useAuthedRequest } from '../api/useAuthedRequest';
+
+export default function FullScanAnalysisScreen({ navigation, route }) {
+  // Accept scan data from route.params (passed from ScanResults/ScanAnalyzing)
+  // or fall back to fetching the latest scan from the backend
+  const request = useAuthedRequest();
+  const [zones, setZones] = useState(route?.params?.zones || null);
+  const [ancillary, setAncillary] = useState(route?.params?.ancillary || null);
+  const [loading, setLoading] = useState(!route?.params?.zones);
+
+  useEffect(() => {
+    if (zones) return; // already have data from params
+    (async () => {
+      try {
+        const { scans } = await request('/api/scans');
+        if (scans && scans.length > 0) {
+          setZones(scans[0].zones);
+          setAncillary(scans[0].ancillary);
+        } else {
+          // No scans yet — use fallback static data
+          setZones(ZONES);
+          setAncillary(ANCILLARY);
+        }
+      } catch {
+        setZones(ZONES);
+        setAncillary(ANCILLARY);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
@@ -468,30 +501,36 @@ export default function FullScanAnalysisScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ── Scroll feed ── */}
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        overScrollMode="never"
-      >
-        {/* Primary zones: Skin, Eyes */}
-        {ZONES.map(zone => (
-          <ZoneCard key={zone.key} zone={zone} />
-        ))}
-
-        {/* Ancillary Zones section */}
-        <View style={styles.ancSection}>
-          <Text style={styles.ancHeader}>Ancillary Zones</Text>
-          <View style={styles.ancRow}>
-            {ANCILLARY.map(z => (
-              <AncillaryCard key={z.key} zone={z} />
-            ))}
-          </View>
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
         </View>
+      ) : (
+        /* ── Scroll feed ── */
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          overScrollMode="never"
+        >
+          {/* Primary zones: Skin, Eyes */}
+          {(zones || []).map(zone => (
+            <ZoneCard key={zone.key} zone={zone} />
+          ))}
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          {/* Ancillary Zones section */}
+          <View style={styles.ancSection}>
+            <Text style={styles.ancHeader}>Ancillary Zones</Text>
+            <View style={styles.ancRow}>
+              {(ancillary || []).map(z => (
+                <AncillaryCard key={z.key} zone={z} />
+              ))}
+            </View>
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

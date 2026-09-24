@@ -1,100 +1,142 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Image,
+  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  TouchableOpacity, StatusBar, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { useAuthedRequest } from '../api/useAuthedRequest';
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const TABS = ['Global', 'Friends', 'Weekly'];
-
-const PODIUM = [
-  { key: 'liam', rank: 2, name: 'Liam K.', score: 942, streak: 28, delta: 12, uri: 'https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=200&q=60' },
-  { key: 'sophia', rank: 1, name: 'Sophia R.', score: 988, streak: 41, delta: 4, uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=60' },
-  { key: 'marcus', rank: 3, name: 'Marcus J.', score: 915, streak: 19, delta: 22, uri: 'https://images.unsplash.com/photo-1500336624523-d727130c3328?w=200&q=60' },
-];
-
-const RANKED = [
-  { key: 'elena', rank: 4, name: 'Elena Vance', score: 892, streak: 22, pos: 12, dir: 'up', uri: 'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=100&q=60' },
-  { key: 'david', rank: 5, name: 'David Chen', score: 875, streak: 17, pos: 1, dir: 'down', uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=100&q=60' },
-  { key: 'chloe', rank: 6, name: 'Chloe Smith', score: 861, streak: 15, pos: 0, dir: 'flat', uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&q=60' },
-  { key: 'omar', rank: 7, name: 'Omar Hadid', score: 844, streak: 9, pos: 3, dir: 'up', uri: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100&q=60' },
-];
-
-const ME = { rank: 42, name: 'You (Jane Doe)', score: 712, streak: 6, pos: 8, sub: 'Top 15% this week' };
-
+const TABS = ['Global', 'Weekly'];
 const DIR_ICON = { up: 'arrow-up', down: 'arrow-down', flat: 'remove' };
 const DIR_COLOR = { up: '#1EA868', down: '#D03050', flat: colors.textFaint };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+function getInitials(name = '') {
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+}
 
-function PodiumCard({ user, metric }) {
-  const isFirst = user.rank === 1;
-  const medalColor = user.rank === 1 ? '#F0B429' : user.rank === 2 ? '#A0AEC0' : '#D98A4A';
+function AvatarCircle({ name, size = 40, style }) {
+  const colors_arr = ['#F9A8D4', '#6EE7B7', '#93C5FD', '#FCA5A5', '#C4B5FD'];
+  const bg = colors_arr[name?.charCodeAt(0) % colors_arr.length] || '#E2E8F0';
   return (
-    <View style={[styles.podiumCol, isFirst && styles.podiumColFirst]}>
-      <View style={[styles.podiumAvatarWrap, isFirst && styles.podiumAvatarWrapFirst]}>
-        {isFirst && <Ionicons name="star" size={16} color="#F0B429" style={styles.podiumStar} />}
-        <Image source={{ uri: user.uri }} style={[styles.podiumAvatar, isFirst && styles.podiumAvatarFirst]} />
-        <View style={[styles.medalBadge, { backgroundColor: medalColor }]}>
-          <Text style={styles.medalText}>{user.rank}</Text>
+    <View style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg, justifyContent: 'center', alignItems: 'center' }, style]}>
+      <Text style={{ fontSize: size * 0.32, fontWeight: '800', color: '#1a1a2e' }}>{getInitials(name)}</Text>
+    </View>
+  );
+}
+
+function PodiumCard({ user, metric, rank }) {
+  const isFirst = rank === 1;
+  const medalColor = rank === 1 ? '#F0B429' : rank === 2 ? '#A0AEC0' : '#D98A4A';
+  const podiumHeight = rank === 1 ? 80 : rank === 2 ? 60 : 50;
+  return (
+    <View style={[podiumStyles.col, isFirst && podiumStyles.colFirst]}>
+      {isFirst && <Ionicons name="star" size={16} color="#F0B429" style={{ marginBottom: 4 }} />}
+      <View style={{ position: 'relative' }}>
+        <AvatarCircle name={user.name} size={isFirst ? 64 : 52} style={{ borderWidth: 2.5, borderColor: isFirst ? '#F0B429' : colors.white }} />
+        <View style={[podiumStyles.medal, { backgroundColor: medalColor }]}>
+          <Text style={podiumStyles.medalText}>{rank}</Text>
         </View>
       </View>
-      <View style={[styles.podiumCard, isFirst && styles.podiumCardFirst]}>
-        <Text style={styles.podiumName} numberOfLines={1}>{user.name}</Text>
-        <Text style={styles.podiumScore}>{metric === 'score' ? user.score : user.streak}</Text>
-        <Text style={styles.podiumDelta}>+{user.delta}</Text>
+      <Text style={podiumStyles.name} numberOfLines={1}>{user.name.split(' ')[0]}</Text>
+      <Text style={podiumStyles.score}>{metric === 'score' ? user.score : user.streak}</Text>
+      <View style={[podiumStyles.base, { height: podiumHeight }]}>
+        <Text style={podiumStyles.baseRank}>#{rank}</Text>
       </View>
     </View>
   );
 }
 
-function RankRow({ user, metric }) {
+const podiumStyles = StyleSheet.create({
+  col: { alignItems: 'center', width: 100, gap: 4 },
+  colFirst: { marginBottom: 0 },
+  medal: {
+    position: 'absolute', bottom: -4, right: -4,
+    width: 20, height: 20, borderRadius: 10,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.white,
+  },
+  medalText: { fontSize: 10, fontWeight: '800', color: colors.white },
+  name: { fontSize: 12, fontWeight: '700', color: colors.textDark, marginTop: 4 },
+  score: { fontSize: 17, fontWeight: '800', color: colors.primary },
+  base: {
+    width: '100%', backgroundColor: colors.primaryPale,
+    borderTopLeftRadius: 10, borderTopRightRadius: 10,
+    justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 6,
+    borderWidth: 1, borderColor: colors.accentDark,
+  },
+  baseRank: { fontSize: 10, fontWeight: '800', color: colors.primary, letterSpacing: 0.5 },
+});
+
+function RankRow({ user, metric, isMe }) {
   return (
-    <View style={styles.rankRow}>
-      <Text style={styles.rankNum}>{user.rank}</Text>
-      <Image source={{ uri: user.uri }} style={styles.rankAvatar} />
+    <View style={[styles.rankRow, isMe && styles.rankRowMe]}>
+      <Text style={[styles.rankNum, isMe && styles.rankNumMe]}>{user.rank}</Text>
+      <AvatarCircle name={user.name} size={40} />
       <View style={styles.rankMeta}>
-        <Text style={styles.rankName}>{user.name}</Text>
-        <View style={styles.rankPosRow}>
-          <Ionicons name={DIR_ICON[user.dir]} size={11} color={DIR_COLOR[user.dir]} />
-          <Text style={[styles.rankPos, { color: DIR_COLOR[user.dir] }]}>{user.pos} pos</Text>
-        </View>
+        <Text style={[styles.rankName, isMe && styles.rankNameMe]}>{user.name}{isMe ? ' (You)' : ''}</Text>
+        <Text style={[styles.rankSub, isMe && styles.rankSubMe]}>
+          {metric === 'score' ? `${user.streak} day streak` : `${user.score} pts total`}
+        </Text>
       </View>
       <View style={styles.rankScoreCol}>
-        <Text style={styles.rankScore}>{metric === 'score' ? user.score : user.streak}</Text>
-        <Text style={styles.rankScoreLabel}>{metric === 'score' ? 'Face Score' : 'Day Streak'}</Text>
+        <Text style={[styles.rankScore, isMe && styles.rankScoreMe]}>
+          {metric === 'score' ? user.score : user.streak}
+        </Text>
+        <Text style={[styles.rankScoreLabel, isMe && styles.rankScoreLabelMe]}>
+          {metric === 'score' ? 'pts' : 'days'}
+        </Text>
       </View>
     </View>
   );
 }
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
-
 export default function LeaderboardScreen({ navigation }) {
+  const request = useAuthedRequest();
   const [activeTab, setActiveTab] = useState('Global');
   const [metric, setMetric] = useState('score');
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [me, setMe] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      setLoading(true);
+      request('/api/leaderboard')
+        .then(({ leaderboard: lb, me: myRow }) => {
+          if (cancelled) return;
+          setLeaderboard(lb || []);
+          setMe(myRow);
+        })
+        .catch(() => { if (!cancelled) { setLeaderboard([]); setMe(null); } })
+        .finally(() => { if (!cancelled) setLoading(false); });
+      return () => { cancelled = true; };
+    }, [request])
+  );
+
+  // Sort by selected metric
+  const sorted = [...leaderboard].sort((a, b) =>
+    metric === 'score' ? b.score - a.score : b.streak - a.streak
+  ).map((u, i) => ({ ...u, rank: i + 1 }));
+
+  const top3 = sorted.slice(0, 3);
+  // Podium order: 2nd, 1st, 3rd
+  const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
+  const rest = sorted.slice(3);
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-
       <ScreenHeader
-        title="MyFace AI"
+        title="Leaderboard"
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
 
-      {/* ── Tabs ── */}
+      {/* Tabs */}
       <View style={styles.tabBar}>
         {TABS.map((t) => (
           <TouchableOpacity
@@ -110,68 +152,69 @@ export default function LeaderboardScreen({ navigation }) {
         ))}
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* ── Metric toggle ── */}
-        <View style={styles.metricRow}>
-          <TouchableOpacity
-            style={[styles.metricChip, metric === 'score' && styles.metricChipActive]}
-            onPress={() => setMetric('score')}
-            accessibilityRole="button"
-            accessibilityLabel="Sort by score"
-          >
-            <Ionicons name="trending-up" size={14} color={metric === 'score' ? colors.primary : colors.textMid} />
-            <Text style={[styles.metricText, metric === 'score' && styles.metricTextActive]}>Score</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.metricChip, metric === 'streak' && styles.metricChipActive]}
-            onPress={() => setMetric('streak')}
-            accessibilityRole="button"
-            accessibilityLabel="Sort by streak"
-          >
-            <Ionicons name="flame" size={14} color={metric === 'streak' ? colors.primary : colors.textMid} />
-            <Text style={[styles.metricText, metric === 'streak' && styles.metricTextActive]}>Streak</Text>
-          </TouchableOpacity>
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={colors.primary} />
         </View>
-
-        {/* ── Podium ── */}
-        <View style={styles.podiumRow}>
-          {PODIUM.map((u) => <PodiumCard key={u.key} user={u} metric={metric} />)}
+      ) : leaderboard.length === 0 ? (
+        <View style={styles.loadingWrap}>
+          <Ionicons name="trophy-outline" size={40} color={colors.textFaint} />
+          <Text style={styles.emptyText}>No rankings yet. Complete routines to earn points!</Text>
         </View>
-
-        {/* ── Ranked list ── */}
-        <View style={styles.rankList}>
-          {RANKED.map((u) => <RankRow key={u.key} user={u} metric={metric} />)}
-        </View>
-
-        {/* ── Me row ── */}
-        <View style={styles.meRow}>
-          <Text style={styles.meRank}>{ME.rank}</Text>
-          <View style={styles.meAvatar}>
-            <Text style={styles.meAvatarText}>JD</Text>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Metric toggle */}
+          <View style={styles.metricRow}>
+            <TouchableOpacity
+              style={[styles.metricChip, metric === 'score' && styles.metricChipActive]}
+              onPress={() => setMetric('score')}
+            >
+              <Ionicons name="trending-up" size={14} color={metric === 'score' ? colors.primary : colors.textMid} />
+              <Text style={[styles.metricText, metric === 'score' && styles.metricTextActive]}>Points</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.metricChip, metric === 'streak' && styles.metricChipActive]}
+              onPress={() => setMetric('streak')}
+            >
+              <Ionicons name="flame" size={14} color={metric === 'streak' ? colors.primary : colors.textMid} />
+              <Text style={[styles.metricText, metric === 'streak' && styles.metricTextActive]}>Streak</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.rankMeta}>
-            <Text style={styles.meName}>{ME.name}</Text>
-            <Text style={styles.meSub}>{ME.sub}</Text>
-          </View>
-          <View style={styles.rankScoreCol}>
-            <Text style={styles.meScore}>{metric === 'score' ? ME.score : ME.streak}</Text>
-            <View style={styles.meDeltaRow}>
-              <Ionicons name="arrow-up" size={11} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.meDelta}>{ME.pos} pos</Text>
+
+          {/* Podium */}
+          {top3.length >= 1 && (
+            <View style={styles.podiumWrap}>
+              <View style={styles.podiumRow}>
+                {podiumOrder.map((u) => (
+                  <PodiumCard key={u.id} user={u} metric={metric} rank={u.rank} />
+                ))}
+              </View>
             </View>
-          </View>
-        </View>
+          )}
 
-        <View style={{ height: 24 }} />
-      </ScrollView>
+          {/* Ranked list */}
+          <View style={styles.rankList}>
+            {rest.map((u) => (
+              <RankRow key={u.id} user={u} metric={metric} isMe={me?.id === u.id} />
+            ))}
+          </View>
+
+          {/* Me row if not in top 50 visible */}
+          {me && !rest.find((u) => u.id === me.id) && !top3.find((u) => u.id === me.id) && (
+            <RankRow user={me} metric={metric} isMe />
+          )}
+
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.primaryBg },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  emptyText: { fontSize: 14, color: colors.textMid, textAlign: 'center', paddingHorizontal: 40, lineHeight: 20 },
   scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
 
   tabBar: {
@@ -193,60 +236,31 @@ const styles = StyleSheet.create({
   metricText: { fontSize: 12.5, fontWeight: '700', color: colors.textMid },
   metricTextActive: { color: colors.primary },
 
-  podiumRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 10, marginBottom: 24 },
-  podiumCol: { alignItems: 'center', width: 96 },
-  podiumColFirst: { marginBottom: 16 },
-  podiumAvatarWrap: { position: 'relative', marginBottom: 8 },
-  podiumAvatarWrapFirst: {},
-  podiumStar: { position: 'absolute', top: -18, alignSelf: 'center', zIndex: 2 },
-  podiumAvatar: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: colors.white },
-  podiumAvatarFirst: { width: 76, height: 76, borderRadius: 38, borderColor: '#F0B429', borderWidth: 3 },
-  medalBadge: {
-    position: 'absolute', bottom: -4, alignSelf: 'center',
-    width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2, borderColor: colors.white,
-  },
-  medalText: { fontSize: 11, fontWeight: '800', color: colors.white },
-  podiumCard: {
-    backgroundColor: colors.white, borderRadius: 16, padding: 12, alignItems: 'center', width: '100%',
-    borderWidth: 1, borderColor: colors.borderLight,
-  },
-  podiumCardFirst: { borderColor: '#F0B429', borderWidth: 1.5 },
-  podiumName: { fontSize: 12.5, fontWeight: '700', color: colors.textDark, marginBottom: 2 },
-  podiumScore: { fontSize: 18, fontWeight: '800', color: colors.primary },
-  podiumDelta: { fontSize: 11, fontWeight: '700', color: '#1EA868', marginTop: 2 },
+  podiumWrap: { marginBottom: 24 },
+  podiumRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8 },
 
-  rankList: { gap: 10 },
+  rankList: { gap: 8 },
   rankRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: colors.white, borderRadius: 16, padding: 12,
     borderWidth: 1, borderColor: colors.borderLight,
   },
+  rankRowMe: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    shadowColor: colors.primary, shadowOpacity: 0.3,
+    shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+  },
   rankNum: { width: 20, fontSize: 14, fontWeight: '700', color: colors.textFaint, textAlign: 'center' },
-  rankAvatar: { width: 40, height: 40, borderRadius: 20 },
-  rankMeta: { flex: 1, gap: 3 },
+  rankNumMe: { color: 'rgba(255,255,255,0.8)' },
+  rankMeta: { flex: 1 },
   rankName: { fontSize: 14.5, fontWeight: '700', color: colors.textDark },
-  rankPosRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  rankPos: { fontSize: 11.5, fontWeight: '700' },
+  rankNameMe: { color: colors.white },
+  rankSub: { fontSize: 11, color: colors.textLight, marginTop: 2 },
+  rankSubMe: { color: 'rgba(255,255,255,0.75)' },
   rankScoreCol: { alignItems: 'flex-end' },
   rankScore: { fontSize: 17, fontWeight: '800', color: colors.primary },
+  rankScoreMe: { color: colors.white },
   rankScoreLabel: { fontSize: 10.5, color: colors.textLight, fontWeight: '600' },
-
-  meRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: colors.primary, borderRadius: 16, padding: 14, marginTop: 16,
-    shadowColor: colors.primaryDark, shadowOpacity: 0.3, shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 }, elevation: 5,
-  },
-  meRank: { width: 20, fontSize: 14, fontWeight: '800', color: colors.white, textAlign: 'center' },
-  meAvatar: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.25)',
-    justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)',
-  },
-  meAvatarText: { color: colors.white, fontWeight: '800', fontSize: 13 },
-  meName: { fontSize: 15, fontWeight: '800', color: colors.white },
-  meSub: { fontSize: 11.5, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
-  meScore: { fontSize: 19, fontWeight: '800', color: colors.white },
-  meDeltaRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  meDelta: { fontSize: 11.5, color: 'rgba(255,255,255,0.9)', fontWeight: '700' },
+  rankScoreLabelMe: { color: 'rgba(255,255,255,0.75)' },
 });

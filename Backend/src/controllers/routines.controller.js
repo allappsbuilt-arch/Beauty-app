@@ -1,28 +1,34 @@
-const { query } = require('../db/database');
+const { supabase } = require('../db/database');
 const points = require('../services/points.service');
 const { todayStr, addDays, mondayFirstIndex, startOfWeek } = require('../services/date.util');
 
 const VALID_PERIODS = new Set(['AM', 'PM']);
 
 async function completedStepKeysToday(userId, period, date) {
-  const { rows } = await query(
-    'SELECT step_key FROM routine_step_completions WHERE user_id = $1 AND period = $2 AND date = $3',
-    [userId, period, date]
-  );
-  return rows.map((r) => r.step_key);
+  const { data, error } = await supabase
+    .from('routine_step_completions')
+    .select('step_key')
+    .eq('user_id', userId)
+    .eq('period', period)
+    .eq('date', date);
+  if (error) throw new Error(error.message);
+  return (data || []).map((r) => r.step_key);
 }
 
 async function computeStreak(userId) {
-  const { rows } = await query(
-    'SELECT DISTINCT date FROM routine_finishes WHERE user_id = $1 ORDER BY date DESC',
-    [userId]
-  );
-  const dates = new Set(rows.map((r) => r.date));
+  const { data, error } = await supabase
+    .from('routine_finishes')
+    .select('date')
+    .eq('user_id', userId)
+    .order('date', { ascending: false });
+  if (error) throw new Error(error.message);
+
+  const dates = new Set((data || []).map((r) => r.date));
   if (dates.size === 0) return 0;
 
   let cursor = todayStr();
   if (!dates.has(cursor)) {
-    cursor = addDays(cursor, -1); // allow "today not done yet" without breaking the streak
+    cursor = addDays(cursor, -1);
     if (!dates.has(cursor)) return 0;
   }
 
@@ -38,11 +44,16 @@ async function weekDoneIndices(userId) {
   const today = todayStr();
   const weekStart = startOfWeek(today);
   const weekEnd = addDays(weekStart, 6);
-  const { rows } = await query(
-    'SELECT DISTINCT date FROM routine_finishes WHERE user_id = $1 AND date BETWEEN $2 AND $3',
-    [userId, weekStart, weekEnd]
-  );
-  return rows.map((r) => mondayFirstIndex(r.date));
+
+  const { data, error } = await supabase
+    .from('routine_finishes')
+    .select('date')
+    .eq('user_id', userId)
+    .gte('date', weekStart)
+    .lte('date', weekEnd);
+  if (error) throw new Error(error.message);
+
+  return (data || []).map((r) => mondayFirstIndex(r.date));
 }
 
 async function today(req, res) {
@@ -61,12 +72,12 @@ async function completeStep(req, res) {
   }
   const date = todayStr();
   const upperPeriod = period.toUpperCase();
-  await query(
-    `INSERT INTO routine_step_completions (user_id, period, step_key, date, completed_at)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (user_id, period, step_key, date) DO NOTHING`,
-    [req.userId, upperPeriod, stepKey, date, new Date().toISOString()]
+
+  const { error } = await supabase.from('routine_step_completions').upsert(
+    { user_id: req.userId, period: upperPeriod, step_key: stepKey, date, completed_at: new Date().toISOString() },
+    { onConflict: 'user_id,period,step_key,date', ignoreDuplicates: true }
   );
+  if (error) throw new Error(error.message);
 
   return res.json({ completedStepKeys: await completedStepKeysToday(req.userId, upperPeriod, date) });
 }
@@ -78,14 +89,17 @@ async function finish(req, res) {
   }
   const date = todayStr();
 
-  const result = await query(
-    `INSERT INTO routine_finishes (user_id, date, created_at)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (user_id, date) DO NOTHING`,
-    [req.userId, date, new Date().toISOString()]
-  );
+  const { data, error } = await supabase
+    .from('routine_finishes')
+    .upsert(
+      { user_id: req.userId, date, created_at: new Date().toISOString() },
+      { onConflict: 'user_id,date', ignoreDuplicates: true }
+    )
+    .select();
+  if (error) throw new Error(error.message);
 
-  if (result.rowCount > 0) {
+  // Only award points if a new row was actually inserted
+  if (data && data.length > 0) {
     await points.award(req.userId, 'Daily Routine Completed', 10);
   }
 

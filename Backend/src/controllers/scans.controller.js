@@ -1,4 +1,4 @@
-const { query } = require('../db/database');
+const { supabase } = require('../db/database');
 const points = require('../services/points.service');
 const { generateScan } = require('../services/scanGenerator');
 
@@ -14,10 +14,14 @@ function toPublic(row) {
 async function create(req, res) {
   const scan = generateScan();
 
-  await query(
-    'INSERT INTO scans (id, user_id, created_at, zones_json, ancillary_json) VALUES ($1, $2, $3, $4, $5)',
-    [scan.id, req.userId, scan.createdAt, JSON.stringify(scan.zones), JSON.stringify(scan.ancillary)]
-  );
+  const { error } = await supabase.from('scans').insert({
+    id: scan.id,
+    user_id: req.userId,
+    created_at: scan.createdAt,
+    zones_json: scan.zones,
+    ancillary_json: scan.ancillary,
+  });
+  if (error) throw new Error(error.message);
 
   await points.award(req.userId, 'Skin Analysis', 50);
 
@@ -25,20 +29,25 @@ async function create(req, res) {
 }
 
 async function list(req, res) {
-  const { rows } = await query(
-    'SELECT * FROM scans WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
-    [req.userId]
-  );
-  return res.json({ scans: rows.map(toPublic) });
+  const { data, error } = await supabase
+    .from('scans')
+    .select('*')
+    .eq('user_id', req.userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+  return res.json({ scans: (data || []).map(toPublic) });
 }
 
 async function getOne(req, res) {
-  const { rows } = await query(
-    'SELECT * FROM scans WHERE id = $1 AND user_id = $2',
-    [req.params.id, req.userId]
-  );
-  if (!rows[0]) return res.status(404).json({ error: 'Scan not found' });
-  return res.json(toPublic(rows[0]));
+  const { data, error } = await supabase
+    .from('scans')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('user_id', req.userId)
+    .single();
+  if (error || !data) return res.status(404).json({ error: 'Scan not found' });
+  return res.json(toPublic(data));
 }
 
 module.exports = { create, list, getOne };

@@ -1,4 +1,4 @@
-const { query } = require('../db/database');
+const { supabase } = require('../db/database');
 
 const DEFAULT_CATEGORIES = {
   routine: true,
@@ -10,16 +10,26 @@ const DEFAULT_CATEGORIES = {
 };
 
 async function getRow(userId) {
-  const { rows } = await query('SELECT * FROM notification_prefs WHERE user_id = $1', [userId]);
-  if (rows[0]) return rows[0];
+  const { data, error } = await supabase
+    .from('notification_prefs')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
 
-  await query(
-    'INSERT INTO notification_prefs (user_id, mute_all, categories_json) VALUES ($1, FALSE, $2)',
-    [userId, JSON.stringify(DEFAULT_CATEGORIES)]
-  );
+  if (data) return data;
 
-  const { rows: inserted } = await query('SELECT * FROM notification_prefs WHERE user_id = $1', [userId]);
-  return inserted[0];
+  // Row doesn't exist yet — insert defaults
+  if (error && error.code === 'PGRST116') {
+    const { data: inserted, error: insertError } = await supabase
+      .from('notification_prefs')
+      .insert({ user_id: userId, mute_all: false, categories_json: DEFAULT_CATEGORIES })
+      .select()
+      .single();
+    if (insertError) throw new Error(insertError.message);
+    return inserted;
+  }
+
+  throw new Error(error.message);
 }
 
 function toPublic(row) {
@@ -39,10 +49,11 @@ async function updateNotifications(req, res) {
     ? { ...current.categories, ...categories }
     : current.categories;
 
-  await query(
-    'UPDATE notification_prefs SET mute_all = $1, categories_json = $2 WHERE user_id = $3',
-    [nextMuteAll, JSON.stringify(nextCategories), req.userId]
-  );
+  const { error } = await supabase
+    .from('notification_prefs')
+    .update({ mute_all: nextMuteAll, categories_json: nextCategories })
+    .eq('user_id', req.userId);
+  if (error) throw new Error(error.message);
 
   return res.json({ muteAll: nextMuteAll, categories: nextCategories });
 }
