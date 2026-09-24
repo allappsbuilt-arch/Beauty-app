@@ -13,25 +13,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { notify, shareText } from '../utils/feedback';
+import { useApiData } from '../api/useApiData';
 
-const RECOMMENDED = [
-  { key: 'hydraplump', name: 'Hydra-Plump Serum', brand: 'SkinCeuticals', rating: 4.8,
-    uri: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=300&q=60' },
-  { key: 'waterdrench', name: 'Water Drench Cream', brand: 'Peter Thomas Roth', rating: 4.9,
-    uri: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=300&q=60' },
-  { key: 'hyalpure', name: 'Hyal-Pure Mist', brand: 'Isntree', rating: 4.7,
-    uri: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=300&q=60' },
-];
+const AVATAR_COLORS = ['#1EA868', '#7A5CD0', '#D06090'];
 
-const PAST = [
-  { key: 'vitc',   letter: 'C', color: '#1EA868', name: 'Vitamin C',   meta: 'Last Week · Brightening & Protection' },
-  { key: 'retinol', letter: 'R', color: '#7A5CD0', name: 'Retinol',     meta: '2 weeks ago · Anti-Aging & Texture' },
-  { key: 'niacin',  letter: 'N', color: '#D06090', name: 'Niacinamide', meta: '3 weeks ago · Pore Control & Barrier' },
-];
-
-function RecommendedCard({ item }) {
+function RecommendedCard({ item, onPress }) {
   return (
-    <View style={rec.card}>
+    <TouchableOpacity style={rec.card} onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Analyse ${item.name}`}>
       <Image source={{ uri: item.uri }} style={rec.image} resizeMode="cover" />
       <Text style={rec.name} numberOfLines={1}>{item.name}</Text>
       <Text style={rec.brand}>{item.brand}</Text>
@@ -39,7 +29,7 @@ function RecommendedCard({ item }) {
         <Ionicons name="star" size={12} color="#1EA868" />
         <Text style={rec.ratingText}>{item.rating}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 const rec = StyleSheet.create({
@@ -51,20 +41,22 @@ const rec = StyleSheet.create({
   ratingText: { fontSize: 11.5, fontWeight: '700', color: colors.textMid },
 });
 
-function PastIngredientRow({ item, isLast }) {
+function PastIngredientRow({ item, index, isLast }) {
+  const when = item.weeksAgo === 1 ? 'Last week' : `${item.weeksAgo} weeks ago`;
   return (
     <TouchableOpacity
       style={[past.row, !isLast && past.rowBorder]}
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityLabel={item.name}
+      onPress={() => notify(item.name, item.benefits)}
     >
-      <View style={[past.avatar, { backgroundColor: item.color }]}>
-        <Text style={past.avatarText}>{item.letter}</Text>
+      <View style={[past.avatar, { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] }]}>
+        <Text style={past.avatarText}>{item.name[0]}</Text>
       </View>
       <View style={{ flex: 1 }}>
         <Text style={past.name}>{item.name}</Text>
-        <Text style={past.meta}>{item.meta}</Text>
+        <Text style={past.meta}>{when} · {item.category}</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.textPlaceholder} />
     </TouchableOpacity>
@@ -80,6 +72,10 @@ const past = StyleSheet.create({
 });
 
 export default function IngredientGuideScreen({ navigation }) {
+  const { data, error, reload } = useApiData('/api/products/ingredient-guide');
+  const featured = data?.featured;
+  const pastIngredients = data?.past ?? [];
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.primaryBg} />
@@ -97,7 +93,7 @@ export default function IngredientGuideScreen({ navigation }) {
       </View>
 
       <FlatList
-        data={PAST}
+        data={pastIngredients}
         keyExtractor={(p) => p.key}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -109,32 +105,34 @@ export default function IngredientGuideScreen({ navigation }) {
               resizeMode="cover"
             />
 
+            <ErrorBanner message={error} onRetry={reload} />
+
             <View style={styles.titleRow}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.eyebrow}>INGREDIENT OF THE WEEK</Text>
-                <Text style={styles.title}>Hyaluronic Acid</Text>
+                <Text style={styles.title}>{featured?.name ?? '…'}</Text>
               </View>
-              <View style={styles.hydrationPill}>
-                <Text style={styles.hydrationPillText}>HYDRATION</Text>
-              </View>
+              {!!featured && (
+                <View style={styles.hydrationPill}>
+                  <Text style={styles.hydrationPillText}>{featured.category}</Text>
+                </View>
+              )}
             </View>
 
-            <Text style={styles.paragraph}>
-              A powerful humectant that can hold up to 1,000 times its weight in water, pulling moisture into the skin for a plump, dewy look.
-            </Text>
+            <Text style={styles.paragraph}>{featured?.summary}</Text>
 
             <View style={styles.infoRow}>
               <Ionicons name="checkmark-circle" size={16} color="#1EA868" style={{ marginTop: 1 }} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoLabel}>Key Benefits</Text>
-                <Text style={styles.infoText}>Deep hydration, reduces fine lines, accelerates wound healing.</Text>
+                <Text style={styles.infoText}>{featured?.benefits}</Text>
               </View>
             </View>
             <View style={styles.infoRow}>
               <Ionicons name="body-outline" size={16} color={colors.primary} style={{ marginTop: 1 }} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoLabel}>Best for Skin Types</Text>
-                <Text style={styles.infoText}>All Skin Types, especially Dry and Dehydrated skin.</Text>
+                <Text style={styles.infoText}>{featured?.skinTypes}</Text>
               </View>
             </View>
 
@@ -143,26 +141,26 @@ export default function IngredientGuideScreen({ navigation }) {
                 <Ionicons name="bulb" size={16} color="#C47800" />
                 <Text style={styles.mythLabel}>Myth Buster</Text>
               </View>
-              <Text style={styles.mythQuote}>"Hyaluronic Acid is a harsh acid that exfoliates your skin."</Text>
+              <Text style={styles.mythQuote}>{featured ? `"${featured.myth.claim}"` : ''}</Text>
               <Text style={styles.mythFalse}>False.</Text>
-              <Text style={styles.mythExplain}>
-                Unlike Glycolic or Salicylic acids, Hyaluronic Acid is a moisture-binder, not an exfoliant. It's actually naturally produced by your own body!
-              </Text>
+              <Text style={styles.mythExplain}>{featured?.myth.truth}</Text>
             </View>
 
             <View style={styles.recHeader}>
               <Text style={styles.sectionTitle}>Top Recommended</Text>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="See all recommended products">
+              <TouchableOpacity onPress={() => navigation?.navigate('ProductShelf')} accessibilityRole="button" accessibilityLabel="See all recommended products">
                 <Text style={styles.seeAll}>SEE ALL</Text>
               </TouchableOpacity>
             </View>
             <FlatList
-              data={RECOMMENDED}
+              data={data?.recommended ?? []}
               keyExtractor={(r) => r.key}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 16, marginBottom: 20 }}
-              renderItem={({ item }) => <RecommendedCard item={item} />}
+              renderItem={({ item }) => (
+                <RecommendedCard item={item} onPress={() => navigation?.navigate('IngredientScanner', { productKey: item.key })} />
+              )}
             />
 
             <TouchableOpacity
@@ -170,6 +168,7 @@ export default function IngredientGuideScreen({ navigation }) {
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Share ingredient guide"
+              onPress={() => featured && shareText(`Ingredient of the week on BeautyApp: ${featured.name} — ${featured.benefits}`)}
             >
               <Ionicons name="share-social-outline" size={16} color={colors.white} />
               <Text style={styles.shareBtnText}>Share Ingredient Guide</Text>
@@ -178,7 +177,9 @@ export default function IngredientGuideScreen({ navigation }) {
             <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Past Ingredients</Text>
           </>
         }
-        renderItem={({ item, index }) => <PastIngredientRow item={item} isLast={index === PAST.length - 1} />}
+        renderItem={({ item, index }) => (
+          <PastIngredientRow item={item} index={index} isLast={index === pastIngredients.length - 1} />
+        )}
         ListFooterComponent={<View style={{ height: 24 }} />}
       />
     </SafeAreaView>

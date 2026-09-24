@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -7,6 +7,9 @@ export default function UVAlertBanner({
   level = 'High',
   message = 'Apply SPF 50+ before heading out.',
 }) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
   return (
     <View style={styles.container}>
       {/* Coloured left accent bar */}
@@ -29,6 +32,7 @@ export default function UVAlertBanner({
       {/* Dismiss */}
       <TouchableOpacity
         style={styles.dismissBtn}
+        onPress={() => setDismissed(true)}
         accessibilityRole="button"
         accessibilityLabel="Dismiss UV alert"
       >

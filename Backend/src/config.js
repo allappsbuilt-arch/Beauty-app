@@ -6,4 +6,7 @@ module.exports = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   supabaseUrl: process.env.SUPABASE_URL,
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+  openaiApiKey: process.env.OPENAI_API_KEY,
+  // Any vision-capable model that supports Structured Outputs.
+  openaiModel: process.env.OPENAI_MODEL || 'gpt-4o-mini',
 };

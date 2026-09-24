@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -43,6 +44,7 @@ const ACTIVITIES = [
 ];
 
 function ActivityRow({ item, isLast }) {
+  const [liked, setLiked] = useState(false);
   return (
     <>
       <View style={styles.row}>
@@ -74,10 +76,12 @@ function ActivityRow({ item, isLast }) {
           <Text style={styles.time}>{item.time}</Text>
           <TouchableOpacity
             style={styles.likeBtn}
+            onPress={() => setLiked((v) => !v)}
+            accessibilityState={{ selected: liked }}
             accessibilityRole="button"
             accessibilityLabel={`Like ${item.name}'s activity`}
           >
-            <Ionicons name="heart-outline" size={13} color={colors.textFaint} />
+            <Ionicons name={liked ? 'heart' : 'heart-outline'} size={13} color={liked ? colors.primary : colors.textFaint} />
           </TouchableOpacity>
         </View>
       </View>
@@ -88,12 +92,13 @@ function ActivityRow({ item, isLast }) {
 }
 
 export default function FriendsActivity({ activities = ACTIVITIES }) {
+  const navigation = useNavigation();
   return (
     <View style={styles.section}>
       {/* Section header */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>FRIENDS ACTIVITY</Text>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="See all friends activity">
+        <TouchableOpacity onPress={() => navigation.navigate('Social')} accessibilityRole="button" accessibilityLabel="See all friends activity">
           <Text style={styles.seeAll}>See all</Text>
         </TouchableOpacity>
       </View>

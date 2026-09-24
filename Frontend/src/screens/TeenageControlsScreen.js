@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { usePreferences } from '../api/usePreferences';
+import { useAuth } from '../context/AuthContext';
 
 const AVATAR_URI = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=60';
 
@@ -37,15 +40,36 @@ function ToggleRow({ icon, label, desc, value, onChange }) {
 }
 
 export default function TeenageControlsScreen({ navigation }) {
+  const { user } = useAuth();
+  const { prefs, error, reload, save, saving } = usePreferences();
+  const [enabled, setEnabled] = useState(false);
   const [publicProfile, setPublicProfile] = useState(false);
   const [aiInteractions, setAiInteractions] = useState(true);
   const [restrictExplicit, setRestrictExplicit] = useState(true);
   const [weeklyEmail, setWeeklyEmail] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  // Start from the saved values once they load.
+  const stored = prefs?.teenControls;
+  useEffect(() => {
+    if (!stored) return;
+    setEnabled(stored.enabled);
+    setPublicProfile(stored.publicProfile);
+    setAiInteractions(stored.aiInteractions);
+    setRestrictExplicit(stored.restrictExplicit);
+    setWeeklyEmail(stored.weeklyEmail);
+  }, [stored?.enabled, stored?.publicProfile, stored?.aiInteractions, stored?.restrictExplicit, stored?.weeklyEmail]);
+
+  const handleSave = async () => {
+    setSaveError(null);
+    try {
+      await save({ teenControls: { enabled, publicProfile, aiInteractions, restrictExplicit, weeklyEmail } });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaveError(err.message || 'Could not save your changes.');
+    }
   };
 
   return (
@@ -59,6 +83,8 @@ export default function TeenageControlsScreen({ navigation }) {
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ErrorBanner message={error} onRetry={reload} />
+
         {/* ── Profile ── */}
         <View style={styles.profileCard}>
           <View style={styles.avatarWrap}>
@@ -66,15 +92,19 @@ export default function TeenageControlsScreen({ navigation }) {
             <View style={styles.activeDot} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.profileName}>Leo's Account</Text>
+            <Text style={styles.profileName}>{user?.name ? `${user.name}'s Account` : 'Your Account'}</Text>
             <View style={styles.protectionRow}>
               <Ionicons name="shield-checkmark-outline" size={13} color={colors.textLight} />
-              <Text style={styles.protectionText}>Protection Active</Text>
+              <Text style={styles.protectionText}>{enabled ? 'Protection Active' : 'Protection Off'}</Text>
             </View>
           </View>
-          <View style={styles.agePill}>
-            <Text style={styles.agePillText}>Age 12</Text>
-          </View>
+          <Switch
+            value={enabled}
+            onValueChange={setEnabled}
+            trackColor={{ false: colors.borderLight, true: colors.primary }}
+            thumbColor={colors.white}
+            accessibilityLabel="Teenage mode"
+          />
         </View>
 
         {/* ── Social permissions ── */}
@@ -133,18 +163,20 @@ export default function TeenageControlsScreen({ navigation }) {
               thumbColor={colors.white}
             />
           </View>
-          <Text style={styles.emailDesc}>Sent every Sunday at 8:00 AM to parent@example.com</Text>
+          <Text style={styles.emailDesc}>Sent every Sunday at 8:00 AM to {user?.email ?? 'your account email'}</Text>
         </View>
 
+        <ErrorBanner message={saveError} onDismiss={() => setSaveError(null)} />
         <TouchableOpacity
-          style={[styles.saveBtn, saved && styles.saveBtnDone]}
+          style={[styles.saveBtn, saved && styles.saveBtnDone, (saving || !prefs) && { opacity: 0.6 }]}
           onPress={handleSave}
+          disabled={saving || !prefs}
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Save all changes"
         >
           <Ionicons name={saved ? 'checkmark' : 'save-outline'} size={17} color={colors.white} />
-          <Text style={styles.saveBtnText}>{saved ? 'Saved!' : 'Save All Changes'}</Text>
+          <Text style={styles.saveBtnText}>{saved ? 'Saved!' : saving ? 'Saving…' : 'Save All Changes'}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 24 }} />

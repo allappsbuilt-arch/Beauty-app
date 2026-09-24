@@ -12,23 +12,42 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { useTracker, timeAgo } from '../api/useTracker';
+import { usePreferences } from '../api/usePreferences';
 
 const PHOTO_START = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=60&sat=-100';
 const PHOTO_LATEST = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=60';
 
-const TIMELINE = [
-  { key: 'w1', label: 'W1', state: 'done' },
-  { key: 'w2', label: 'W2', state: 'done' },
-  { key: 'w4', label: 'W4', state: 'done' },
-  { key: 'w6', label: 'W6', state: 'current' },
-  { key: 'w8', label: 'W8', state: 'future' },
-];
+const TIMELINE_SLOTS = 5;
 
-const PRODUCTS = [
-  { key: 'revitabrow', icon: 'flask-outline', name: 'RevitaBrow Advanced', usage: 'Used: 42 days straight', streak: 14, progress: 0.85, color: colors.primary },
-  { key: 'castor', icon: 'water-outline', name: 'Castor Oil Serum', usage: 'Used: 12 days total', streak: 3, progress: 0.30, color: '#1EA868' },
-];
+// Visual style per product; names, streaks and usage come from the backend.
+const PRODUCT_STYLE = {
+  revitabrow: { icon: 'flask-outline', color: colors.primary },
+  castor: { icon: 'water-outline', color: '#1EA868' },
+};
+
+// One dot per scan (latest = current), padded with upcoming slots.
+function buildTimeline(history = []) {
+  const recent = history.slice(-(TIMELINE_SLOTS - 1));
+  const points = recent.map((h, i) => ({
+    key: h.id,
+    label: new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    state: i === recent.length - 1 ? 'current' : 'done',
+  }));
+  while (points.length < TIMELINE_SLOTS) {
+    points.push({ key: `next${points.length}`, label: 'Next', state: 'future' });
+  }
+  return points;
+}
+
+function coachMessage(tracker) {
+  if (!tracker?.scanCount) return 'Take your first face scan and I will start tracking your brow fullness week by week.';
+  if (tracker.change == null) return `Your baseline fullness is ${tracker.score}%. Scan again next week so we can measure your progress.`;
+  if (tracker.change > 0) return `Great work! Your fullness score went up ${tracker.change}% since your last scan. Stay consistent with your nighttime serum.`;
+  if (tracker.change < 0) return `Your fullness dipped ${Math.abs(tracker.change)}% since your last scan. Avoid over-plucking and keep up your serum routine.`;
+  return 'Your fullness is holding steady. Consistency is key — keep logging your serum every night.';
+}
 
 const PHOTO_LOGS = [
   { key: '1', bw: true },
@@ -38,9 +57,9 @@ const PHOTO_LOGS = [
 ];
 
 // ─── Ring progress ─────────────────────────────────────────────────────────────
-function RingProgress({ percent = 78, size = 100 }) {
+function RingProgress({ percent, size = 100 }) {
   const RING = 9;
-  const deg = Math.round((percent / 100) * 360);
+  const deg = Math.round(((percent ?? 0) / 100) * 360);
   const inner = size - RING * 2;
   return (
     <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
@@ -54,7 +73,7 @@ function RingProgress({ percent = 78, size = 100 }) {
         transform: [{ rotate: '-45deg' }],
       }} />
       <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: colors.primaryBg, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={ring.pct}>{percent}%</Text>
+        <Text style={ring.pct}>{percent == null ? '—' : `${percent}%`}</Text>
         <Text style={ring.label}>Fullness</Text>
       </View>
     </View>
@@ -113,24 +132,40 @@ const tl = StyleSheet.create({
 });
 
 // ─── Product row ────────────────────────────────────────────────────────────
-function ProductRow({ product }) {
+function ProductRow({ product, onToggle }) {
+  const style = PRODUCT_STYLE[product.key] || PRODUCT_STYLE.revitabrow;
+  const progress = Math.min(product.streak / 30, 1);
   return (
-    <View style={prod.row}>
+    <TouchableOpacity
+      style={prod.row}
+      onPress={onToggle}
+      activeOpacity={0.8}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: product.doneToday }}
+      accessibilityLabel={`${product.label}, ${product.doneToday ? 'used today' : 'not used today'}`}
+    >
       <View style={prod.iconWrap}>
-        <Ionicons name={product.icon} size={18} color={product.color} />
+        <Ionicons name={style.icon} size={18} color={style.color} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={prod.name}>{product.name}</Text>
-        <Text style={prod.usage}>{product.usage}</Text>
+        <Text style={prod.name}>{product.label}</Text>
+        <Text style={prod.usage}>
+          {product.doneToday ? 'Used today' : 'Tap to log today'} · {product.totalDays} {product.totalDays === 1 ? 'day' : 'days'} total
+        </Text>
         <View style={prod.barTrack}>
-          <View style={[prod.barFill, { width: `${product.progress * 100}%`, backgroundColor: product.color }]} />
+          <View style={[prod.barFill, { width: `${progress * 100}%`, backgroundColor: style.color }]} />
         </View>
       </View>
       <View style={prod.streak}>
         <Ionicons name="flame" size={13} color={colors.primary} />
         <Text style={prod.streakText}>{product.streak}</Text>
       </View>
-    </View>
+      <Ionicons
+        name={product.doneToday ? 'checkmark-circle' : 'ellipse-outline'}
+        size={22}
+        color={product.doneToday ? '#1EA868' : colors.borderLight}
+      />
+    </TouchableOpacity>
   );
 }
 const prod = StyleSheet.create({
@@ -157,6 +192,11 @@ const prod = StyleSheet.create({
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 export default function EyebrowTrackerScreen({ navigation }) {
+  const { tracker, error, reload, toggle } = useTracker('eyebrow');
+  const { prefs } = usePreferences();
+  const timeline = buildTimeline(tracker?.history);
+  const updated = timeAgo(tracker?.lastScanAt);
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.primaryBg} />
@@ -189,14 +229,16 @@ export default function EyebrowTrackerScreen({ navigation }) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <ErrorBanner message={error} onRetry={reload} />
+
         {/* Ring + Goal */}
         <View style={styles.topRow}>
           <View style={styles.ringCard}>
-            <RingProgress percent={78} />
+            <RingProgress percent={tracker?.score ?? null} />
           </View>
           <View style={styles.goalCard}>
             <Text style={styles.goalLabel}>GOAL</Text>
-            <Text style={styles.goalValue}>Full Arch</Text>
+            <Text style={styles.goalValue}>{prefs?.eyebrow.goal ?? '…'}</Text>
             <TouchableOpacity
               onPress={() => navigation?.navigate('BrowAnalysis')}
               accessibilityRole="button"
@@ -211,7 +253,9 @@ export default function EyebrowTrackerScreen({ navigation }) {
         <View style={styles.photoRow}>
           <View style={styles.photoCol}>
             <Image source={{ uri: PHOTO_START }} style={styles.photo} resizeMode="cover" />
-            <Text style={styles.photoCaption}>WEEK 1 (START)</Text>
+            <Text style={styles.photoCaption}>
+              {tracker?.firstScore != null ? `START · ${tracker.firstScore}%` : 'START'}
+            </Text>
           </View>
           <View style={styles.photoCol}>
             <View style={styles.photoLatestWrap}>
@@ -220,7 +264,9 @@ export default function EyebrowTrackerScreen({ navigation }) {
                 <Text style={styles.latestBadgeText}>LATEST</Text>
               </View>
             </View>
-            <Text style={[styles.photoCaption, styles.photoCaptionActive]}>WEEK 6 (TODAY)</Text>
+            <Text style={[styles.photoCaption, styles.photoCaptionActive]}>
+              {tracker?.score != null ? `LATEST · ${tracker.score}%` : 'LATEST'}
+            </Text>
           </View>
         </View>
 
@@ -228,20 +274,22 @@ export default function EyebrowTrackerScreen({ navigation }) {
         <View style={styles.timelineCard}>
           <Text style={styles.timelineTitle}>GROWTH TIMELINE</Text>
           <View style={styles.timelineRow}>
-            {TIMELINE.map((p, i) => (
-              <TimelineDot key={p.key} point={p} isLast={i === TIMELINE.length - 1} />
+            {timeline.map((p, i) => (
+              <TimelineDot key={p.key} point={p} isLast={i === timeline.length - 1} />
             ))}
           </View>
         </View>
 
         {/* Product routine */}
         <Text style={styles.sectionTitle}>Product Routine</Text>
-        {PRODUCTS.map(p => <ProductRow key={p.key} product={p} />)}
+        {(tracker?.items ?? []).map((p) => (
+          <ProductRow key={p.key} product={p} onToggle={() => toggle(p.key)} />
+        ))}
 
         {/* Photo logs */}
         <View style={styles.logsHeader}>
           <Text style={styles.sectionTitle}>Photo Logs</Text>
-          <Text style={styles.logsCount}>6 of 8 weeks</Text>
+          <Text style={styles.logsCount}>{tracker?.scanCount ?? 0} {tracker?.scanCount === 1 ? 'scan' : 'scans'}</Text>
         </View>
         <View style={styles.logsRow}>
           {PHOTO_LOGS.map(log => (
@@ -263,13 +311,11 @@ export default function EyebrowTrackerScreen({ navigation }) {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.coachTitle}>Coach Analysis</Text>
-              <Text style={styles.coachUpdated}>UPDATED 2H AGO</Text>
+              <Text style={styles.coachUpdated}>{updated ? `UPDATED ${updated.toUpperCase()}` : 'NO SCANS YET'}</Text>
             </View>
             <Ionicons name="chatbubble-outline" size={16} color={colors.primary} />
           </View>
-          <Text style={styles.coachQuote}>
-            "Great work this week! Your fullness score jumped 4%. The density in the arch is improving significantly. Stay consistent with the nighttime serum."
-          </Text>
+          <Text style={styles.coachQuote}>"{coachMessage(tracker)}"</Text>
         </View>
 
         {/* CTA */}
@@ -278,6 +324,7 @@ export default function EyebrowTrackerScreen({ navigation }) {
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Take this week's photo"
+          onPress={() => navigation?.navigate('ScanFace')}
         >
           <Ionicons name="camera-outline" size={17} color={colors.white} />
           <Text style={styles.photoBtnText}>Take This Week's Photo</Text>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { useTracker } from '../api/useTracker';
+import { usePreferences } from '../api/usePreferences';
+import { notify } from '../utils/feedback';
+
+// Scan metric status → how visible the dark circles are.
+const DARK_CIRCLE_LABEL = {
+  OPTIMAL: 'MINIMAL', EXCELLENT: 'MINIMAL', FAIR: 'MILD', LOW: 'MILD', MODERATE: 'MODERATE', HIGH: 'VISIBLE',
+};
 
 const PHOTOS = [
   { key: 'mon', label: 'MON', uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=60' },
@@ -29,9 +37,9 @@ const ROUTINE = [
   { key: 'patch', icon: 'bandage',        label: 'Eye Patches',    meta: 'PM ONLY', color: colors.primary, bg: colors.primaryPale },
 ];
 
-function RingScore({ score = 78 }) {
+function RingScore({ score }) {
   const SIZE = 100, RING = 8;
-  const deg = Math.round((score / 100) * 360);
+  const deg = Math.round(((score ?? 0) / 100) * 360);
   const inner = SIZE - RING * 2;
   return (
     <View style={{ width: SIZE, height: SIZE, justifyContent: 'center', alignItems: 'center' }}>
@@ -45,25 +53,36 @@ function RingScore({ score = 78 }) {
         transform: [{ rotate: '-45deg' }],
       }} />
       <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ fontSize: 26, fontWeight: '800', color: colors.textDark }}>{score}</Text>
+        <Text style={{ fontSize: 26, fontWeight: '800', color: colors.textDark }}>{score ?? '—'}</Text>
       </View>
     </View>
   );
 }
 
-function RoutineTile({ item }) {
+function RoutineTile({ item, done, onToggle }) {
   return (
-    <View style={[tile.card, { backgroundColor: item.bg }]}>
-      <View style={[tile.iconWrap, { backgroundColor: item.color }]}>
-        <Ionicons name={item.icon} size={16} color={colors.white} />
+    <TouchableOpacity
+      style={[tile.card, { backgroundColor: item.bg }, done && { borderColor: item.color }]}
+      onPress={onToggle}
+      activeOpacity={0.8}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: done }}
+      accessibilityLabel={item.label}
+    >
+      <View style={tile.topRow}>
+        <View style={[tile.iconWrap, { backgroundColor: item.color }]}>
+          <Ionicons name={item.icon} size={16} color={colors.white} />
+        </View>
+        <Ionicons name={done ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={done ? item.color : colors.borderLight} />
       </View>
       <Text style={tile.label}>{item.label}</Text>
-      <Text style={[tile.meta, { color: item.color }]}>{item.meta}</Text>
-    </View>
+      <Text style={[tile.meta, { color: item.color }]}>{done ? 'DONE TODAY' : item.meta}</Text>
+    </TouchableOpacity>
   );
 }
 const tile = StyleSheet.create({
-  card: { flex: 1, margin: 6, borderRadius: 14, padding: 14, gap: 8 },
+  card: { flex: 1, margin: 6, borderRadius: 14, padding: 14, gap: 8, borderWidth: 1.5, borderColor: 'transparent' },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   iconWrap: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
   label: { fontSize: 13.5, fontWeight: '700', color: colors.textDark },
   meta: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
@@ -104,8 +123,17 @@ const toggle = StyleSheet.create({
 });
 
 export default function UndereyeTrackerScreen({ navigation }) {
-  const [eyeDrops, setEyeDrops] = useState(true);
-  const [reminders, setReminders] = useState(false);
+  const { tracker, error, reload, toggle, item } = useTracker('undereye');
+  const { prefs, save } = usePreferences();
+  const darkCircles = tracker?.metrics?.darkCircles;
+
+  const setReminders = async (value) => {
+    try {
+      await save({ undereye: { screenBreakReminders: value } });
+    } catch (err) {
+      notify('Could not save', err.message);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -124,13 +152,17 @@ export default function UndereyeTrackerScreen({ navigation }) {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ErrorBanner message={error} onRetry={reload} />
+
         {/* Score */}
         <View style={styles.scoreCard}>
           <Text style={styles.scoreLabel}>UNDEREYE SCORE</Text>
-          <RingScore score={78} />
+          <RingScore score={tracker?.score ?? null} />
           <View style={styles.circlesPill}>
             <Ionicons name="eye-outline" size={13} color={colors.primary} />
-            <Text style={styles.circlesPillText}>MODERATE DARK CIRCLES</Text>
+            <Text style={styles.circlesPillText}>
+              {darkCircles ? `${DARK_CIRCLE_LABEL[darkCircles] ?? darkCircles} DARK CIRCLES` : 'SCAN TO MEASURE'}
+            </Text>
           </View>
         </View>
 
@@ -158,7 +190,9 @@ export default function UndereyeTrackerScreen({ navigation }) {
           numColumns={2}
           scrollEnabled={false}
           columnWrapperStyle={{ paddingHorizontal: 10 }}
-          renderItem={({ item }) => <RoutineTile item={item} />}
+          renderItem={({ item: r }) => (
+            <RoutineTile item={r} done={!!item(r.key)?.doneToday} onToggle={() => toggle(r.key)} />
+          )}
         />
 
         <View style={{ height: 6 }} />
@@ -167,17 +201,17 @@ export default function UndereyeTrackerScreen({ navigation }) {
           icon="water-outline"
           title="Eye Drops Applied"
           subtitle="Lubricating Formula"
-          value={eyeDrops}
-          onValueChange={setEyeDrops}
+          value={!!item('eyedrops')?.doneToday}
+          onValueChange={() => toggle('eyedrops')}
         />
 
         {/* Alert */}
         <View style={styles.alertCard}>
           <Ionicons name="warning" size={17} color="#C47800" />
           <View style={{ flex: 1 }}>
-            <Text style={styles.alertTitle}>High Screen Time Detected</Text>
+            <Text style={styles.alertTitle}>Screen Time & Eye Strain</Text>
             <Text style={styles.alertText}>
-              You've reached 6h 12m of active screen use today. Take a break to reduce eye strain.
+              Long screen sessions worsen dark circles and puffiness. Turn on 20-20-20 reminders to rest your eyes.
             </Text>
           </View>
         </View>
@@ -186,7 +220,7 @@ export default function UndereyeTrackerScreen({ navigation }) {
           icon="timer-outline"
           title="20-20-20 Reminders"
           subtitle="Every 20 mins, look 20ft away"
-          value={reminders}
+          value={!!prefs?.undereye.screenBreakReminders}
           onValueChange={setReminders}
         />
 
@@ -196,6 +230,7 @@ export default function UndereyeTrackerScreen({ navigation }) {
           activeOpacity={0.9}
           accessibilityRole="button"
           accessibilityLabel="Read the eye cream guide"
+          onPress={() => navigation?.navigate('IngredientGuide')}
         >
           <Image
             source={{ uri: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=500&q=60' }}

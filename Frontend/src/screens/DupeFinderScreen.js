@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -14,21 +14,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { shareText } from '../utils/feedback';
+import { useApiData } from '../api/useApiData';
 
 const SORTS = ['Similarity', 'Price: Low to High', 'Rating'];
-
-const MATCHES = [
-  {
-    key: 'glow', name: 'Daily Glow Essence', brand: 'Radiance Brand', price: '$23.00',
-    save: '$122.00', match: 98, similarity: 0.98, rating: 5, reviews: 452,
-    uri: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=300&q=60',
-  },
-  {
-    key: 'botanic', name: 'Pure Botanic Oil', brand: 'Herbalist Co', price: '$15.00',
-    save: '$130.00', match: 92, similarity: 0.92, rating: 4,  reviews: 2100,
-    uri: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=300&q=60',
-  },
-];
+const SORT_PARAM = { Similarity: 'similarity', 'Price: Low to High': 'price', Rating: 'rating' };
+const money = (n) => `$${Number(n).toFixed(2)}`;
 
 function SortChip({ label, active, onPress }) {
   return (
@@ -56,7 +48,7 @@ function Stars({ count }) {
   return (
     <View style={{ flexDirection: 'row', gap: 2 }}>
       {[0, 1, 2, 3, 4].map(i => (
-        <Ionicons key={i} name={i < count ? 'star' : 'star-outline'} size={13} color="#1EA868" />
+        <Ionicons key={i} name={i < Math.round(count) ? 'star' : 'star-outline'} size={13} color="#1EA868" />
       ))}
     </View>
   );
@@ -68,9 +60,9 @@ function MatchCard({ item, onPress }) {
       <View style={card.imageWrap}>
         <Image source={{ uri: item.uri }} style={card.image} resizeMode="cover" />
         <View style={card.saveBadge}>
-          <Text style={card.saveBadgeText}>Save {item.save}</Text>
+          <Text style={card.saveBadgeText}>Save {money(item.save)}</Text>
         </View>
-        <TouchableOpacity style={card.shareBtn} accessibilityRole="button" accessibilityLabel="Share">
+        <TouchableOpacity style={card.shareBtn} onPress={() => shareText(`${item.name} by ${item.brand} (${money(item.price)}) — a ${item.match}% formula match dupe, found on BeautyApp`)} accessibilityRole="button" accessibilityLabel="Share">
           <Ionicons name="share-social-outline" size={14} color={colors.primary} />
         </TouchableOpacity>
       </View>
@@ -81,7 +73,7 @@ function MatchCard({ item, onPress }) {
             <Text style={card.matchPillText}>{item.match}% Match</Text>
           </View>
         </View>
-        <Text style={card.brand}>{item.brand} · {item.price}</Text>
+        <Text style={card.brand}>{item.brand} · {money(item.price)} · {item.size}</Text>
 
         <Text style={card.simLabel}>Formula Similarity</Text>
         <View style={card.simBar}>
@@ -90,9 +82,9 @@ function MatchCard({ item, onPress }) {
 
         <View style={card.footer}>
           <Stars count={item.rating} />
-          <Text style={card.reviews}>({item.reviews.toLocaleString()} reviews)</Text>
-          <TouchableOpacity style={card.shopBtn} onPress={onPress} accessibilityRole="button" accessibilityLabel={`Shop ${item.name}`}>
-            <Text style={card.shopBtnText}>Shop Now</Text>
+          <Text style={card.reviews}>{item.rating} rating</Text>
+          <TouchableOpacity style={card.shopBtn} onPress={onPress} accessibilityRole="button" accessibilityLabel={`Reviews for ${item.name}`}>
+            <Text style={card.shopBtnText}>Reviews</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -133,9 +125,23 @@ const card = StyleSheet.create({
   shopBtnText: { fontSize: 12.5, fontWeight: '800', color: colors.white },
 });
 
-export default function DupeFinderScreen({ navigation }) {
+export default function DupeFinderScreen({ navigation, route }) {
+  const productKey = route?.params?.productKey ?? 'luxe';
   const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
   const [sort, setSort] = useState('Similarity');
+
+  // Only hit the server once typing pauses.
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data, error, reload } = useApiData(
+    `/api/products/${productKey}/dupes?sort=${SORT_PARAM[sort]}&q=${encodeURIComponent(query)}`
+  );
+  const original = data?.original;
+  const matches = data?.matches ?? [];
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -151,7 +157,7 @@ export default function DupeFinderScreen({ navigation }) {
       </View>
 
       <FlatList
-        data={MATCHES}
+        data={matches}
         keyExtractor={(m) => m.key}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -167,22 +173,23 @@ export default function DupeFinderScreen({ navigation }) {
                 onChangeText={setSearch}
                 accessibilityLabel="Search for more dupes"
               />
-              <Ionicons name="mic-outline" size={17} color={colors.textPlaceholder} />
             </View>
+
+            <ErrorBanner message={error} onRetry={reload} />
 
             <Text style={styles.eyebrow}>ORIGINAL PRODUCT</Text>
             <View style={styles.originalCard}>
               <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=200&q=60' }}
+                source={{ uri: original?.uri }}
                 style={styles.originalImage}
                 resizeMode="cover"
               />
               <View style={{ flex: 1 }}>
-                <Text style={styles.originalName}>Luxe Revitalizing Serum</Text>
-                <Text style={styles.originalMeta}>$145.00 · 30ml</Text>
+                <Text style={styles.originalName}>{original?.name ?? '…'}</Text>
+                <Text style={styles.originalMeta}>{original ? `${original.brand} · ${money(original.price)} · ${original.size}` : ''}</Text>
                 <View style={styles.originalRating}>
                   <Ionicons name="star" size={13} color="#1EA868" />
-                  <Text style={styles.originalRatingText}>4.9 (1.2k)</Text>
+                  <Text style={styles.originalRatingText}>{original?.rating ?? '—'}</Text>
                 </View>
               </View>
             </View>
@@ -200,13 +207,14 @@ export default function DupeFinderScreen({ navigation }) {
 
             <View style={styles.resultsHeader}>
               <Text style={styles.sectionTitle}>Top Matches</Text>
-              <Text style={styles.resultsCount}>{MATCHES.length} Results Found</Text>
+              <Text style={styles.resultsCount}>{matches.length} {matches.length === 1 ? 'Result' : 'Results'} Found</Text>
             </View>
           </>
         }
         renderItem={({ item }) => (
-          <MatchCard item={item} onPress={() => navigation?.navigate('ProductReviews')} />
+          <MatchCard item={item} onPress={() => navigation?.navigate('ProductReviews', { productKey: item.key })} />
         )}
+        ListEmptyComponent={data ? <Text style={styles.resultsCount}>No cheaper dupes match your search.</Text> : null}
         ListFooterComponent={<View style={{ height: 12 }} />}
       />
     </SafeAreaView>

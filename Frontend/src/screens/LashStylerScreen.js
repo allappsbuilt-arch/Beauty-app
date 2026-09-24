@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { useSavedChoice } from '../api/usePreferences';
 
 const FACE_URI = 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=500&q=60&sat=-100';
 
@@ -68,7 +69,7 @@ function Header() {
 }
 
 export default function LashStylerScreen({ navigation }) {
-  const [selected, setSelected] = useState('natural');
+  const [selected, setSelected] = useSavedChoice('styles', 'lash', 'natural');
 
   return (
     <SafeAreaView style={styles.safe}>

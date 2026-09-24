@@ -12,20 +12,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { useTracker } from '../api/useTracker';
 
 const PHOTO_1 = 'https://images.unsplash.com/photo-1583001809873-a128495da465?w=300&q=60';
 const PHOTO_2 = 'https://images.unsplash.com/photo-1583001931096-959e9a1a6223?w=300&q=60';
 
-const AFTERCARE = [
-  { key: '1', label: 'Clean daily with oil-free cleanser', checked: true },
-  { key: '2', label: 'Brush through with a clean spoolie', checked: false },
-];
 
 // ─── Score ring ────────────────────────────────────────────────────────────
 function ScoreRing({ percent, label, tint }) {
   const SIZE = 110, RING = 8;
-  const deg = Math.round((percent / 100) * 360);
+  const deg = Math.round(((percent ?? 0) / 100) * 360);
   const inner = SIZE - RING * 2;
   return (
     <View style={ringS.card}>
@@ -40,7 +37,7 @@ function ScoreRing({ percent, label, tint }) {
           transform: [{ rotate: '-45deg' }],
         }} />
         <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={[ringS.pct, { color: tint }]}>{percent}</Text>
+          <Text style={[ringS.pct, { color: tint }]}>{percent ?? '—'}</Text>
         </View>
       </View>
       <Text style={ringS.label}>{label}</Text>
@@ -61,14 +58,23 @@ const ringS = StyleSheet.create({
 });
 
 // ─── Aftercare checklist item ───────────────────────────────────────────────
-function ChecklistItem({ item, isLast }) {
+function ChecklistItem({ item, isLast, onToggle }) {
+  const checked = item.doneToday;
   return (
-    <View style={[checklist.row, !isLast && checklist.rowBorder]}>
-      <View style={[checklist.check, item.checked && checklist.checkActive]}>
-        {item.checked && <Ionicons name="checkmark" size={13} color={colors.white} />}
+    <TouchableOpacity
+      style={[checklist.row, !isLast && checklist.rowBorder]}
+      onPress={onToggle}
+      activeOpacity={0.7}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      accessibilityLabel={item.label}
+    >
+      <View style={[checklist.check, checked && checklist.checkActive]}>
+        {checked && <Ionicons name="checkmark" size={13} color={colors.white} />}
       </View>
-      <Text style={[checklist.text, item.checked && checklist.textChecked]}>{item.label}</Text>
-    </View>
+      <Text style={[checklist.text, checked && checklist.textChecked, { flex: 1 }]}>{item.label}</Text>
+      {item.streak > 0 && <Text style={checklist.streak}>🔥 {item.streak}</Text>}
+    </TouchableOpacity>
   );
 }
 const checklist = StyleSheet.create({
@@ -82,10 +88,14 @@ const checklist = StyleSheet.create({
   checkActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   text: { fontSize: 14, color: colors.textMid, fontWeight: '500' },
   textChecked: { color: colors.textDark, fontWeight: '600' },
+  streak: { fontSize: 12, fontWeight: '700', color: colors.primary },
 });
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 export default function EyelashTrackerScreen({ navigation }) {
+  const { tracker, error, reload, toggle } = useTracker('eyelash');
+  const items = tracker?.items ?? [];
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.primaryBg} />
@@ -118,10 +128,15 @@ export default function EyelashTrackerScreen({ navigation }) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <ErrorBanner message={error} onRetry={reload} />
+        {tracker && tracker.metrics == null && (
+          <Text style={styles.noScan}>Take a face scan to measure your lash length and density.</Text>
+        )}
+
         {/* Score rings */}
         <View style={styles.ringRow}>
-          <ScoreRing percent={75} label="Length Score" tint={colors.primary} />
-          <ScoreRing percent={60} label="Density Score" tint="#1EA868" />
+          <ScoreRing percent={tracker?.metrics?.length} label="Length Score" tint={colors.primary} />
+          <ScoreRing percent={tracker?.metrics?.density} label="Density Score" tint="#1EA868" />
         </View>
 
         {/* Safe removal notice */}
@@ -145,8 +160,8 @@ export default function EyelashTrackerScreen({ navigation }) {
             <Ionicons name="chevron-down" size={16} color={colors.textFaint} />
           </View>
           <View style={styles.aftercareBody}>
-            {AFTERCARE.map((item, i) => (
-              <ChecklistItem key={item.key} item={item} isLast={i === AFTERCARE.length - 1} />
+            {items.map((item, i) => (
+              <ChecklistItem key={item.key} item={item} isLast={i === items.length - 1} onToggle={() => toggle(item.key)} />
             ))}
           </View>
         </View>
@@ -154,7 +169,7 @@ export default function EyelashTrackerScreen({ navigation }) {
         {/* Weekly progress */}
         <View style={styles.progressHeader}>
           <Text style={styles.sectionTitle}>Weekly Progress</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View history">
+          <TouchableOpacity onPress={() => navigation?.navigate('ScanHistory')} accessibilityRole="button" accessibilityLabel="View history">
             <Text style={styles.viewHistory}>View History</Text>
           </TouchableOpacity>
         </View>
@@ -167,9 +182,10 @@ export default function EyelashTrackerScreen({ navigation }) {
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Add week 3 photo"
+            onPress={() => navigation?.navigate('ScanFace')}
           >
             <Ionicons name="camera-outline" size={20} color={colors.primary} />
-            <Text style={styles.addPhotoText}>WEEK 3</Text>
+            <Text style={styles.addPhotoText}>NEW SCAN</Text>
           </TouchableOpacity>
         </View>
 
@@ -179,6 +195,7 @@ export default function EyelashTrackerScreen({ navigation }) {
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Take photo"
+          onPress={() => navigation?.navigate('ScanFace')}
         >
           <Ionicons name="camera-outline" size={17} color={colors.white} />
           <Text style={styles.takePhotoBtnText}>Take Photo</Text>
@@ -202,6 +219,7 @@ export default function EyelashTrackerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  noScan: { fontSize: 13, color: colors.textMid, textAlign: 'center', marginHorizontal: 24, marginBottom: 12 },
   safe: { flex: 1, backgroundColor: colors.primaryBg },
   scroll: { flex: 1 },
   content: { paddingTop: 16, paddingHorizontal: 16, paddingBottom: 12 },

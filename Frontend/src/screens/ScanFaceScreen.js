@@ -13,60 +13,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { notify } from '../utils/feedback';
+import { pickPhoto, toUploadable } from '../utils/photo';
 
 const { width: SW, height: SH } = Dimensions.get('window');
-
-// ─── Quality gauge (Poor ←→ Good) ────────────────────────────────────────────
-
-function QualityGauge({ quality = 0.72 }) {
-  // quality 0–1 where 1 = all green
-  const redW  = (1 - quality) * 100;
-  const grnW  = quality * 100;
-
-  return (
-    <View style={gauge.wrap}>
-      {/* Labels */}
-      <Text style={gauge.labelPoor}>Poor</Text>
-      <View style={gauge.track}>
-        {/* red segment */}
-        <View style={[gauge.segRed, { flex: 1 - quality }]} />
-        {/* centre notch */}
-        <View style={gauge.notch} />
-        {/* green segment */}
-        <View style={[gauge.segGreen, { flex: quality }]} />
-      </View>
-      <Text style={gauge.labelGood}>Good</Text>
-    </View>
-  );
-}
-
-const gauge = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 12 : 8,
-    paddingBottom: 8,
-  },
-  labelPoor: { fontSize: 12, fontWeight: '600', color: '#FFFFFF', opacity: 0.85, minWidth: 30 },
-  labelGood: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', minWidth: 30, textAlign: 'right' },
-  track: {
-    flex: 1,
-    height: 5,
-    borderRadius: 3,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  segRed:   { backgroundColor: '#E05060', borderRadius: 3 },
-  segGreen: { backgroundColor: '#50C880', borderRadius: 3 },
-  notch: {
-    width: 3, height: 5,
-    backgroundColor: colors.white,
-    opacity: 0.9,
-  },
-});
 
 // ─── Dashed Oval ─────────────────────────────────────────────────────────────
 // Pure RN approach: two semi-transparent oval outlines with dashed simulation
@@ -270,15 +221,27 @@ const shutter = StyleSheet.create({
   },
 });
 
-// ─── Camera Viewfinder (placeholder skin tone bg) ─────────────────────────────
+// ─── Camera Viewfinder ──────────────────────────────────────────────────────
+// Live front camera once permission is granted; a neutral backdrop until then.
 
-function Viewfinder({ children }) {
+function Viewfinder({ cameraRef, granted, flash, onReady, children }) {
   return (
     <View style={vf.container}>
-      {/* Simulated skin-tone radial-like background */}
-      <View style={vf.bg} />
-      {/* Warm centre highlight */}
-      <View style={vf.centreGlow} />
+      {granted ? (
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing="front"
+          flash={flash ? 'on' : 'off'}
+          mirror
+          onCameraReady={onReady}
+        />
+      ) : (
+        <>
+          <View style={vf.bg} />
+          <View style={vf.centreGlow} />
+        </>
+      )}
       {children}
     </View>
   );
@@ -309,6 +272,11 @@ const vf = StyleSheet.create({
 export default function ScanFaceScreen({ navigation }) {
   const [scanning, setScanning]   = useState(false);
   const [analysing, setAnalysing] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef(null);
+  const granted = !!permission?.granted;
   // Oval pulse animation
   const ovalOpacity = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -326,14 +294,31 @@ export default function ScanFaceScreen({ navigation }) {
     ).start();
   }, []);
 
-  const handleShutter = () => {
+  const startAnalysis = (image) => navigation?.navigate('ScanAnalyzing', { image });
+
+  const handleShutter = async () => {
+    if (!granted) {
+      const res = await requestPermission();
+      if (!res.granted) notify('Camera access needed', 'Allow camera access in your settings, or upload a photo from your gallery instead.');
+      return;
+    }
+    if (!cameraReady || scanning) return;
     setScanning(true);
     setAnalysing(true);
-    setTimeout(() => {
+    try {
+      const shot = await cameraRef.current.takePictureAsync({ quality: 0.9 });
+      startAnalysis(await toUploadable(shot.uri, shot.width, shot.height));
+    } catch (err) {
+      notify('Could not take photo', err.message);
+    } finally {
       setScanning(false);
       setAnalysing(false);
-      navigation?.navigate('ScanAnalyzing');
-    }, 2500);
+    }
+  };
+
+  const handleGallery = async () => {
+    const image = await pickPhoto('library');
+    if (image) startAnalysis(image);
   };
 
   // Oval vertical centre (roughly upper-middle of screen)
@@ -344,7 +329,7 @@ export default function ScanFaceScreen({ navigation }) {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       {/* ── Full-screen camera viewfinder ── */}
-      <Viewfinder>
+      <Viewfinder cameraRef={cameraRef} granted={granted} flash={flash} onReady={() => setCameraReady(true)}>
 
         {/* ── Top nav overlay ── */}
         <View style={styles.topBar}>
@@ -362,23 +347,24 @@ export default function ScanFaceScreen({ navigation }) {
             <TouchableOpacity
               style={styles.navBtn}
               accessibilityRole="button"
-              accessibilityLabel="Toggle flash"
+              accessibilityLabel={flash ? 'Turn flash off' : 'Turn flash on'}
+              accessibilityState={{ selected: flash }}
+              onPress={() => setFlash((f) => !f)}
             >
-              <Ionicons name="flash-outline" size={21} color={colors.white} />
+              <Ionicons name={flash ? 'flash' : 'flash-off-outline'} size={21} color={colors.white} />
             </TouchableOpacity>
             {/* Gallery */}
             <TouchableOpacity
               style={styles.navBtn}
               accessibilityRole="button"
               accessibilityLabel="Open gallery"
+              onPress={handleGallery}
             >
               <Ionicons name="image-outline" size={21} color={colors.white} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ── Quality gauge ── */}
-        <QualityGauge quality={0.72} />
 
         {/* ── Dashed oval overlay ── */}
         <View
@@ -411,9 +397,11 @@ export default function ScanFaceScreen({ navigation }) {
       {/* ── Bottom panel (sits over the viewfinder) ── */}
       <View style={styles.bottomPanel}>
         {/* Status text */}
-        <Text style={styles.holdText}>Hold still</Text>
+        <Text style={styles.holdText}>{granted ? 'Hold still' : 'Camera access needed'}</Text>
         <Text style={styles.analysingText}>
-          {analysing ? 'Analyzing skin texture...' : 'Position your face in the oval'}
+          {!granted
+            ? 'Tap the button to allow the camera, or upload a photo'
+            : analysing ? 'Capturing…' : 'Position your face in the oval'}
         </Text>
 
         {/* Shutter */}

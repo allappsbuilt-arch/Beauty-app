@@ -8,12 +8,15 @@ import {
   TouchableOpacity,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
 import { useAuthedRequest } from '../api/useAuthedRequest';
+import { useAuth } from '../context/AuthContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -23,8 +26,15 @@ function todayLabel() {
     .toUpperCase();
 }
 
+function greetingWord() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Morning';
+  if (h < 17) return 'Afternoon';
+  return 'Evening';
+}
+
 function mondayFirstIndexToday() {
-  return (new Date().getDay() + 6) % 7; // Mon=0 .. Sun=6
+  return (new Date().getDay() + 6) % 7;
 }
 
 // ─── Ring Progress ────────────────────────────────────────────────────────────
@@ -147,16 +157,14 @@ function WeekStrip({ done = [0, 1], todayIdx = 2 }) {
         return (
           <View key={i} style={styles.dayCol}>
             <Text style={styles.dayLetter}>{l}</Text>
-            <TouchableOpacity
+            <View
               style={[
                 styles.dayCircle,
                 isDone   && styles.dayDone,
                 isToday  && !isDone && styles.dayToday,
                 isFuture && styles.dayFuture,
               ]}
-              activeOpacity={0.70}
-              accessibilityRole="button"
-              accessibilityLabel={`${l} ${num}`}
+              accessibilityLabel={`${l} ${num}${isDone ? ', done' : ''}`}
             >
               {isDone
                 ? <Ionicons name="checkmark" size={14} color={colors.white} />
@@ -166,7 +174,7 @@ function WeekStrip({ done = [0, 1], todayIdx = 2 }) {
                     isFuture && styles.dayNumFuture,
                   ]}>{num}</Text>
               }
-            </TouchableOpacity>
+            </View>
           </View>
         );
       })}
@@ -203,10 +211,11 @@ function FocusBanner({ onPress }) {
 }
 
 // ─── Reminder Tile ────────────────────────────────────────────────────────────
-function ReminderTile({ label, time }) {
+function ReminderTile({ label, time, onPress }) {
   return (
     <TouchableOpacity
       style={styles.rTile}
+      onPress={onPress}
       activeOpacity={0.75}
       accessibilityRole="button"
       accessibilityLabel={`${label} reminder at ${time}`}
@@ -308,32 +317,40 @@ const PM_ROUTINE_TOTAL = 8;
 
 export default function RoutineScreen({ navigation }) {
   const request = useAuthedRequest();
-  const [amCompleted, setAmCompleted] = useState(3);
+  const { user } = useAuth();
+  const firstName = user?.name?.split(' ')[0] || 'there';
+
+  const [amCompleted, setAmCompleted] = useState(0);
   const [pmCompleted, setPmCompleted] = useState(0);
-  const [streak, setStreak] = useState(12);
-  const [weekDone, setWeekDone] = useState([0, 1]);
+  const [streak, setStreak] = useState(0);
+  const [weekDone, setWeekDone] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      setLoading(true);
+      setError(null);
       request('/api/routines/summary')
         .then((summary) => {
           if (cancelled) return;
           setAmCompleted(Math.min(summary.am.completedToday, AM_ROUTINE_TOTAL));
           setPmCompleted(Math.min(summary.pm.completedToday, PM_ROUTINE_TOTAL));
-          setStreak(summary.streak);
-          setWeekDone(summary.weekDoneIndices);
+          setStreak(summary.streak ?? 0);
+          setWeekDone(summary.weekDoneIndices ?? []);
         })
         .catch(() => {
-          // Keep the existing values on screen if the backend is unreachable.
-        });
+          if (!cancelled) setError('Could not load your routine. Check your connection.');
+        })
+        .finally(() => { if (!cancelled) setLoading(false); });
       return () => { cancelled = true; };
     }, [request])
   );
 
   const AM_ROUTINE = { completed: amCompleted, total: AM_ROUTINE_TOTAL, timeLeft: '12 mins left' };
   const PM_ROUTINE = { completed: pmCompleted, total: PM_ROUTINE_TOTAL, timeLeft: '15 mins est.' };
-  const hasRoutine = AM_ROUTINE.total > 0 || PM_ROUTINE.total > 0;
+  const hasRoutine = true; // routine always exists once user is logged in
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -348,9 +365,7 @@ export default function RoutineScreen({ navigation }) {
         >
           <Ionicons name="chevron-back" size={22} color={colors.textDark} />
         </TouchableOpacity>
-
-        <Text style={styles.navTitle}>{hasRoutine ? 'MyFace AI' : 'My Routine'}</Text>
-
+        <Text style={styles.navTitle}>MyFace AI</Text>
         <TouchableOpacity
           onPress={() => navigation?.goBack()}
           style={styles.navIconBtn}
@@ -360,19 +375,43 @@ export default function RoutineScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        overScrollMode="never"
-      >
-        {hasRoutine ? (
-          <>
-            {/* Greeting */}
-            <View style={styles.greeting}>
-              <Text style={styles.greetDate}>{todayLabel()}</Text>
-              <Text style={styles.greetTitle}>Good Morning, Alex</Text>
-            </View>
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ fontSize: 14, color: colors.textLight, fontWeight: '500' }}>Loading your routine…</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          overScrollMode="never"
+        >
+          <ErrorBanner
+            message={error}
+            onRetry={() => {
+              setLoading(true);
+              setError(null);
+              request('/api/routines/summary')
+                .then((summary) => {
+                  setAmCompleted(Math.min(summary.am.completedToday, AM_ROUTINE_TOTAL));
+                  setPmCompleted(Math.min(summary.pm.completedToday, PM_ROUTINE_TOTAL));
+                  setStreak(summary.streak ?? 0);
+                  setWeekDone(summary.weekDoneIndices ?? []);
+                })
+                .catch(() => setError('Could not load your routine. Check your connection.'))
+                .finally(() => setLoading(false));
+            }}
+            onDismiss={() => setError(null)}
+          />
+
+          {hasRoutine ? (
+            <>
+              {/* Greeting */}
+              <View style={styles.greeting}>
+                <Text style={styles.greetDate}>{todayLabel()}</Text>
+                <Text style={styles.greetTitle}>Good {greetingWord()}, {firstName}</Text>
+              </View>
 
             {/* Routines */}
             <RoutineBlock title="AM Routine" completed={AM_ROUTINE.completed} total={AM_ROUTINE.total}
@@ -389,17 +428,21 @@ export default function RoutineScreen({ navigation }) {
             </View>
 
             {/* Focus */}
-            <FocusBanner onPress={() => {}} />
+            <FocusBanner
+              onPress={() => navigation?.navigate('RoutineStep', {
+                routineTitle: new Date().getHours() < 15 ? 'AM Routine' : 'PM Routine',
+              })}
+            />
 
             {/* Reminders */}
             <SectionRow title="Upcoming Reminders" />
             <View style={styles.tileRow}>
-              <ReminderTile label="MORNING" time="07:30 AM" />
-              <ReminderTile label="EVENING" time="10:00 PM" />
+              <ReminderTile label="MORNING" time="07:30 AM" onPress={() => navigation?.navigate('Notifications')} />
+              <ReminderTile label="EVENING" time="10:00 PM" onPress={() => navigation?.navigate('Notifications')} />
             </View>
 
             {/* Audit */}
-            <AuditCard onPress={() => {}} />
+            <AuditCard onPress={() => navigation?.navigate('WeeklyReport')} />
           </>
         ) : (
           <EmptyRoutine onBuild={() => navigation?.navigate('ScanFace')} />
@@ -407,6 +450,7 @@ export default function RoutineScreen({ navigation }) {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

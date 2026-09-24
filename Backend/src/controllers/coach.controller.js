@@ -1,4 +1,5 @@
 const { supabase } = require('../db/database');
+const { loadPreferences } = require('./preferences.controller');
 
 // ─── Rule-based skincare AI engine ────────────────────────────────────────────
 const RULES = [
@@ -42,11 +43,20 @@ const FALLBACK_REPLIES = [
   'I want to give you the most accurate advice. Could you tell me more about your specific concern — for example, is this affecting a particular area of your face or body?',
 ];
 
-function generateReply(userMessage) {
+const PERSONALITY_STYLE = {
+  motivational: (text) => `You've got this! ${text} Every step counts.`,
+  gentle: (text) => `No pressure at all — ${text.charAt(0).toLowerCase()}${text.slice(1)} Be kind to your skin and yourself.`,
+  clinical: (text) => text,
+  witty: (text) => `${text} Your skin will thank you — probably not out loud, though.`,
+};
+
+function generateReply(userMessage, personality = 'motivational') {
+  let base = null;
   for (const rule of RULES) {
-    if (rule.match.test(userMessage)) return rule.reply;
+    if (rule.match.test(userMessage)) { base = rule.reply; break; }
   }
-  return FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPLIES.length)];
+  base ||= FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPLIES.length)];
+  return (PERSONALITY_STYLE[personality] || PERSONALITY_STYLE.clinical)(base);
 }
 
 // ─── Controller ───────────────────────────────────────────────────────────────
@@ -76,7 +86,8 @@ async function sendMessage(req, res) {
     created_at: now,
   };
 
-  const replyText = generateReply(userMsg.text);
+  const { coachStyle } = await loadPreferences(req.userId);
+  const replyText = generateReply(userMsg.text, coachStyle.personality);
   const replyMsg = {
     user_id: req.userId,
     from: 'coach',

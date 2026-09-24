@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { usePreferences } from '../api/usePreferences';
 
 const PERSONALITIES = [
   {
@@ -82,9 +84,30 @@ function PersonalityCard({ item, active, onPress }) {
 }
 
 export default function CoachStyleScreen({ navigation }) {
+  const { prefs, error, reload, save, saving } = usePreferences();
   const [active, setActive] = useState('motivational');
   const [dailyReminders, setDailyReminders] = useState(true);
   const [morningInsight, setMorningInsight] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+
+  // Start from the saved values once they load.
+  const saved = prefs?.coachStyle;
+  useEffect(() => {
+    if (!saved) return;
+    setActive(saved.personality);
+    setDailyReminders(saved.dailyReminders);
+    setMorningInsight(saved.morningInsight);
+  }, [saved?.personality, saved?.dailyReminders, saved?.morningInsight]);
+
+  const handleSave = async () => {
+    setSaveError(null);
+    try {
+      await save({ coachStyle: { personality: active, dailyReminders, morningInsight } });
+      navigation?.goBack();
+    } catch (err) {
+      setSaveError(err.message || 'Could not save your preferences.');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -97,6 +120,7 @@ export default function CoachStyleScreen({ navigation }) {
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ErrorBanner message={error} onRetry={reload} />
         <Text style={styles.heading}>Personality</Text>
         <Text style={styles.subheading}>
           Choose how MyFace AI interacts with you and encourages your daily routine.
@@ -142,14 +166,16 @@ export default function CoachStyleScreen({ navigation }) {
           </View>
         </View>
 
+        <ErrorBanner message={saveError} onDismiss={() => setSaveError(null)} />
         <TouchableOpacity
-          style={styles.saveBtn}
+          style={[styles.saveBtn, (saving || !prefs) && { opacity: 0.6 }]}
           activeOpacity={0.85}
-          onPress={() => navigation?.goBack()}
+          onPress={handleSave}
+          disabled={saving || !prefs}
           accessibilityRole="button"
           accessibilityLabel="Save preferences"
         >
-          <Text style={styles.saveBtnText}>Save Preferences</Text>
+          <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save Preferences'}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 24 }} />

@@ -13,33 +13,21 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { comingSoon } from '../utils/feedback';
+import { useTracker, timeAgo } from '../api/useTracker';
 
+// Tile styling per metric; values come from the latest scan.
 const METRICS = [
-  { key: 'dryness',  label: 'DRYNESS',   value: 'OPTIMAL',  color: '#1EA868', bg: '#E6F9F0' },
-  { key: 'oiliness', label: 'OILINESS',  value: 'BALANCED', color: colors.primary, bg: colors.primaryPale },
-  { key: 'flakiness',label: 'FLAKINESS', value: 'NONE',     color: '#7A5CD0', bg: '#F1ECFB' },
-  { key: 'density',  label: 'DENSITY',   value: 'HIGH',     color: '#1EA868', bg: '#E6F9F0' },
+  { key: 'dryness',  label: 'DRYNESS',   color: '#1EA868', bg: '#E6F9F0' },
+  { key: 'oiliness', label: 'OILINESS',  color: colors.primary, bg: colors.primaryPale },
+  { key: 'flakiness',label: 'FLAKINESS', color: '#7A5CD0', bg: '#F1ECFB' },
+  { key: 'density',  label: 'DENSITY',   color: '#1EA868', bg: '#E6F9F0' },
 ];
 
-const WASH_DAYS = [
-  { key: 'mon', label: 'Mon', state: 'empty' },
-  { key: 'tue', label: 'Tue', state: 'current', num: 14 },
-  { key: 'wed', label: 'Wed', state: 'empty', num: 15 },
-  { key: 'thu', label: 'Thu', state: 'empty', num: 16 },
-  { key: 'fri', label: 'Fri', state: 'planned' },
-  { key: 'sat', label: 'Sat', state: 'wash' },
-];
-
-const HAIRLINE_PHOTOS = [
-  { key: '3m', label: '3M AGO', uri: 'https://images.unsplash.com/photo-1541823709867-1b206113eafd?w=200&q=60' },
-  { key: '1m', label: '1M AGO', uri: 'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=200&q=60' },
-  { key: 'today', label: 'TODAY', uri: 'https://images.unsplash.com/photo-1500336624523-d727130c3328?w=200&q=60', active: true },
-];
-
-function RingScore({ score = 82 }) {
+function RingScore({ score }) {
   const SIZE = 56, RING = 6;
-  const deg = Math.round((score / 100) * 360);
+  const deg = Math.round(((score ?? 0) / 100) * 360);
   const inner = SIZE - RING * 2;
   return (
     <View style={{ width: SIZE, height: SIZE, justifyContent: 'center', alignItems: 'center' }}>
@@ -53,7 +41,7 @@ function RingScore({ score = 82 }) {
         transform: [{ rotate: '-45deg' }],
       }} />
       <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textDark }}>{score}</Text>
+        <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textDark }}>{score ?? '—'}</Text>
       </View>
     </View>
   );
@@ -80,11 +68,20 @@ const tile = StyleSheet.create({
   pillText: { fontSize: 12, fontWeight: '800' },
 });
 
-function WashDay({ item }) {
+function WashDay({ item, onPress }) {
   const isCurrent = item.state === 'current';
   const isWash = item.state === 'wash';
+  const Wrapper = onPress ? TouchableOpacity : View;
   return (
-    <View style={wash.col}>
+    <Wrapper
+      style={wash.col}
+      {...(onPress && {
+        onPress,
+        accessibilityRole: 'checkbox',
+        accessibilityState: { checked: isWash },
+        accessibilityLabel: `Log hair wash today${isWash ? ', logged' : ''}`,
+      })}
+    >
       <Text style={wash.dayLabel}>{item.label}</Text>
       <View style={[wash.circle, isCurrent && wash.circleCurrent, isWash && wash.circleWash]}>
         {isWash
@@ -94,7 +91,7 @@ function WashDay({ item }) {
             : <Ionicons name="calendar-outline" size={14} color={colors.textPlaceholder} />
         }
       </View>
-    </View>
+    </Wrapper>
   );
 }
 const wash = StyleSheet.create({
@@ -111,7 +108,47 @@ const wash = StyleSheet.create({
   numCurrent: { color: colors.white },
 });
 
+function LogRow({ icon, item, meta, bordered, onToggle }) {
+  const done = !!item?.doneToday;
+  return (
+    <TouchableOpacity
+      style={[styles.logRow, bordered && styles.logRowBorder]}
+      onPress={onToggle}
+      activeOpacity={0.7}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: done }}
+      accessibilityLabel={item?.label}
+    >
+      <View style={styles.logIconWrap}>
+        <Ionicons name={icon} size={16} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.logName}>{item?.label ?? '…'}</Text>
+        <Text style={styles.logMeta}>
+          {done ? 'Done today' : meta}{item?.streak > 0 ? ` · 🔥 ${item.streak}-day streak` : ''}
+        </Text>
+      </View>
+      <Ionicons name={done ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={done ? '#1EA868' : colors.borderLight} />
+    </TouchableOpacity>
+  );
+}
+
 export default function ScalpTrackerScreen({ navigation }) {
+  const { tracker, error, reload, toggle, item } = useTracker('scalp');
+  const updated = timeAgo(tracker?.lastScanAt);
+  const lastIndex = (tracker?.week.length ?? 0) - 1;
+  const washDays = (tracker?.week ?? []).map((d, i) => {
+    const date = new Date(`${d.date}T00:00:00`);
+    const washed = d.doneKeys.includes('wash');
+    return {
+      key: d.date,
+      label: date.toLocaleDateString(undefined, { weekday: 'short' }),
+      num: date.getDate(),
+      state: washed ? 'wash' : i === lastIndex ? 'current' : 'empty',
+      isToday: i === lastIndex,
+    };
+  });
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.primaryBg} />
@@ -129,13 +166,15 @@ export default function ScalpTrackerScreen({ navigation }) {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ErrorBanner message={error} onRetry={reload} />
+
         {/* Score card */}
         <View style={styles.scoreCard}>
           <View>
             <Text style={styles.scoreTitle}>Scalp Health Score</Text>
-            <Text style={styles.scoreSubtitle}>Last updated today, 9:00 AM</Text>
+            <Text style={styles.scoreSubtitle}>{updated ? `Last updated ${updated}` : 'Take a face scan to measure'}</Text>
           </View>
-          <RingScore score={82} />
+          <RingScore score={tracker?.score ?? null} />
         </View>
 
         {/* Metrics grid */}
@@ -145,67 +184,57 @@ export default function ScalpTrackerScreen({ navigation }) {
           numColumns={2}
           scrollEnabled={false}
           columnWrapperStyle={{ paddingHorizontal: 10 }}
-          renderItem={({ item }) => <MetricTile item={item} />}
+          renderItem={({ item: m }) => (
+            <MetricTile item={{ ...m, value: String(tracker?.metrics?.[m.key] ?? '—').toUpperCase() }} />
+          )}
         />
 
         {/* Wash day cycle */}
         <Text style={styles.sectionTitle}>Wash Day Cycle</Text>
         <View style={styles.washCard}>
-          {WASH_DAYS.map(d => <WashDay key={d.key} item={d} />)}
+          {washDays.map((d) => (
+            <WashDay key={d.key} item={d} onPress={d.isToday ? () => toggle('wash') : undefined} />
+          ))}
         </View>
 
         {/* Hairline progress */}
         <View style={styles.progressHeader}>
-          <Text style={styles.sectionTitle}>Hairline Progress</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View all photos">
+          <Text style={styles.sectionTitle}>Scalp Score History</Text>
+          <TouchableOpacity onPress={() => navigation?.navigate('ScanHistory')} accessibilityRole="button" accessibilityLabel="View all photos">
             <Text style={styles.viewAll}>VIEW ALL</Text>
           </TouchableOpacity>
         </View>
         <FlatList
-          data={HAIRLINE_PHOTOS}
-          keyExtractor={(p) => p.key}
+          data={tracker?.history ?? []}
+          keyExtractor={(p) => p.id}
+          ListEmptyComponent={<Text style={styles.logMeta}>No scans yet.</Text>}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 10, marginBottom: 22 }}
-          renderItem={({ item }) => (
-            <View>
-              <Image source={{ uri: item.uri }} style={[styles.hairPhoto, item.active && styles.hairPhotoActive]} resizeMode="cover" />
-              <View style={[styles.hairBadge, item.active && styles.hairBadgeActive]}>
-                <Text style={[styles.hairBadgeText, item.active && styles.hairBadgeTextActive]}>{item.label}</Text>
+          renderItem={({ item: h, index }) => {
+            const active = index === (tracker?.history.length ?? 0) - 1;
+            return (
+              <View style={[styles.hairPhoto, styles.historyTile, active && styles.hairPhotoActive]}>
+                <Text style={styles.historyScore}>{h.score}</Text>
+                <View style={[styles.hairBadge, active && styles.hairBadgeActive]}>
+                  <Text style={[styles.hairBadgeText, active && styles.hairBadgeTextActive]}>
+                    {active ? 'LATEST' : new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
+                  </Text>
+                </View>
               </View>
-            </View>
-          )}
+            );
+          }}
         />
 
         {/* Daily log */}
         <Text style={styles.sectionTitle}>Daily Log</Text>
         <View style={styles.logCard}>
-          <View style={styles.logRow}>
-            <View style={styles.logIconWrap}>
-              <Ionicons name="medkit-outline" size={16} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.logName}>Minoxidil 5% Solution</Text>
-              <Text style={styles.logMeta}>Applied 8:15 AM</Text>
-            </View>
-            <Ionicons name="checkmark-circle" size={22} color="#1EA868" />
-          </View>
-          <View style={[styles.logRow, styles.logRowBorder]}>
-            <View style={styles.logIconWrap}>
-              <Ionicons name="hand-left-outline" size={16} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.logName}>Scalp Massage</Text>
-              <Text style={styles.logMeta}>5 minutes scheduled</Text>
-            </View>
-            <TouchableOpacity style={styles.startBtn} accessibilityRole="button" accessibilityLabel="Start scalp massage">
-              <Text style={styles.startBtnText}>START</Text>
-            </TouchableOpacity>
-          </View>
+          <LogRow icon="medkit-outline" item={item('serum')} meta="Tap when applied" onToggle={() => toggle('serum')} />
+          <LogRow icon="hand-left-outline" item={item('massage')} meta="5 minutes · tap when done" bordered onToggle={() => toggle('massage')} />
         </View>
 
         {/* Special treatment promo */}
-        <TouchableOpacity style={styles.treatmentCard} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Deep conditioning treatment">
+        <TouchableOpacity style={styles.treatmentCard} activeOpacity={0.9} onPress={() => comingSoon('Deep conditioning treatment')} accessibilityRole="button" accessibilityLabel="Deep conditioning treatment">
           <Text style={styles.treatmentLabel}>SPECIAL TREATMENT</Text>
           <Text style={styles.treatmentTitle}>Deep Conditioning</Text>
           <Text style={styles.treatmentDesc}>
@@ -224,7 +253,7 @@ export default function ScalpTrackerScreen({ navigation }) {
             <View style={[styles.miniAvatar, { backgroundColor: '#1EA868', marginLeft: -10, zIndex: 1 }]}><Text style={styles.miniAvatarText}>MK</Text></View>
           </View>
           <Text style={styles.communityText}>1.2k people posted today</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Join group">
+          <TouchableOpacity onPress={() => navigation?.navigate('Communities')} accessibilityRole="button" accessibilityLabel="Join group">
             <Text style={styles.joinText}>Join Group ›</Text>
           </TouchableOpacity>
         </View>
@@ -236,6 +265,8 @@ export default function ScalpTrackerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  historyTile: { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white },
+  historyScore: { fontSize: 22, fontWeight: '800', color: colors.primary },
   safe: { flex: 1, backgroundColor: colors.primaryBg },
   content: { paddingTop: 12, paddingBottom: 12 },
 

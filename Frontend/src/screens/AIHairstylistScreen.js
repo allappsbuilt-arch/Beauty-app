@@ -10,10 +10,15 @@ import {
   Image,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { comingSoon } from '../utils/feedback';
+import { useSavedChoice } from '../api/usePreferences';
+import { useStyleAdvisor } from '../api/useStyleAdvisor';
+import { MatchBadge, AdviceSummary } from '../components/StyleVerdict';
 
 const FACE_URI = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&q=60';
 
@@ -28,19 +33,26 @@ const STYLES = [
   { key: 'wavy',   uri: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=300&q=60' },
 ];
 
-function StyleTile({ item, selected, onPress }) {
+function StyleTile({ item, selected, onPress, rank, best }) {
   return (
     <TouchableOpacity
       style={[tile.card, selected && tile.cardSelected]}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel="Hairstyle option"
+      accessibilityLabel={rank ? `${rank.label}, ${rank.match}% match` : 'Hairstyle option'}
     >
       <Image source={{ uri: item.uri }} style={tile.image} resizeMode="cover" />
+      <MatchBadge rank={rank} best={best} />
       {selected && (
         <View style={tile.checkBadge}>
           <Ionicons name="checkmark" size={12} color={colors.white} />
+        </View>
+      )}
+      {rank && (
+        <View style={tile.caption}>
+          <Text style={tile.label}>{rank.label}</Text>
+          {!!rank.reason && <Text style={tile.reason} numberOfLines={3}>{rank.reason}</Text>}
         </View>
       )}
     </TouchableOpacity>
@@ -50,6 +62,9 @@ const tile = StyleSheet.create({
   card: { flex: 1, margin: 6, borderRadius: 14, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },
   cardSelected: { borderColor: colors.primary },
   image: { width: '100%', aspectRatio: 1, backgroundColor: colors.sectionBg },
+  caption: { backgroundColor: colors.white, padding: 8 },
+  label: { fontSize: 12, fontWeight: '800', color: colors.textDark },
+  reason: { fontSize: 11, color: colors.textLight, marginTop: 2, lineHeight: 15 },
   checkBadge: {
     position: 'absolute', top: 8, right: 8,
     width: 20, height: 20, borderRadius: 10,
@@ -83,7 +98,11 @@ const chip = StyleSheet.create({
 export default function AIHairstylistScreen({ navigation }) {
   const [prompt, setPrompt] = useState('');
   const [activeChip, setActiveChip] = useState('Modern Bob');
-  const [selectedStyle, setSelectedStyle] = useState('bob');
+  const [selectedStyle, setSelectedStyle] = useSavedChoice('styles', 'hair', 'bob');
+  const advisor = useStyleAdvisor('hair');
+  const userRequest = prompt.trim() || activeChip;
+  const rankedStyles = advisor.sortStyles(STYLES);
+  const bestKey = advisor.result?.ranking[0]?.key;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -102,7 +121,7 @@ export default function AIHairstylistScreen({ navigation }) {
       </View>
 
       <FlatList
-        data={STYLES}
+        data={rankedStyles}
         keyExtractor={(item) => item.key}
         numColumns={2}
         columnWrapperStyle={{ paddingHorizontal: 10 }}
@@ -111,14 +130,15 @@ export default function AIHairstylistScreen({ navigation }) {
         ListHeaderComponent={
           <>
             <View style={styles.frameCard}>
-              <Image source={{ uri: FACE_URI }} style={styles.frameImage} resizeMode="cover" />
+              <Image source={{ uri: advisor.photo ?? FACE_URI }} style={styles.frameImage} resizeMode="cover" />
               <View style={styles.alignPill}>
-                <Text style={styles.alignPillText}>Align Face</Text>
+                <Text style={styles.alignPillText}>{advisor.photo ? 'Your Photo' : 'Add a Selfie'}</Text>
               </View>
               <TouchableOpacity
                 style={styles.flipBtn}
+                onPress={() => advisor.analyze({ userRequest, newPhoto: true })}
                 accessibilityRole="button"
-                accessibilityLabel="Flip camera"
+                accessibilityLabel={advisor.photo ? 'Use a different photo' : 'Add a photo'}
               >
                 <Ionicons name="camera-reverse-outline" size={20} color={colors.white} />
               </TouchableOpacity>
@@ -148,19 +168,30 @@ export default function AIHairstylistScreen({ navigation }) {
             />
 
             <TouchableOpacity
-              style={styles.generateBtn}
+              style={[styles.generateBtn, advisor.loading && { opacity: 0.7 }]}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="Generate styles"
+              accessibilityLabel="Get AI hairstyle recommendations"
+              onPress={() => advisor.analyze({ userRequest })}
+              disabled={advisor.loading}
             >
-              <Text style={styles.generateBtnText}>Generate Styles</Text>
+              {advisor.loading
+                ? <ActivityIndicator color={colors.white} />
+                : <Text style={styles.generateBtnText}>{advisor.result ? 'Update Recommendations' : 'Find My Best Styles'}</Text>}
             </TouchableOpacity>
 
-            <Text style={styles.sectionTitle}>AI Visualizations</Text>
+            <AdviceSummary result={advisor.result} />
+            <Text style={styles.sectionTitle}>{advisor.result ? 'Recommended For You' : 'Style Ideas'}</Text>
           </>
         }
         renderItem={({ item }) => (
-          <StyleTile item={item} selected={selectedStyle === item.key} onPress={() => setSelectedStyle(item.key)} />
+          <StyleTile
+            item={item}
+            selected={selectedStyle === item.key}
+            onPress={() => setSelectedStyle(item.key)}
+            rank={advisor.rankFor(item.key)}
+            best={item.key === bestKey}
+          />
         )}
         ListFooterComponent={
           <View style={styles.footer}>
@@ -169,6 +200,7 @@ export default function AIHairstylistScreen({ navigation }) {
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Get tutorial"
+              onPress={() => comingSoon('Hairstyle tutorials')}
             >
               <Ionicons name="play-circle-outline" size={17} color={colors.white} />
               <Text style={styles.tutorialBtnText}>Get Tutorial</Text>
@@ -178,6 +210,7 @@ export default function AIHairstylistScreen({ navigation }) {
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Show stylist"
+              onPress={() => navigation?.navigate('Coach')}
             >
               <Ionicons name="cut-outline" size={16} color={colors.primary} />
               <Text style={styles.stylistBtnText}>Show Stylist</Text>

@@ -6,38 +6,39 @@ import {
   SafeAreaView,
   FlatList,
   TouchableOpacity,
+  TextInput,
   Image,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { comingSoon, notify } from '../utils/feedback';
+import { useApiData } from '../api/useApiData';
 
-const FILTERS = ['Skin Type', 'Concern', 'Age Group'];
-const SORTS = ['Most Helpful', 'Recent'];
-
-const REVIEWS = [
-  {
-    key: 'anna', initials: 'AM', color: '#5A3070', name: 'Anna M.', verified: true,
-    meta: 'Oily Skin · 25-34 · 3 Weeks Use', scanScore: '+14%', rating: 5,
-    text: "Finally found a serum that doesn't break me out! My MyFace AI scan shows my redness has significantly decreased since I started using this. The texture is lightweight and absorbs instantly.",
-    helpful: 24,
-  },
-  {
-    key: 'james', initials: 'JK', color: '#C89AE0', name: 'James K.', verified: true,
-    meta: 'Dry Skin · 35-44 · 2 Months Use', scanScore: '+22%', rating: 4,
-    text: 'Great hydration levels. My scan results for elasticity have gone up 22 points which is incredible for a 45-day period. The only downside is the price point, but it delivers results.',
-    helpful: 12,
-    image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=200&q=60',
-  },
+const SKIN_TYPES = ['Oily', 'Dry', 'Combination', 'Normal', 'Sensitive'];
+const SORTS = [
+  { label: 'Most Helpful', param: 'helpful' },
+  { label: 'Recent', param: 'recent' },
 ];
+const AVATAR_COLORS = ['#5A3070', '#C89AE0', '#D06090', '#1EA868', '#7A5CD0'];
 
-function FilterDropdown({ label }) {
+function initials(name) {
+  return name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function FilterChip({ label, active, onPress }) {
   return (
-    <TouchableOpacity style={dd.wrap} accessibilityRole="button" accessibilityLabel={label}>
-      <Text style={dd.text}>{label}</Text>
-      <Ionicons name="chevron-down" size={14} color={colors.textMid} />
+    <TouchableOpacity
+      style={[dd.wrap, active && dd.wrapActive]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
+    >
+      <Text style={[dd.text, active && dd.textActive]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -47,7 +48,9 @@ const dd = StyleSheet.create({
     borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8, marginRight: 8,
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white,
   },
+  wrapActive: { backgroundColor: colors.primaryPale, borderColor: colors.primary },
   text: { fontSize: 12.5, fontWeight: '600', color: colors.textMid },
+  textActive: { color: colors.primary, fontWeight: '800' },
 });
 
 function SortTab({ label, active, onPress }) {
@@ -69,38 +72,40 @@ const sort = StyleSheet.create({
   textActive: { color: colors.white },
 });
 
-function Stars({ count }) {
+function Stars({ count, size = 14, onChange }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 2 }}>
-      {[0, 1, 2, 3, 4].map(i => (
-        <Ionicons key={i} name={i < count ? 'star' : 'star-outline'} size={14} color="#F0A800" />
-      ))}
+    <View style={{ flexDirection: 'row', gap: onChange ? 6 : 2 }}>
+      {[1, 2, 3, 4, 5].map((n) => {
+        const icon = <Ionicons name={n <= Math.round(count) ? 'star' : 'star-outline'} size={size} color="#F0A800" />;
+        return onChange ? (
+          <TouchableOpacity key={n} onPress={() => onChange(n)} accessibilityRole="button" accessibilityLabel={`${n} star${n > 1 ? 's' : ''}`}>
+            {icon}
+          </TouchableOpacity>
+        ) : <View key={n}>{icon}</View>;
+      })}
     </View>
   );
 }
 
-function ReviewCard({ item }) {
+function ReviewCard({ item, index, onToggleHelpful }) {
   return (
     <View style={rev.card}>
       <View style={rev.header}>
-        <View style={[rev.avatar, { backgroundColor: item.color }]}>
-          <Text style={rev.avatarText}>{item.initials}</Text>
+        <View style={[rev.avatar, { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] }]}>
+          <Text style={rev.avatarText}>{initials(item.name)}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <View style={rev.nameRow}>
             <Text style={rev.name}>{item.name}</Text>
-            {item.verified && (
+            {item.mine && (
               <View style={rev.verifiedPill}>
-                <Ionicons name="shield-checkmark" size={10} color={colors.primary} />
-                <Text style={rev.verifiedText}>VERIFIED</Text>
+                <Text style={rev.verifiedText}>YOU</Text>
               </View>
             )}
           </View>
-          <Text style={rev.meta}>{item.meta}</Text>
-        </View>
-        <View style={rev.scoreBlock}>
-          <Text style={rev.scoreLabel}>SCAN SCORE</Text>
-          <Text style={rev.scoreValue}>{item.scanScore}</Text>
+          <Text style={rev.meta}>
+            {[item.skinType && `${item.skinType} Skin`, new Date(item.createdAt).toLocaleDateString()].filter(Boolean).join(' · ')}
+          </Text>
         </View>
       </View>
 
@@ -108,14 +113,19 @@ function ReviewCard({ item }) {
 
       <Text style={rev.text}>{item.text}</Text>
 
-      {item.image && <Image source={{ uri: item.image }} style={rev.image} resizeMode="cover" />}
-
       <View style={rev.footer}>
-        <TouchableOpacity style={rev.footerBtn} accessibilityRole="button" accessibilityLabel="Helpful">
-          <Ionicons name="thumbs-up-outline" size={14} color={colors.textMid} />
+        <TouchableOpacity
+          style={rev.footerBtn}
+          onPress={onToggleHelpful}
+          disabled={item.mine}
+          accessibilityRole="button"
+          accessibilityLabel="Helpful"
+          accessibilityState={{ selected: item.markedHelpful, disabled: item.mine }}
+        >
+          <Ionicons name={item.markedHelpful ? 'thumbs-up' : 'thumbs-up-outline'} size={14} color={item.markedHelpful ? colors.primary : colors.textMid} />
           <Text style={rev.footerBtnText}>Helpful ({item.helpful})</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={rev.footerBtn} accessibilityRole="button" accessibilityLabel="Reply">
+        <TouchableOpacity style={rev.footerBtn} onPress={() => comingSoon('Replies')} accessibilityRole="button" accessibilityLabel="Reply">
           <Ionicons name="chatbubble-outline" size={14} color={colors.textMid} />
           <Text style={rev.footerBtnText}>Reply</Text>
         </TouchableOpacity>
@@ -138,18 +148,98 @@ const rev = StyleSheet.create({
   verifiedPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.primaryPale, borderRadius: 100, paddingHorizontal: 7, paddingVertical: 2 },
   verifiedText: { fontSize: 8.5, fontWeight: '800', color: colors.primary, letterSpacing: 0.3 },
   meta: { fontSize: 11.5, color: colors.textLight, marginTop: 3 },
-  scoreBlock: { alignItems: 'flex-end' },
-  scoreLabel: { fontSize: 8.5, fontWeight: '800', color: colors.textFaint, letterSpacing: 0.5 },
-  scoreValue: { fontSize: 14, fontWeight: '800', color: '#1EA868', marginTop: 2 },
   text: { fontSize: 13.5, lineHeight: 20, color: colors.textMid, marginTop: 10 },
-  image: { width: 72, height: 72, borderRadius: 12, marginTop: 10, backgroundColor: colors.sectionBg },
   footer: { flexDirection: 'row', gap: 16, marginTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderUltraLight, paddingTop: 10 },
   footerBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   footerBtnText: { fontSize: 12, fontWeight: '600', color: colors.textMid },
 });
 
-export default function ProductReviewsScreen({ navigation }) {
-  const [activeSort, setActiveSort] = useState('Most Helpful');
+function WriteReview({ existing, onSubmit, submitting }) {
+  const [rating, setRating] = useState(existing?.rating ?? 0);
+  const [skinType, setSkinType] = useState(existing?.skinType ?? null);
+  const [text, setText] = useState(existing?.text ?? '');
+  const valid = rating > 0 && text.trim().length >= 10;
+
+  return (
+    <View style={form.card}>
+      <Text style={form.title}>{existing ? 'Update your review' : 'Write a review'}</Text>
+      <Stars count={rating} size={24} onChange={setRating} />
+      <View style={form.chips}>
+        {SKIN_TYPES.map((t) => (
+          <FilterChip key={t} label={t} active={skinType === t} onPress={() => setSkinType(skinType === t ? null : t)} />
+        ))}
+      </View>
+      <TextInput
+        style={form.input}
+        placeholder="What did you like or dislike? (at least 10 characters)"
+        placeholderTextColor={colors.textPlaceholder}
+        value={text}
+        onChangeText={setText}
+        multiline
+        maxLength={1000}
+        accessibilityLabel="Review text"
+      />
+      <TouchableOpacity
+        style={[form.submit, (!valid || submitting) && { opacity: 0.5 }]}
+        onPress={() => onSubmit({ rating, skinType, text: text.trim() })}
+        disabled={!valid || submitting}
+        accessibilityRole="button"
+        accessibilityLabel="Post review"
+      >
+        {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={form.submitText}>Post Review</Text>}
+      </TouchableOpacity>
+    </View>
+  );
+}
+const form = StyleSheet.create({
+  card: { backgroundColor: colors.white, borderRadius: 16, padding: 16, marginBottom: 18, borderWidth: 1, borderColor: colors.borderLight, gap: 12 },
+  title: { fontSize: 15, fontWeight: '800', color: colors.textDark },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 },
+  input: {
+    minHeight: 80, borderRadius: 12, borderWidth: 1, borderColor: colors.border,
+    padding: 12, fontSize: 13.5, color: colors.textDark, textAlignVertical: 'top',
+  },
+  submit: { backgroundColor: colors.primary, borderRadius: 100, paddingVertical: 13, alignItems: 'center' },
+  submitText: { color: colors.white, fontWeight: '800', fontSize: 14 },
+});
+
+export default function ProductReviewsScreen({ navigation, route }) {
+  const productKey = route?.params?.productKey ?? 'renewal';
+  const [activeSort, setActiveSort] = useState('helpful');
+  const [skinFilter, setSkinFilter] = useState(null);
+  const [writing, setWriting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const { data, setData, error, reload, request } = useApiData(`/api/products/${productKey}/reviews?sort=${activeSort}`);
+
+  const product = data?.product;
+  const reviews = (data?.reviews ?? []).filter((r) => !skinFilter || r.skinType === skinFilter);
+  const myReview = data?.reviews.find((r) => r.mine);
+
+  const toggleHelpful = async (review) => {
+    const next = !review.markedHelpful;
+    try {
+      const { helpful } = await request(`/api/products/reviews/${review.id}/helpful`, { method: 'POST', body: { helpful: next } });
+      setData((cur) => ({
+        ...cur,
+        reviews: cur.reviews.map((r) => (r.id === review.id ? { ...r, helpful, markedHelpful: next } : r)),
+      }));
+    } catch (err) {
+      notify('Could not save your vote', err.message);
+    }
+  };
+
+  const submitReview = async (body) => {
+    setSubmitting(true);
+    try {
+      await request(`/api/products/${productKey}/reviews`, { method: 'POST', body });
+      setWriting(false);
+      await reload();
+    } catch (err) {
+      notify('Could not post review', err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -168,48 +258,74 @@ export default function ProductReviewsScreen({ navigation }) {
       </View>
 
       <FlatList
-        data={REVIEWS}
-        keyExtractor={(r) => r.key}
+        data={reviews}
+        keyExtractor={(r) => String(r.id)}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
+            <ErrorBanner message={error} onRetry={reload} />
             <View style={styles.productHeader}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=200&q=60' }}
-                style={styles.productImage}
-                resizeMode="cover"
-              />
+              <Image source={{ uri: product?.uri }} style={styles.productImage} resizeMode="cover" />
               <View style={{ flex: 1 }}>
-                <Text style={styles.productName}>Radiance Renewal Elixir</Text>
+                <Text style={styles.productName}>{product?.name ?? '…'}</Text>
                 <View style={styles.ratingRow}>
                   <Ionicons name="star" size={14} color="#F0A800" />
-                  <Text style={styles.ratingText}>4.8 (124 Reviews)</Text>
+                  <Text style={styles.ratingText}>
+                    {data?.count ? `${data.average} (${data.count} ${data.count === 1 ? 'Review' : 'Reviews'})` : 'No reviews yet'}
+                  </Text>
                 </View>
-                <View style={styles.testedPill}>
-                  <Text style={styles.testedPillText}>DERMATOLOGIST TESTED</Text>
-                </View>
+                {!!product && (
+                  <View style={styles.testedPill}>
+                    <Text style={styles.testedPillText}>{product.brand.toUpperCase()}</Text>
+                  </View>
+                )}
               </View>
             </View>
 
+            {writing ? (
+              <WriteReview existing={myReview} onSubmit={submitReview} submitting={submitting} />
+            ) : (
+              <TouchableOpacity style={styles.writeBtn} onPress={() => setWriting(true)} accessibilityRole="button">
+                <Ionicons name="create-outline" size={16} color={colors.primary} />
+                <Text style={styles.writeBtnText}>{myReview ? 'Edit Your Review' : 'Write a Review'}</Text>
+              </TouchableOpacity>
+            )}
+
             <FlatList
-              data={FILTERS}
+              data={['All', ...SKIN_TYPES]}
               keyExtractor={(f) => f}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ marginBottom: 18 }}
-              renderItem={({ item }) => <FilterDropdown label={item} />}
+              renderItem={({ item }) => (
+                <FilterChip
+                  label={item === 'All' ? 'All Skin Types' : item}
+                  active={(skinFilter ?? 'All') === item}
+                  onPress={() => setSkinFilter(item === 'All' ? null : item)}
+                />
+              )}
             />
 
             <View style={styles.sortRow}>
               <Text style={styles.sortLabel}>SORT BY:</Text>
-              {SORTS.map(s => (
-                <SortTab key={s} label={s} active={activeSort === s} onPress={() => setActiveSort(s)} />
+              {SORTS.map((s) => (
+                <SortTab key={s.param} label={s.label} active={activeSort === s.param} onPress={() => setActiveSort(s.param)} />
               ))}
             </View>
           </>
         }
-        renderItem={({ item }) => <ReviewCard item={item} />}
+        renderItem={({ item, index }) => (
+          <ReviewCard item={item} index={index} onToggleHelpful={() => toggleHelpful(item)} />
+        )}
+        ListEmptyComponent={
+          data ? (
+            <Text style={styles.emptyText}>
+              {skinFilter ? `No reviews from ${skinFilter.toLowerCase()} skin yet.` : 'Be the first to review this product.'}
+            </Text>
+          ) : null
+        }
         ListFooterComponent={<View style={{ height: 24 }} />}
       />
     </SafeAreaView>
@@ -239,4 +355,10 @@ const styles = StyleSheet.create({
 
   sortRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 },
   sortLabel: { fontSize: 11, fontWeight: '700', color: colors.textFaint, letterSpacing: 0.6, marginRight: 2 },
+  writeBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderRadius: 100, borderWidth: 1.5, borderColor: colors.primary, paddingVertical: 11, marginBottom: 18,
+  },
+  writeBtnText: { fontSize: 13.5, fontWeight: '800', color: colors.primary },
+  emptyText: { fontSize: 13.5, color: colors.textMid, textAlign: 'center', marginTop: 8 },
 });

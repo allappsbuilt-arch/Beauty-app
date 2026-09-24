@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import { useAuthedRequest } from '../api/useAuthedRequest';
+import { notify } from '../utils/feedback';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const FEELINGS = ['Fresh', 'Tired', 'Glowy', 'Oily', 'Dry'];
@@ -177,6 +178,7 @@ function ActiveStepCard({ index, step, onComplete }) {
           style={active.infoBtn}
           accessibilityRole="button"
           accessibilityLabel="Step info"
+          onPress={() => notify(step.title, step.instructions)}
         >
           <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
@@ -291,7 +293,7 @@ export default function RoutineStepScreen({ navigation, route }) {
         ? navigation.replace('RoutineComplete', { routineTitle, streak })
         : navigation?.navigate('RoutineComplete', { routineTitle, streak });
     } catch (err) {
-      navigation?.navigate('RoutineComplete', { routineTitle, streak: 1 });
+      notify('Could not save your routine', err?.message || 'Please check your connection and try again.');
     }
   };
 
@@ -398,6 +400,7 @@ export default function RoutineStepScreen({ navigation, route }) {
           style={styles.moreBtn}
           accessibilityRole="button"
           accessibilityLabel="More options"
+          onPress={() => navigation?.navigate('Coach')}
         >
           <Ionicons name="ellipsis-vertical" size={18} color={colors.textMid} />
         </TouchableOpacity>

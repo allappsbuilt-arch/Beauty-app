@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import { useAuth } from '../context/AuthContext';
+import { comingSoon, notify } from '../utils/feedback';
+import { usePreferences } from '../api/usePreferences';
 
 const AVATAR_URI = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&q=60';
 
@@ -61,7 +63,8 @@ function ReminderRow({ icon, label, time, isLast }) {
 }
 
 export default function SettingsScreen({ navigation }) {
-  const [teenageMode, setTeenageMode] = useState(false);
+  const { prefs } = usePreferences();
+  const teenageMode = !!prefs?.teenControls.enabled;
   const { user, logout } = useAuth();
 
   return (
@@ -86,6 +89,7 @@ export default function SettingsScreen({ navigation }) {
             style={styles.editBtn}
             accessibilityRole="button"
             accessibilityLabel="Edit profile"
+            onPress={() => comingSoon('Editing your profile')}
           >
             <Ionicons name="pencil" size={15} color={colors.textMid} />
           </TouchableOpacity>
@@ -94,7 +98,11 @@ export default function SettingsScreen({ navigation }) {
         {/* ── Account & privacy ── */}
         <Text style={styles.sectionTitle}>ACCOUNT & PRIVACY</Text>
         <View style={styles.card}>
-          <SettingsRow icon="person-outline" label="Account Details" onPress={() => {}} />
+          <SettingsRow
+            icon="person-outline"
+            label="Account Details"
+            onPress={() => notify('Account details', `${user?.name ?? ''}\n${user?.email ?? ''}${user?.createdAt ? `\nMember since ${new Date(user.createdAt).toLocaleDateString()}` : ''}`)}
+          />
           <SettingsRow
             icon="lock-closed-outline"
             label="Privacy Settings"
@@ -121,7 +129,7 @@ export default function SettingsScreen({ navigation }) {
         {/* ── Routine reminders ── */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>ROUTINE REMINDERS</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Edit all reminders">
+          <TouchableOpacity onPress={() => navigation?.navigate('Notifications')} accessibilityRole="button" accessibilityLabel="Edit all reminders">
             <Text style={styles.editAll}>Edit All</Text>
           </TouchableOpacity>
         </View>
@@ -133,7 +141,7 @@ export default function SettingsScreen({ navigation }) {
         {/* ── Integrations ── */}
         <Text style={styles.sectionTitle}>INTEGRATIONS</Text>
         <View style={styles.card}>
-          <SettingsRow icon="link-outline" label="Connected Apps" value="2 Active" onPress={() => {}} />
+          <SettingsRow icon="link-outline" label="Connected Apps" onPress={() => comingSoon('Connected apps')} />
           <SettingsRow
             icon="notifications-outline"
             label="Notifications"
@@ -145,8 +153,8 @@ export default function SettingsScreen({ navigation }) {
         {/* ── System ── */}
         <Text style={styles.sectionTitle}>SYSTEM</Text>
         <View style={styles.card}>
-          <SettingsRow icon="server-outline" label="Data & Storage" onPress={() => {}} />
-          <SettingsRow icon="bag-outline" label="Restore Purchases" isLast onPress={() => {}} />
+          <SettingsRow icon="server-outline" label="Data & Storage" onPress={() => navigation?.navigate('Privacy')} />
+          <SettingsRow icon="bag-outline" label="Restore Purchases" isLast onPress={() => comingSoon('Restoring purchases')} />
         </View>
 
         <TouchableOpacity

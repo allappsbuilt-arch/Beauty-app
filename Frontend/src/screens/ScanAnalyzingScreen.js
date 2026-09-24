@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import ScreenHeader from '../components/ScreenHeader';
 import { useAuthedRequest } from '../api/useAuthedRequest';
+import { notify } from '../utils/feedback';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -379,19 +380,20 @@ const bgStyles = StyleSheet.create({
 });
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
-export default function ScanAnalyzingScreen({ navigation }) {
+export default function ScanAnalyzingScreen({ navigation, route }) {
+  const image = route?.params?.image;
   // One Animated.Value per callout for staggered entry
   const entryAnims = useRef(CALLOUTS.map(() => new Animated.Value(0))).current;
   const request = useAuthedRequest();
-  const scanRef = useRef(null);
 
   useEffect(() => {
-    // Kick off the real scan in parallel with the analysis animation below.
-    request('/api/scans', { method: 'POST' })
-      .then((scan) => { scanRef.current = scan; })
-      .catch(() => {
-        // Fall back to ScanResultsScreen's built-in sample data if this fails.
-      });
+    if (!image) {
+      navigation?.goBack();
+      return undefined;
+    }
+    let cancelled = false;
+    // Send the photo for AI analysis in parallel with the animation below.
+    const scanPromise = request('/api/scans', { method: 'POST', body: { image } });
 
     // Stagger each card in 550 ms apart, starting after 300 ms
     Animated.stagger(
@@ -406,14 +408,22 @@ export default function ScanAnalyzingScreen({ navigation }) {
       )
     ).start();
 
-    // Auto-advance to results after all cards have appeared + 800 ms grace
+    // Advance once the animation has played AND the server has answered —
+    // never show sample results as if they were the user's real scan.
     const totalDelay = CALLOUTS.length * 550 + 480 + 800;
-    const timer = setTimeout(() => {
-      const scan = scanRef.current;
-      navigation?.navigate('ScanResults', scan ? { zones: scan.zones, ancillary: scan.ancillary } : undefined);
-    }, totalDelay);
+    const minDelay = new Promise((resolve) => setTimeout(resolve, totalDelay));
+    Promise.all([scanPromise, minDelay])
+      .then(([scan]) => {
+        if (cancelled) return;
+        navigation?.replace('ScanResults', { zones: scan.zones, ancillary: scan.ancillary });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        notify('Scan failed', err?.message || 'Could not analyse your scan. Please try again.');
+        navigation?.goBack();
+      });
 
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

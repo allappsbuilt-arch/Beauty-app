@@ -8,19 +8,67 @@ import {
   TouchableOpacity,
   StatusBar,
   Image,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { comingSoon, confirm, notify, shareText } from '../utils/feedback';
+import { useAuthedRequest } from '../api/useAuthedRequest';
+import { useAuth } from '../context/AuthContext';
+
+// Web: save as a .json file. Native: hand the JSON to the share sheet so the
+// user can save it to Files, email it, etc.
+function deliverExport(data) {
+  const json = JSON.stringify(data, null, 2);
+  if (Platform.OS === 'web') {
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `beautyapp-data-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } else {
+    shareText(json);
+  }
+}
 
 const HERO_URI = 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&q=60';
 
 export default function PrivacyScreen({ navigation }) {
+  const request = useAuthedRequest();
+  const { logout } = useAuth();
   const [downloading, setDownloading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     setDownloading(true);
-    setTimeout(() => setDownloading(false), 1800);
+    try {
+      deliverExport(await request('/api/account/export'));
+    } catch (err) {
+      notify('Could not export your data', err.message);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const first = await confirm(
+      'Delete your account?',
+      'This permanently deletes your account, scans, routines, reviews and all other data.',
+      'Continue'
+    );
+    if (!first) return;
+    const second = await confirm('Are you absolutely sure?', 'This cannot be undone.', 'Delete Forever');
+    if (!second) return;
+    setDeleting(true);
+    try {
+      await request('/api/account', { method: 'DELETE', body: { confirm: 'DELETE' } });
+      await logout();
+    } catch (err) {
+      setDeleting(false);
+      notify('Could not delete account', err.message);
+    }
   };
 
   return (
@@ -69,7 +117,7 @@ export default function PrivacyScreen({ navigation }) {
           <Text style={styles.downloadBtnText}>{downloading ? 'Preparing…' : 'Download Data'}</Text>
         </TouchableOpacity>
         <Text style={styles.downloadHint}>
-          Receive a ZIP file containing all your activity logs and scan metadata.
+          Download a JSON file with all your account data, scans and activity.
         </Text>
 
         <View style={styles.rowCard}>
@@ -84,13 +132,13 @@ export default function PrivacyScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={16} color={colors.textPlaceholder} />
           </TouchableOpacity>
           <View style={styles.rowDivider} />
-          <TouchableOpacity style={styles.row} accessibilityRole="button" accessibilityLabel="Processing insights">
+          <TouchableOpacity style={styles.row} onPress={() => comingSoon('Processing insights')} accessibilityRole="button" accessibilityLabel="Processing insights">
             <Ionicons name="bar-chart-outline" size={18} color={colors.primary} style={styles.rowIcon} />
             <Text style={styles.rowLabel}>Processing Insights</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textPlaceholder} />
           </TouchableOpacity>
           <View style={styles.rowDivider} />
-          <TouchableOpacity style={styles.row} accessibilityRole="button" accessibilityLabel="Privacy policy">
+          <TouchableOpacity style={styles.row} onPress={() => comingSoon('Privacy policy')} accessibilityRole="button" accessibilityLabel="Privacy policy">
             <Ionicons name="document-text-outline" size={18} color={colors.primary} style={styles.rowIcon} />
             <Text style={styles.rowLabel}>Privacy Policy</Text>
             <Ionicons name="open-outline" size={16} color={colors.textPlaceholder} />
@@ -98,8 +146,13 @@ export default function PrivacyScreen({ navigation }) {
         </View>
 
         <View style={styles.deleteWrap}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete account">
-            <Text style={styles.deleteText}>Delete Account</Text>
+          <TouchableOpacity
+            onPress={handleDelete}
+            disabled={deleting}
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+          >
+            <Text style={styles.deleteText}>{deleting ? 'Deleting…' : 'Delete Account'}</Text>
           </TouchableOpacity>
           <Text style={styles.deleteHint}>This action is permanent and cannot be undone.</Text>
         </View>

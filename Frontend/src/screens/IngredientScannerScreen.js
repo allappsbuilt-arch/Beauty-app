@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,17 +9,16 @@ import {
   TextInput,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
-
-const INGREDIENTS = [
-  { key: 'niacinamide', name: 'Niacinamide', meta: 'Brightening & Barrier Repair', status: 'SAFE' },
-  { key: 'linalool',     name: 'Linalool',     meta: 'Fragrance Component',        status: 'ALERT' },
-  { key: 'parabens',     name: 'Parabens',      meta: 'Preservative',               status: 'AVOID' },
-  { key: 'glycerin',     name: 'Glycerin',      meta: 'Humectant & Hydrator',        status: 'SAFE' },
-];
+import ErrorBanner from '../components/ErrorBanner';
+import { notify } from '../utils/feedback';
+import { choosePhoto } from '../utils/photo';
+import { useApiData } from '../api/useApiData';
+import { useAuthedRequest } from '../api/useAuthedRequest';
 
 const STATUS_STYLE = {
   SAFE:  { bg: '#E6F9F0', text: '#1EA868' },
@@ -28,7 +27,7 @@ const STATUS_STYLE = {
 };
 
 function IngredientRow({ item, isLast }) {
-  const s = STATUS_STYLE[item.status];
+  const s = STATUS_STYLE[item.status] || STATUS_STYLE.ALERT;
   return (
     <View style={[row.wrap, !isLast && row.wrapBorder]}>
       <View style={{ flex: 1 }}>
@@ -50,8 +49,74 @@ const row = StyleSheet.create({
   pillText: { fontSize: 11, fontWeight: '800' },
 });
 
-export default function IngredientScannerScreen({ navigation }) {
+export default function IngredientScannerScreen({ navigation, route }) {
+  const request = useAuthedRequest();
+  const [productKey, setProductKey] = useState(route?.params?.productKey ?? 'radiance');
   const [search, setSearch] = useState('');
+  const [results, setResults] = useState([]);
+  const [adding, setAdding] = useState(false);
+  const [scanningLabel, setScanningLabel] = useState(false);
+  // A label photo's analysis; shown instead of the catalog analysis until the
+  // user picks another product.
+  const [scanned, setScanned] = useState(null);
+  const { data: catalogAnalysis, setData: setCatalogAnalysis, error, reload } = useApiData(`/api/products/${productKey}/analyze`);
+  const analysis = scanned ?? catalogAnalysis;
+  const setAnalysis = scanned ? setScanned : setCatalogAnalysis;
+  const inCatalog = !!analysis?.product.key;
+
+  // Debounced product search.
+  useEffect(() => {
+    const q = search.trim();
+    if (!q) { setResults([]); return undefined; }
+    const timer = setTimeout(() => {
+      request(`/api/products/search?q=${encodeURIComponent(q)}`)
+        .then(({ products }) => setResults(products))
+        .catch(() => setResults([]));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search, request]);
+
+  const pickProduct = (key) => {
+    setSearch('');
+    setResults([]);
+    setScanned(null);
+    setProductKey(key);
+  };
+
+  const handleScanLabel = async () => {
+    const image = await choosePhoto('Scan a product label');
+    if (!image) return;
+    setScanningLabel(true);
+    try {
+      const result = await request('/api/products/scan-label', { method: 'POST', body: { image } });
+      if (result.product.key) setProductKey(result.product.key);
+      setScanned(result);
+    } catch (err) {
+      notify('Could not read the label', err.message);
+    } finally {
+      setScanningLabel(false);
+    }
+  };
+
+  const handleAdd = async () => {
+    if (analysis?.onShelf) {
+      navigation?.navigate('ProductShelf');
+      return;
+    }
+    setAdding(true);
+    try {
+      await request('/api/products/shelf', { method: 'POST', body: { productKey: analysis.product.key } });
+      setAnalysis((cur) => ({ ...cur, onShelf: true }));
+    } catch (err) {
+      notify('Could not add product', err.message);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const ingredients = analysis?.ingredients ?? [];
+  const compatibility = analysis?.compatibility;
+  const compatGood = compatibility >= 80;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -70,94 +135,139 @@ export default function IngredientScannerScreen({ navigation }) {
       </View>
 
       <FlatList
-        data={INGREDIENTS}
+        data={ingredients}
         keyExtractor={(i) => i.key}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
             <View style={styles.searchWrap}>
               <Ionicons name="search-outline" size={17} color={colors.textPlaceholder} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search product or ingredient..."
+                placeholder="Search a product to analyse..."
                 placeholderTextColor={colors.textPlaceholder}
                 value={search}
                 onChangeText={setSearch}
-                accessibilityLabel="Search product or ingredient"
+                accessibilityLabel="Search product"
               />
             </View>
+
+            {results.length > 0 && (
+              <View style={styles.listCard}>
+                {results.slice(0, 6).map((p, i) => (
+                  <TouchableOpacity
+                    key={p.key}
+                    style={[row.wrap, i < Math.min(results.length, 6) - 1 && row.wrapBorder]}
+                    onPress={() => pickProduct(p.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Analyse ${p.name}`}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={row.name}>{p.name}</Text>
+                      <Text style={row.meta}>{p.brand}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textPlaceholder} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {search.trim() !== '' && results.length === 0 && (
+              <Text style={[row.meta, { marginBottom: 12 }]}>No products match "{search.trim()}".</Text>
+            )}
 
             <TouchableOpacity
               style={styles.scanBtn}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Scan product label"
+              onPress={handleScanLabel}
+              disabled={scanningLabel}
             >
-              <Ionicons name="camera-outline" size={17} color={colors.white} />
-              <Text style={styles.scanBtnText}>Scan Product Label</Text>
+              {scanningLabel
+                ? <ActivityIndicator size="small" color={colors.white} />
+                : <Ionicons name="camera-outline" size={17} color={colors.white} />}
+              <Text style={styles.scanBtnText}>{scanningLabel ? 'Reading label…' : 'Scan Product Label'}</Text>
             </TouchableOpacity>
 
+            <ErrorBanner message={error} onRetry={reload} />
+
             <View style={styles.productHeader}>
-              <View>
-                <Text style={styles.eyebrow}>IDENTIFIED PRODUCT</Text>
-                <Text style={styles.productName}>Radiance Glow Serum</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.eyebrow}>{scanned ? 'FROM YOUR LABEL PHOTO' : 'IDENTIFIED PRODUCT'}</Text>
+                <Text style={styles.productName}>{analysis?.product.name ?? '…'}</Text>
               </View>
               <View style={styles.compatBlock}>
                 <Text style={styles.compatLabel}>Compatibility</Text>
                 <View style={styles.compatRow}>
-                  <Text style={styles.compatValue}>92%</Text>
-                  <Ionicons name="checkmark-circle" size={16} color="#1EA868" />
+                  <Text style={styles.compatValue}>{compatibility == null ? '—' : `${compatibility}%`}</Text>
+                  <Ionicons
+                    name={compatGood ? 'checkmark-circle' : 'alert-circle'}
+                    size={16}
+                    color={compatGood ? '#1EA868' : '#C47800'}
+                  />
                 </View>
               </View>
             </View>
             <View style={styles.compatBar}>
-              <View style={[styles.compatBarFill, { width: '92%' }]} />
+              <View style={[styles.compatBarFill, { width: `${compatibility ?? 0}%` }]} />
             </View>
 
-            <View style={styles.alertCard}>
-              <Ionicons name="warning" size={17} color="#D03050" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.alertTitle}>Allergy Alert Triggered</Text>
-                <Text style={styles.alertText}>
-                  Contains <Text style={{ fontWeight: '800' }}>Linalool</Text>, which is on your restricted list.
-                </Text>
+            {analysis?.allergyAlerts.length > 0 && (
+              <View style={styles.alertCard}>
+                <Ionicons name="warning" size={17} color="#D03050" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.alertTitle}>Allergy Alert Triggered</Text>
+                  <Text style={styles.alertText}>
+                    Contains <Text style={{ fontWeight: '800' }}>{analysis.allergyAlerts.join(', ')}</Text>, which is on your restricted list.
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
 
-            <View style={styles.warnCard}>
-              <Ionicons name="swap-horizontal" size={17} color="#C47800" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.warnTitle}>Routine Conflict</Text>
-                <Text style={styles.warnText}>
-                  Using this serum with your <Text style={{ fontWeight: '800' }}>Retinol Night Cream</Text> may cause irritation. Avoid concurrent use.
-                </Text>
+            {(analysis?.conflicts ?? []).map((c) => (
+              <View key={c.productKey} style={styles.warnCard}>
+                <Ionicons name="swap-horizontal" size={17} color="#C47800" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.warnTitle}>Routine Conflict</Text>
+                  <Text style={styles.warnText}>
+                    Clashes with your <Text style={{ fontWeight: '800' }}>{c.productName}</Text>. {c.reason}
+                  </Text>
+                </View>
               </View>
-            </View>
+            ))}
 
             <Text style={styles.sectionTitle}>Ingredient Analysis</Text>
           </>
         }
         renderItem={({ item, index }) => (
           <View style={styles.listCard}>
-            <IngredientRow item={item} isLast={index === INGREDIENTS.length - 1} />
+            <IngredientRow item={item} isLast={index === ingredients.length - 1} />
           </View>
         )}
         ItemSeparatorComponent={() => <View style={{ height: 0 }} />}
         ListFooterComponent={
           <View style={styles.footer}>
             <TouchableOpacity
-              style={styles.addBtn}
+              style={[styles.addBtn, (adding || !analysis || !inCatalog) && { opacity: 0.6 }]}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="Add to daily routine"
+              accessibilityLabel={analysis?.onShelf ? 'View your product shelf' : 'Add to daily routine'}
+              onPress={handleAdd}
+              disabled={adding || !analysis || !inCatalog}
             >
-              <Text style={styles.addBtnText}>Add to Daily Routine</Text>
+              <Text style={styles.addBtnText}>
+                {!analysis || inCatalog
+                  ? (adding ? 'Adding…' : analysis?.onShelf ? 'On Your Shelf ✓ — View Shelf' : 'Add to Daily Routine')
+                  : 'Not in our product catalog yet'}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.dupeBtn}
+              style={[styles.dupeBtn, !inCatalog && { opacity: 0.5 }]}
               activeOpacity={0.85}
-              onPress={() => navigation?.navigate('DupeFinder')}
+              disabled={!inCatalog}
+              onPress={() => navigation?.navigate('DupeFinder', { productKey: analysis.product.key })}
               accessibilityRole="button"
               accessibilityLabel="Find a dupe"
             >

@@ -131,6 +131,7 @@ export default function LoginScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
+          {__DEV__ && (
           <TouchableOpacity
             style={styles.guestBtn}
             onPress={() => continueAsGuest()}
@@ -139,6 +140,7 @@ export default function LoginScreen({ navigation }) {
           >
             <Text style={styles.guestBtnText}>Skip login — preview app (dev)</Text>
           </TouchableOpacity>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -13,19 +13,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { confirm, notify } from '../utils/feedback';
+import { useApiData } from '../api/useApiData';
 
 const FILTERS = ['All', 'AM', 'PM', 'Brow', 'Lash', 'Eye'];
-
-const PRODUCTS = [
-  { key: 'ce', brand: 'SKINCEUTICALS', name: 'C E Ferulic', days: 42, streak: 12, progress: 0.85,
-    allergyRisk: true, category: 'AM', uri: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=300&q=60' },
-  { key: 'nia', brand: 'THE ORDINARY', name: 'Niacinamide 10%', days: 15, streak: 5, progress: 0.4,
-    category: 'PM', uri: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=300&q=60' },
-  { key: 'bhydra', brand: 'DRUNK ELEPHANT', name: 'B-Hydra Serum', days: 88, streak: 31, progress: 0.95,
-    category: 'AM', uri: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=300&q=60' },
-  { key: 'lamer', brand: 'LA MER', name: 'Crème de la Mer', days: 4, streak: 4, progress: 0.1,
-    category: 'PM', uri: 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=300&q=60' },
-];
 
 function FilterChip({ label, active, onPress }) {
   return (
@@ -49,9 +41,17 @@ const chip = StyleSheet.create({
   textActive: { color: colors.white },
 });
 
-function ProductCard({ item }) {
+function ProductCard({ item, onToggleUse, onRemove }) {
+  const progress = Math.min(item.streak / 30, 1);
   return (
-    <View style={card.wrap}>
+    <TouchableOpacity
+      style={[card.wrap, item.usedToday && card.wrapUsed]}
+      onPress={onToggleUse}
+      activeOpacity={0.85}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: item.usedToday }}
+      accessibilityLabel={`${item.name}, ${item.usedToday ? 'used today' : 'not used today'}`}
+    >
       <View style={card.imageWrap}>
         <Image source={{ uri: item.uri }} style={card.image} resizeMode="cover" />
         {item.allergyRisk && (
@@ -59,26 +59,39 @@ function ProductCard({ item }) {
             <Text style={card.riskBadgeText}>ALLERGY RISK</Text>
           </View>
         )}
+        <TouchableOpacity style={card.removeBtn} onPress={onRemove} accessibilityRole="button" accessibilityLabel={`Remove ${item.name}`}>
+          <Ionicons name="close" size={13} color={colors.textDark} />
+        </TouchableOpacity>
       </View>
-      <Text style={card.brand}>{item.brand}</Text>
+      <Text style={card.brand}>{item.brand.toUpperCase()}</Text>
       <Text style={card.name}>{item.name}</Text>
       <View style={card.metaRow}>
-        <Text style={card.days}>{item.days} Days Used</Text>
+        <Text style={card.days}>{item.daysUsed} {item.daysUsed === 1 ? 'Day' : 'Days'} Used</Text>
         <View style={card.streak}>
           <Ionicons name="flame" size={12} color={colors.primary} />
           <Text style={card.streakText}>{item.streak}</Text>
         </View>
       </View>
       <View style={card.barTrack}>
-        <View style={[card.barFill, { width: `${item.progress * 100}%` }]} />
+        <View style={[card.barFill, { width: `${progress * 100}%` }]} />
       </View>
-    </View>
+      <Text style={[card.useHint, item.usedToday && card.useHintDone]}>
+        {item.usedToday ? '✓ Used today' : 'Tap to log today'}
+      </Text>
+    </TouchableOpacity>
   );
 }
 const card = StyleSheet.create({
   wrap: { flex: 1, margin: 6, backgroundColor: colors.white, borderRadius: 16, padding: 12,
     borderWidth: 1, borderColor: colors.borderLight },
+  wrapUsed: { borderColor: '#1EA868' },
   imageWrap: { position: 'relative', marginBottom: 10 },
+  removeBtn: {
+    position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11,
+    backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center',
+  },
+  useHint: { fontSize: 10.5, fontWeight: '700', color: colors.textLight, marginTop: 8 },
+  useHintDone: { color: '#1EA868' },
   image: { width: '100%', height: 100, borderRadius: 12, backgroundColor: colors.sectionBg },
   riskBadge: {
     position: 'absolute', top: 8, left: 8,
@@ -119,9 +132,9 @@ function EmptyShelf({ onAdd }) {
         activeOpacity={0.85}
         onPress={onAdd}
         accessibilityRole="button"
-        accessibilityLabel="Scan barcode"
+        accessibilityLabel="Search products"
       >
-        <Text style={empty.secondaryBtnText}>Scan Barcode</Text>
+        <Text style={empty.secondaryBtnText}>Search Products</Text>
       </TouchableOpacity>
 
       <View style={empty.tipCard}>
@@ -167,7 +180,30 @@ const empty = StyleSheet.create({
 
 export default function ProductShelfScreen({ navigation }) {
   const [filter, setFilter] = useState('All');
-  const filteredProducts = PRODUCTS.filter((p) => filter === 'All' || p.category === filter);
+  const { data, setData, error, reload, request } = useApiData('/api/products/shelf');
+  const items = data?.items ?? [];
+  const filteredProducts = items.filter((p) => filter === 'All' || p.category === filter);
+  const addProduct = () => navigation?.navigate('IngredientScanner');
+
+  const toggleUse = async (item) => {
+    const previous = data;
+    setData({ items: items.map((p) => (p.key === item.key ? { ...p, usedToday: !p.usedToday } : p)) });
+    try {
+      setData(await request(`/api/products/shelf/${item.key}/use`, { method: 'POST', body: { done: !item.usedToday } }));
+    } catch (err) {
+      setData(previous);
+      notify('Could not save', err.message);
+    }
+  };
+
+  const remove = async (item) => {
+    if (!(await confirm('Remove product?', `Remove ${item.name} from your shelf?`, 'Remove'))) return;
+    try {
+      setData(await request(`/api/products/shelf/${item.key}`, { method: 'DELETE' }));
+    } catch (err) {
+      notify('Could not remove product', err.message);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -195,6 +231,7 @@ export default function ProductShelfScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <>
+              <ErrorBanner message={error} onRetry={reload} />
               <View style={styles.headerBlock}>
                 <Text style={styles.title}>Product Shelf</Text>
                 <Text style={styles.subtitle}>Track your routine and monitor results.</Text>
@@ -211,19 +248,20 @@ export default function ProductShelfScreen({ navigation }) {
               />
             </>
           }
-          renderItem={({ item }) => <ProductCard item={item} />}
-          ListEmptyComponent={<EmptyShelf onAdd={() => navigation?.navigate('IngredientScanner')} />}
+          renderItem={({ item }) => (
+            <ProductCard item={item} onToggleUse={() => toggleUse(item)} onRemove={() => remove(item)} />
+          )}
+          ListEmptyComponent={
+            !data ? null : items.length === 0
+              ? <EmptyShelf onAdd={addProduct} />
+              : <Text style={[styles.subtitle, { marginHorizontal: 16 }]}>No {filter} products on your shelf.</Text>
+          }
           ListFooterComponent={<View style={{ height: 80 }} />}
         />
 
-        {filteredProducts.length > 0 && (
+        {items.length > 0 && (
           <View style={styles.fabRow}>
-            <View style={styles.fabHintCol}>
-              <View style={styles.fabHint}><Text style={styles.fabHintText}>Scan Barcode</Text></View>
-              <View style={styles.fabHint}><Text style={styles.fabHintText}>Search</Text></View>
-              <View style={styles.fabHint}><Text style={styles.fabHintText}>Photo</Text></View>
-            </View>
-            <TouchableOpacity style={styles.fab} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Add product">
+            <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={addProduct} accessibilityRole="button" accessibilityLabel="Add product">
               <Ionicons name="add" size={26} color={colors.white} />
             </TouchableOpacity>
           </View>

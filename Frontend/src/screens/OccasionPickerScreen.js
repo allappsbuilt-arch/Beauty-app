@@ -10,10 +10,12 @@ import {
   Image,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import ScreenHeader from '../components/ScreenHeader';
+import { useAuthedRequest } from '../api/useAuthedRequest';
+import ErrorBanner from '../components/ErrorBanner';
 
 const OCCASIONS = [
   { key: 'wedding',     label: 'Wedding',     icon: 'sparkles' },
@@ -63,6 +65,26 @@ const cards = StyleSheet.create({
 export default function OccasionPickerScreen({ navigation }) {
   const [selected, setSelected] = useState('wedding');
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const request = useAuthedRequest();
+
+  const handleContinue = async () => {
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const session = await request('/api/makeup/sessions', {
+        method: 'POST',
+        body: { occasion: selected, notes: notes.trim() },
+      });
+      navigation?.navigate('MakeupResults', { session });
+    } catch (err) {
+      setError(err.message || 'Could not create your looks. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -124,15 +146,28 @@ export default function OccasionPickerScreen({ navigation }) {
               </View>
             </View>
 
+            <ErrorBanner message={error} onRetry={handleContinue} onDismiss={() => setError(null)} />
+
             <TouchableOpacity
-              style={styles.continueBtn}
+              style={[styles.continueBtn, submitting && { opacity: 0.7 }]}
               activeOpacity={0.85}
-              onPress={() => navigation?.navigate('MakeupResults')}
+              onPress={handleContinue}
+              disabled={submitting}
               accessibilityRole="button"
               accessibilityLabel="Continue"
+              accessibilityState={{ busy: submitting }}
             >
-              <Text style={styles.continueBtnText}>Continue</Text>
-              <Ionicons name="arrow-forward" size={17} color={colors.white} />
+              {submitting ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.white} />
+                  <Text style={styles.continueBtnText}>Creating your looks…</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.continueBtnText}>Continue</Text>
+                  <Ionicons name="arrow-forward" size={17} color={colors.white} />
+                </>
+              )}
             </TouchableOpacity>
           </View>
         }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,14 @@ import {
   Image,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { useSavedChoice } from '../api/usePreferences';
+import { useStyleAdvisor } from '../api/useStyleAdvisor';
+import { MatchBadge, AdviceSummary } from '../components/StyleVerdict';
 
 const FACE_FRAME_URI = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&q=60&sat=-100';
 
@@ -25,7 +29,7 @@ const STYLES = [
   { key: 'soft',      label: 'Soft Textured', uri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=300&q=60' },
 ];
 
-function StyleCard({ style, selected, onPress }) {
+function StyleCard({ style, selected, onPress, rank, best }) {
   return (
     <TouchableOpacity
       style={[cards.card, selected && cards.cardSelected]}
@@ -35,6 +39,7 @@ function StyleCard({ style, selected, onPress }) {
       accessibilityLabel={style.label}
     >
       <Image source={{ uri: style.uri }} style={cards.image} resizeMode="cover" />
+      <MatchBadge rank={rank} best={best} />
       {selected && (
         <View style={cards.checkBadge}>
           <Ionicons name="checkmark" size={13} color={colors.white} />
@@ -42,6 +47,7 @@ function StyleCard({ style, selected, onPress }) {
       )}
       <View style={cards.captionWrap}>
         <Text style={cards.caption}>{style.label.toUpperCase()}</Text>
+        {!!rank?.reason && <Text style={cards.reason} numberOfLines={3}>{rank.reason}</Text>}
       </View>
     </TouchableOpacity>
   );
@@ -66,10 +72,16 @@ const cards = StyleSheet.create({
   },
   captionWrap: { paddingVertical: 10, alignItems: 'center' },
   caption: { fontSize: 11, fontWeight: '800', color: colors.textDark, letterSpacing: 0.6 },
+  reason: { fontSize: 11, color: colors.textLight, textAlign: 'center', marginTop: 4, paddingHorizontal: 8, lineHeight: 15 },
 });
 
+// The chosen brow style becomes the Eyebrow Tracker's goal.
+const browGoalPatch = (key) => ({ eyebrow: { goal: STYLES.find((s) => s.key === key)?.label ?? 'Full Arch' } });
+
 export default function BrowAnalysisScreen({ navigation }) {
-  const [selected, setSelected] = useState('natural');
+  const [selected, setSelected] = useSavedChoice('styles', 'brow', 'natural', browGoalPatch);
+  const advisor = useStyleAdvisor('brow');
+  const bestKey = advisor.result?.ranking[0]?.key;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -105,7 +117,7 @@ export default function BrowAnalysisScreen({ navigation }) {
       >
         {/* Face frame */}
         <View style={styles.frameCard}>
-          <Image source={{ uri: FACE_FRAME_URI }} style={styles.frameImage} resizeMode="cover" />
+          <Image source={{ uri: advisor.photo ?? FACE_FRAME_URI }} style={styles.frameImage} resizeMode="cover" />
           <View style={styles.frameOverlay} pointerEvents="none">
             <View style={styles.crosshairH} />
             <View style={styles.frameBox} />
@@ -115,22 +127,32 @@ export default function BrowAnalysisScreen({ navigation }) {
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Analyze my face"
+            onPress={() => advisor.analyze({ newPhoto: true })}
+            disabled={advisor.loading}
           >
-            <Text style={styles.analyzeBtnText}>Analyze My Face</Text>
+            <Text style={styles.analyzeBtnText}>{advisor.photo ? 'Use Another Photo' : 'Analyze My Face'}</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.frameCaption}>Position your face within the frame</Text>
+        <Text style={styles.frameCaption}>Use a clear, front-facing photo with your brows visible</Text>
 
         {/* Generate button */}
         <TouchableOpacity
-          style={styles.generateBtn}
+          style={[styles.generateBtn, advisor.loading && { opacity: 0.7 }]}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Generate AI brow styles"
+          accessibilityLabel="Get AI brow recommendations"
+          onPress={() => advisor.analyze()}
+          disabled={advisor.loading}
         >
-          <Ionicons name="sparkles" size={16} color={colors.white} />
-          <Text style={styles.generateBtnText}>Generate AI Brow Styles</Text>
+          {advisor.loading
+            ? <ActivityIndicator color={colors.white} />
+            : <Ionicons name="sparkles" size={16} color={colors.white} />}
+          <Text style={styles.generateBtnText}>
+            {advisor.loading ? 'Analysing your brows…' : advisor.result ? 'Re-analyse' : 'Get AI Brow Recommendations'}
+          </Text>
         </TouchableOpacity>
+
+        <AdviceSummary result={advisor.result} />
 
         {/* Style recommendations */}
         <View style={styles.sectionHeader}>
@@ -141,8 +163,15 @@ export default function BrowAnalysisScreen({ navigation }) {
         </View>
 
         <View style={styles.grid}>
-          {STYLES.map(s => (
-            <StyleCard key={s.key} style={s} selected={selected === s.key} onPress={() => setSelected(s.key)} />
+          {advisor.sortStyles(STYLES).map((s) => (
+            <StyleCard
+              key={s.key}
+              style={s}
+              selected={selected === s.key}
+              onPress={() => setSelected(s.key)}
+              rank={advisor.rankFor(s.key)}
+              best={s.key === bestKey}
+            />
           ))}
         </View>
 

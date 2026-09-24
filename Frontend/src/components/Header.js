@@ -2,8 +2,12 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useAuth } from '../context/AuthContext';
 
-export default function Header({ name = 'Alex', navigation }) {
+export default function Header({ navigation }) {
+  const { user } = useAuth();
+  const firstName = user?.name?.split(' ')[0] || 'there';
+
   const greeting = () => {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning,';
@@ -16,32 +20,31 @@ export default function Header({ name = 'Alex', navigation }) {
       {/* Left — greeting + name */}
       <View style={styles.left}>
         <Text style={styles.greeting}>{greeting()}</Text>
-        <Text style={styles.name}>{name}!</Text>
+        <Text style={styles.name}>{firstName}!</Text>
       </View>
 
       {/* Right — bell + avatar */}
       <View style={styles.right}>
-        {/* Notification bell with unread dot */}
         <TouchableOpacity
           style={styles.bellBtn}
-          onPress={() => navigation?.navigate('WelcomeBack')}
+          onPress={() => navigation?.navigate('Notifications')}
           accessibilityRole="button"
           accessibilityLabel="Notifications"
         >
           <Ionicons name="notifications-outline" size={21} color={colors.textMid} />
-          {/* unread indicator */}
           <View style={styles.notifDot} />
         </TouchableOpacity>
 
-        {/* Avatar */}
         <TouchableOpacity
           style={styles.avatarRing}
-          onPress={() => navigation?.navigate('Rewards')}
+          onPress={() => navigation?.navigate('Settings')}
           accessibilityRole="button"
-          accessibilityLabel="Profile and rewards"
+          accessibilityLabel="Profile and settings"
         >
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{name.slice(0, 2).toUpperCase()}</Text>
+            <Text style={styles.avatarText}>
+              {firstName.slice(0, 2).toUpperCase()}
+            </Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -58,12 +61,9 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingBottom: 12,
     backgroundColor: colors.white,
-    // crisp bottom border
     borderBottomWidth: 1,
     borderBottomColor: colors.borderUltraLight,
   },
-
-  // ── Left ──
   left: { gap: 1 },
   greeting: {
     fontSize: 13,
@@ -77,14 +77,11 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     letterSpacing: -0.4,
   },
-
-  // ── Right ──
   right: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-
   bellBtn: {
     width: 40,
     height: 40,
@@ -106,8 +103,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.white,
   },
-
-  // Avatar ring + fill
   avatarRing: {
     width: 42,
     height: 42,

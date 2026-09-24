@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { comingSoon } from '../utils/feedback';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -424,7 +425,7 @@ export default function AllToolsScreen({ navigation }) {
             key={s.key}
             title={s.title}
             tools={s.tools}
-            onToolPress={(tool) => tool.route && navigation?.navigate(tool.route)}
+            onToolPress={(tool) => (tool.route ? navigation?.navigate(tool.route) : comingSoon(tool.label))}
           />
         ))}
 

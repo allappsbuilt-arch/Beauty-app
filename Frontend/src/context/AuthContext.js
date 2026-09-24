@@ -1,8 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiRequest } from '../api/client';
+import { apiRequest, setUnauthorizedHandler, warmUpServer } from '../api/client';
 
 const TOKEN_KEY = 'beautyapp.authToken';
+const USER_KEY = 'beautyapp.authUser';
 // Dev-only sentinel token used by continueAsGuest() below to preview the app
 // without a live backend. Never issued by the real /api/auth endpoints.
 const GUEST_TOKEN = 'dev-guest-preview';
@@ -16,19 +17,29 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    warmUpServer();
     (async () => {
+      const storedToken = await AsyncStorage.getItem(TOKEN_KEY).catch(() => null);
       try {
-        const storedToken = await AsyncStorage.getItem(TOKEN_KEY);
         if (storedToken === GUEST_TOKEN) {
           setToken(storedToken);
           setUser(GUEST_USER);
         } else if (storedToken) {
           const { user: me } = await apiRequest('/api/auth/me', { token: storedToken });
+          await AsyncStorage.setItem(USER_KEY, JSON.stringify(me));
           setToken(storedToken);
           setUser(me);
         }
       } catch (err) {
-        await AsyncStorage.removeItem(TOKEN_KEY);
+        if (err?.status === 401 || err?.status === 404) {
+          // Token really is invalid — sign out.
+          await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+        } else {
+          // Server asleep / offline — keep the session instead of logging the user out.
+          const cached = await AsyncStorage.getItem(USER_KEY).catch(() => null);
+          setToken(storedToken);
+          setUser(cached ? JSON.parse(cached) : null);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -41,7 +52,7 @@ export function AuthProvider({ children }) {
       method: 'POST',
       body: { email, password },
     });
-    await AsyncStorage.setItem(TOKEN_KEY, newToken);
+    await AsyncStorage.multiSet([[TOKEN_KEY, newToken], [USER_KEY, JSON.stringify(newUser)]]);
     setToken(newToken);
     setUser(newUser);
   }, []);
@@ -52,7 +63,7 @@ export function AuthProvider({ children }) {
       method: 'POST',
       body: { name, email, password },
     });
-    await AsyncStorage.setItem(TOKEN_KEY, newToken);
+    await AsyncStorage.multiSet([[TOKEN_KEY, newToken], [USER_KEY, JSON.stringify(newUser)]]);
     setToken(newToken);
     setUser(newUser);
   }, []);
@@ -66,13 +77,23 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await AsyncStorage.removeItem(TOKEN_KEY);
+    await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
     setToken(null);
     setUser(null);
   }, []);
 
+  // An expired/invalid token makes every request 401 — send the user back to
+  // login rather than leaving them on screens that silently fail.
+  useEffect(() => {
+    setUnauthorizedHandler((rejectedToken) => {
+      if (rejectedToken === GUEST_TOKEN) return;
+      logout();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [logout]);
+
   const value = useMemo(
-    () => ({ token, user, isLoading, isAuthenticated: !!token, error, setError, login, signup, logout, continueAsGuest }),
+    () => ({ token, user, isLoading, isAuthenticated: !!token, isGuest: token === GUEST_TOKEN, error, setError, login, signup, logout, continueAsGuest }),
     [token, user, isLoading, error, login, signup, logout, continueAsGuest]
   );
 

@@ -1,6 +1,6 @@
 const { supabase } = require('../db/database');
 const points = require('../services/points.service');
-const { generateScan } = require('../services/scanGenerator');
+const { analyzeFace } = require('../services/faceAnalysis.service');
 
 function toPublic(row) {
   return {
@@ -12,7 +12,19 @@ function toPublic(row) {
 }
 
 async function create(req, res) {
-  const scan = generateScan();
+  // Previous skin scores feed the scan's trend bars.
+  const { data: previous, error: prevError } = await supabase
+    .from('scans')
+    .select('zones_json')
+    .eq('user_id', req.userId)
+    .order('created_at', { ascending: false })
+    .limit(3);
+  if (prevError) throw new Error(prevError.message);
+  const skinHistory = (previous || [])
+    .map((r) => (r.zones_json || []).find((z) => z.key === 'skin')?.score)
+    .filter((n) => typeof n === 'number');
+
+  const scan = await analyzeFace(req.body?.image, skinHistory);
 
   const { error } = await supabase.from('scans').insert({
     id: scan.id,

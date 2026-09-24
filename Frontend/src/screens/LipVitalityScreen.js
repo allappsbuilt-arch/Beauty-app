@@ -13,22 +13,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { useTracker } from '../api/useTracker';
 
 const GOALS = ['Hydrate', 'Plump', 'Even Tone', 'Heal'];
 
-const PHOTOS = [
-  { key: 'mon', label: 'MON', uri: 'https://images.unsplash.com/photo-1588516903720-8ceb67f9ef84?w=200&q=60' },
-  { key: 'wed', label: 'WED', uri: 'https://images.unsplash.com/photo-1588516903720-8ceb67f9ef84?w=200&q=60' },
-  { key: 'fri', label: 'FRI', uri: 'https://images.unsplash.com/photo-1588516903720-8ceb67f9ef84?w=200&q=60' },
-  { key: 'today', label: 'TODAY', add: true },
-];
-
-const ROUTINE = [
-  { key: 'exfoliate', icon: 'brush-outline', name: 'Exfoliate', meta: 'Sugar Scrub • 2 min', checked: false },
-  { key: 'balm',       icon: 'water-outline', name: 'Balm',      meta: 'Ceramide Shield',   checked: true },
-  { key: 'mask',        icon: 'moon-outline',  name: 'Overnight Mask', meta: 'Hyaluronic Seal', checked: false },
-];
+// Display details for each checklist item; done state comes from the backend.
+const ROUTINE_META = {
+  exfoliate: { icon: 'brush-outline', meta: 'Sugar Scrub • 2 min' },
+  balm: { icon: 'water-outline', meta: 'Ceramide Shield' },
+  mask: { icon: 'moon-outline', meta: 'Hyaluronic Seal' },
+};
 
 const PRODUCTS = [
   { key: 'laneige', name: 'Laneige Sleeping Mask', meta: 'USE AM/PM', metaColor: colors.primary,
@@ -53,22 +48,30 @@ const goal = StyleSheet.create({
   chipText: { fontSize: 12.5, fontWeight: '700', color: colors.primary },
 });
 
-function RoutineRow({ item, isLast }) {
+function RoutineRow({ item, isLast, onToggle }) {
+  const meta = ROUTINE_META[item.key] || {};
   return (
-    <View style={[routine.row, !isLast && routine.rowBorder]}>
+    <TouchableOpacity
+      style={[routine.row, !isLast && routine.rowBorder]}
+      onPress={onToggle}
+      activeOpacity={0.7}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: item.doneToday }}
+      accessibilityLabel={item.label}
+    >
       <View style={routine.iconWrap}>
-        <Ionicons name={item.icon} size={16} color={colors.primary} />
+        <Ionicons name={meta.icon || 'ellipse-outline'} size={16} color={colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={routine.name}>{item.name}</Text>
-        <Text style={routine.meta}>{item.meta}</Text>
+        <Text style={routine.name}>{item.label}</Text>
+        <Text style={routine.meta}>{meta.meta}{item.streak > 0 ? ` · 🔥 ${item.streak}` : ''}</Text>
       </View>
       <Ionicons
-        name={item.checked ? 'checkmark-circle' : 'ellipse-outline'}
+        name={item.doneToday ? 'checkmark-circle' : 'ellipse-outline'}
         size={22}
-        color={item.checked ? '#1EA868' : colors.borderLight}
+        color={item.doneToday ? '#1EA868' : colors.borderLight}
       />
-    </View>
+    </TouchableOpacity>
   );
 }
 const routine = StyleSheet.create({
@@ -81,6 +84,18 @@ const routine = StyleSheet.create({
 
 export default function LipVitalityScreen({ navigation }) {
   const [selectedGoals] = useState(GOALS);
+  const { tracker, error, reload, toggle } = useTracker('lips');
+  const score = tracker?.score;
+  const routineItems = tracker?.items ?? [];
+  // Score history from scans, followed by a "new scan" tile.
+  const progress = [
+    ...(tracker?.history ?? []).slice(-4).map((h) => ({
+      key: h.id,
+      label: new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase(),
+      score: h.score,
+    })),
+    { key: 'new', label: 'NEW SCAN', add: true },
+  ];
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -99,13 +114,16 @@ export default function LipVitalityScreen({ navigation }) {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ErrorBanner message={error} onRetry={reload} />
         <View style={styles.headingRow}>
           <View>
             <Text style={styles.eyebrow}>ANALYSIS</Text>
             <Text style={styles.heading}>Lip Vitality</Text>
           </View>
           <View style={styles.pigmentPill}>
-            <Text style={styles.pigmentPillText}>Uniform Pigment</Text>
+            <Text style={styles.pigmentPillText}>
+              {tracker?.change == null ? (score == null ? 'Not scanned yet' : 'First scan') : `${tracker.change >= 0 ? '+' : ''}${tracker.change} since last scan`}
+            </Text>
           </View>
         </View>
 
@@ -113,18 +131,18 @@ export default function LipVitalityScreen({ navigation }) {
         <View style={styles.metricRow}>
           <View style={styles.metricCard}>
             <Text style={styles.metricLabel}>Hydration</Text>
-            <Text style={styles.metricValue}>84%</Text>
+            <Text style={styles.metricValue}>{score == null ? '—' : `${score}%`}</Text>
             <View style={styles.barTrack}>
-              <View style={[styles.barFill, { width: '84%' }]} />
+              <View style={[styles.barFill, { width: `${score ?? 0}%` }]} />
             </View>
           </View>
           <View style={styles.metricCard}>
             <Text style={styles.metricLabel}>Surface Health</Text>
             <View style={styles.healthRow}>
               <Ionicons name="checkmark-circle" size={15} color="#1EA868" />
-              <Text style={styles.healthValue}>Excellent</Text>
+              <Text style={styles.healthValue}>{tracker?.metrics?.hydration ?? '—'}</Text>
             </View>
-            <Text style={styles.healthMeta}>No cracking</Text>
+            <Text style={styles.healthMeta}>{score == null ? 'Take a scan to measure' : 'From your latest scan'}</Text>
           </View>
         </View>
 
@@ -142,26 +160,31 @@ export default function LipVitalityScreen({ navigation }) {
         {/* Weekly progress */}
         <View style={styles.progressHeader}>
           <Text style={styles.sectionTitle}>Weekly Progress</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View history">
+          <TouchableOpacity onPress={() => navigation?.navigate('ScanHistory')} accessibilityRole="button" accessibilityLabel="View history">
             <Text style={styles.viewHistory}>View History</Text>
           </TouchableOpacity>
         </View>
         <FlatList
-          data={PHOTOS}
+          data={progress}
           keyExtractor={(p) => p.key}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 10, marginBottom: 22 }}
           renderItem={({ item }) => (
             item.add ? (
-              <View style={styles.addPhoto}>
+              <TouchableOpacity
+                style={styles.addPhoto}
+                onPress={() => navigation?.navigate('ScanFace')}
+                accessibilityRole="button"
+                accessibilityLabel="Take a new scan"
+              >
                 <Ionicons name="camera-outline" size={18} color={colors.primary} />
                 <Text style={styles.addPhotoText}>{item.label}</Text>
-              </View>
+              </TouchableOpacity>
             ) : (
-              <View style={styles.photoCol}>
-                <Image source={{ uri: item.uri }} style={styles.photo} resizeMode="cover" />
-                <Text style={styles.photoBadge}>{item.label}</Text>
+              <View style={[styles.addPhoto, styles.scoreTile]}>
+                <Text style={styles.scoreTileValue}>{item.score}</Text>
+                <Text style={styles.addPhotoText}>{item.label}</Text>
               </View>
             )
           )}
@@ -170,7 +193,9 @@ export default function LipVitalityScreen({ navigation }) {
         {/* Evening routine */}
         <Text style={styles.sectionTitle}>Evening Routine</Text>
         <View style={styles.routineCard}>
-          {ROUTINE.map((r, i) => <RoutineRow key={r.key} item={r} isLast={i === ROUTINE.length - 1} />)}
+          {routineItems.map((r, i) => (
+            <RoutineRow key={r.key} item={r} isLast={i === routineItems.length - 1} onToggle={() => toggle(r.key)} />
+          ))}
         </View>
 
         {/* Active products */}
@@ -210,6 +235,8 @@ export default function LipVitalityScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  scoreTile: { borderStyle: 'solid', backgroundColor: colors.white },
+  scoreTileValue: { fontSize: 20, fontWeight: '800', color: colors.primary },
   safe: { flex: 1, backgroundColor: colors.primaryBg },
   content: { paddingTop: 12, paddingBottom: 12 },
 

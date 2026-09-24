@@ -408,7 +408,10 @@ function ZoneCard({ zone }) {
 }
 
 // ─── Ancillary Zone Mini Card ─────────────────────────────────────────────────
-function AncillaryCard({ zone }) {
+// Each ancillary zone opens its dedicated tracker.
+const ANCILLARY_ROUTES = { lips: 'LipVitality', hair: 'ScalpTracker', brows: 'EyebrowTracker' };
+
+function AncillaryCard({ zone, onPress }) {
   const MINI_W = (SW - MX * 2 - 10) / 2;
   return (
     <TouchableOpacity
@@ -416,6 +419,7 @@ function AncillaryCard({ zone }) {
       activeOpacity={0.82}
       accessibilityRole="button"
       accessibilityLabel={zone.label}
+      onPress={onPress}
     >
       {/* Mini photo */}
       <View style={[styles.ancPhoto, { backgroundColor: zone.photoBg }]}>
@@ -442,7 +446,6 @@ function AncillaryCard({ zone }) {
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
-import { useAuthedRequest } from '../api/useAuthedRequest';
 
 export default function FullScanAnalysisScreen({ navigation, route }) {
   // Accept scan data from route.params (passed from ScanResults/ScanAnalyzing)
@@ -523,7 +526,11 @@ export default function FullScanAnalysisScreen({ navigation, route }) {
             <Text style={styles.ancHeader}>Ancillary Zones</Text>
             <View style={styles.ancRow}>
               {(ancillary || []).map(z => (
-                <AncillaryCard key={z.key} zone={z} />
+                <AncillaryCard
+                key={z.key}
+                zone={z}
+                onPress={() => ANCILLARY_ROUTES[z.key] && navigation?.navigate(ANCILLARY_ROUTES[z.key])}
+              />
               ))}
             </View>
           </View>

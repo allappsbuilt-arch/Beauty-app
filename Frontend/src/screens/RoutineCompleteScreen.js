@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { shareText } from '../utils/feedback';
 
 const SELFIE_URI = 'https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?w=400&q=60';
 
@@ -105,6 +106,7 @@ export default function RoutineCompleteScreen({ navigation, route }) {
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Add today's selfie"
+            onPress={() => navigation?.navigate('ScanFace')}
           >
             <Ionicons name="camera-outline" size={22} color={colors.primary} />
             <Text style={styles.addPhotoText}>Add Today's Selfie</Text>
@@ -117,6 +119,7 @@ export default function RoutineCompleteScreen({ navigation, route }) {
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Share my streak"
+          onPress={() => shareText(`I'm on a ${streak}-day skincare streak on BeautyApp!`)}
         >
           <Ionicons name="share-social-outline" size={16} color={colors.primary} />
           <Text style={styles.shareBtnText}>Share my streak</Text>
