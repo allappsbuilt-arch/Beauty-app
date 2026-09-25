@@ -16,8 +16,7 @@ import ScreenHeader from '../components/ScreenHeader';
 import ErrorBanner from '../components/ErrorBanner';
 import { usePreferences } from '../api/usePreferences';
 import { useAuth } from '../context/AuthContext';
-
-const AVATAR_URI = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=60';
+import InitialsAvatar from '../components/InitialsAvatar';
 
 function ToggleRow({ icon, label, desc, value, onChange }) {
   return (
@@ -88,7 +87,7 @@ export default function TeenageControlsScreen({ navigation }) {
         {/* ── Profile ── */}
         <View style={styles.profileCard}>
           <View style={styles.avatarWrap}>
-            <Image source={{ uri: AVATAR_URI }} style={styles.avatar} />
+            <InitialsAvatar name={user?.name} style={styles.avatar} />
             <View style={styles.activeDot} />
           </View>
           <View style={{ flex: 1 }}>
@@ -195,7 +194,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.borderLight, marginBottom: 22,
   },
   avatarWrap: { position: 'relative' },
-  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: colors.primary },
+  avatar: { borderWidth: 2, borderColor: colors.white },
   activeDot: {
     position: 'absolute', bottom: 0, right: 0, width: 13, height: 13, borderRadius: 7,
     backgroundColor: '#1EA868', borderWidth: 2, borderColor: colors.white,

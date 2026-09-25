@@ -45,6 +45,12 @@
           "photosPermission": "Allow MyFace AI to use your photos for face scans, label scans and style advice.",
           "cameraPermission": "Allow MyFace AI to use your camera to scan your face and product labels."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#C0405A"
+        }
       ]
     ],
     "extra": {

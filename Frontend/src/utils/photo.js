@@ -1,6 +1,7 @@
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, Share } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
 import { notify } from './feedback';
 
 const MAX_SIDE = 1024;
@@ -61,4 +62,25 @@ export async function choosePhoto(title = 'Add a photo') {
     ], { cancelable: true, onDismiss: () => resolve(null) });
   });
   return source ? pickPhoto(source) : null;
+}
+
+// Saves a generated image (data URL): a download on web, the share sheet
+// (Save Image / send to an app) on phones.
+export async function saveImage(dataUrl, name = 'myface-ai') {
+  try {
+    if (Platform.OS === 'web') {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `${name}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return;
+    }
+    const uri = `${FileSystem.cacheDirectory}${name}-${Date.now()}.png`;
+    await FileSystem.writeAsStringAsync(uri, dataUrl.split(',')[1], { encoding: FileSystem.EncodingType.Base64 });
+    await Share.share({ url: uri, message: Platform.OS === 'android' ? uri : undefined });
+  } catch (err) {
+    notify('Could not save image', err?.message || 'Please try again.');
+  }
 }

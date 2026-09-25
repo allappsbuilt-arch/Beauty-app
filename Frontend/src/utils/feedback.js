@@ -1,4 +1,4 @@
-import { Alert, Platform, Share } from 'react-native';
+import { Alert, Linking, Platform, Share } from 'react-native';
 
 // react-native-web's Alert.alert is a no-op, so fall back to the browser dialogs
 // there — otherwise buttons that only show an alert look dead on web.
@@ -23,8 +23,14 @@ export function confirm(title, message, confirmLabel = 'OK') {
   });
 }
 
-export function comingSoon(feature) {
-  notify(feature, 'This feature is coming soon.');
+// Opens a video tutorial search (YouTube) for a look or style.
+export async function openTutorial(query) {
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${query} tutorial`)}`;
+  try {
+    await Linking.openURL(url);
+  } catch {
+    notify('Could not open tutorials', 'Please check your connection and try again.');
+  }
 }
 
 export async function shareText(message) {

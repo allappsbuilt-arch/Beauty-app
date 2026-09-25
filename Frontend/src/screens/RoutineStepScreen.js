@@ -12,57 +12,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { goToTab } from '../utils/navigation';
 import ScreenHeader from '../components/ScreenHeader';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { notify } from '../utils/feedback';
+import { stepsForPeriod, periodFromTitle } from '../data/routineSteps';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const FEELINGS = ['Fresh', 'Tired', 'Glowy', 'Oily', 'Dry'];
-
-const AM_STEPS = [
-  {
-    key: 'cleanser',
-    category: 'CLEANSER',
-    title: 'Gentle Cleanser',
-    instructions: 'Massage onto damp skin for 30 seconds, then rinse with lukewarm water.',
-    image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600&q=60',
-  },
-  {
-    key: 'toner',
-    category: 'TONER & MIST',
-    title: 'Rose Water Revitalize',
-    instructions: 'Apply 3-4 sprays or use a cotton pad. This balances your pH levels and prepares your skin to absorb serums more effectively.',
-    image: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=600&q=60',
-  },
-  {
-    key: 'serum',
-    category: 'VITAMIN C SERUM',
-    title: 'Brightening Core',
-    instructions: 'Press 2-3 drops into skin, avoiding the eye area. Follow with moisturizer.',
-    image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=600&q=60',
-  },
-  {
-    key: 'eye',
-    category: 'EYE CARE',
-    title: 'Caffeine Eye Gel',
-    instructions: 'Dab gently along the orbital bone using your ring finger.',
-    image: 'https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?w=600&q=60',
-  },
-  {
-    key: 'moisturizer',
-    category: 'MOISTURIZER',
-    title: 'Barrier Repair Cream',
-    instructions: 'Warm a coin-sized amount between palms and press into skin.',
-    image: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=600&q=60',
-  },
-  {
-    key: 'spf',
-    category: 'SUN PROTECTION',
-    title: 'SPF 50+ Shield',
-    instructions: 'Apply generously as the final step, 15 minutes before sun exposure.',
-    image: 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=600&q=60',
-  },
-];
 
 // ─── Feeling chip ─────────────────────────────────────────────────────────────
 function FeelingChip({ label, active, onPress }) {
@@ -263,58 +220,70 @@ const active = StyleSheet.create({
 // ─── Screen ──────────────────────────────────────────────────────────────────
 export default function RoutineStepScreen({ navigation, route }) {
   const routineTitle = route?.params?.routineTitle ?? 'AM Routine';
-  const period = routineTitle.toUpperCase().startsWith('PM') ? 'PM' : 'AM';
-  const steps = AM_STEPS;
+  const period = periodFromTitle(routineTitle);
+  const steps = stepsForPeriod(period);
   const request = useAuthedRequest();
 
-  const [stepIndex, setStepIndex] = useState(1); // 0-based index of the current/active step
+  // Completion is tracked per step key (persisted by the backend), and the
+  // active step is always the first one not yet done.
+  const [completedKeys, setCompletedKeys] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [feeling, setFeeling] = useState('Fresh');
 
   useEffect(() => {
     request(`/api/routines/today?period=${period}`)
-      .then(({ completedStepKeys }) => {
-        const doneCount = steps.filter((s) => completedStepKeys.includes(s.key)).length;
-        if (doneCount > 0) setStepIndex(Math.min(doneCount, steps.length - 1));
-      })
+      .then(({ completedStepKeys }) => setCompletedKeys(completedStepKeys || []))
       .catch(() => {
-        // Fall back to the default starting step if the backend is unreachable.
+        // Start from step 1 if the backend is unreachable.
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const total = steps.length;
-  const current = steps[stepIndex];
-  const progress = (stepIndex + 1) / total;
+  const stepIndex = steps.findIndex((s) => !completedKeys.includes(s.key));
+  const allDone = stepIndex === -1;
+  const current = allDone ? null : steps[stepIndex];
+  const doneCount = allDone ? total : stepIndex;
+  const progress = doneCount / total;
 
   const finishRoutine = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
-      const { streak } = await request('/api/routines/finish', { method: 'POST', body: { period } });
+      const { streak, pointsAwarded } = await request('/api/routines/finish', { method: 'POST', body: { period } });
+      const params = { routineTitle, streak, pointsAwarded };
       navigation?.replace
-        ? navigation.replace('RoutineComplete', { routineTitle, streak })
-        : navigation?.navigate('RoutineComplete', { routineTitle, streak });
+        ? navigation.replace('RoutineComplete', params)
+        : navigation?.navigate('RoutineComplete', params);
     } catch (err) {
       notify('Could not save your routine', err?.message || 'Please check your connection and try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleComplete = async () => {
+    if (!current || saving) return;
+    setSaving(true);
     try {
-      await request('/api/routines/steps/complete', {
+      const { completedStepKeys } = await request('/api/routines/steps/complete', {
         method: 'POST',
         body: { period, stepKey: current.key },
       });
+      setCompletedKeys(completedStepKeys || [...completedKeys, current.key]);
     } catch (err) {
-      // Non-critical — still advance locally even if the write failed.
-    }
-
-    if (stepIndex + 1 >= total) {
-      finishRoutine();
-    } else {
-      setStepIndex(stepIndex + 1);
+      notify('Could not save this step', err?.message || 'Please check your connection and try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleFinish = () => {
+    if (!allDone) {
+      const left = total - doneCount;
+      notify('Almost there!', `Complete the remaining ${left} step${left === 1 ? '' : 's'} to finish your ${routineTitle}.`);
+      return;
+    }
     finishRoutine();
   };
 
@@ -326,7 +295,7 @@ export default function RoutineStepScreen({ navigation, route }) {
       <View style={styles.nav}>
         <TouchableOpacity
           style={styles.navBtn}
-          onPress={() => navigation?.goBack()}
+          onPress={() => (navigation?.canGoBack() ? navigation.goBack() : goToTab(navigation, 'Routine'))}
           accessibilityRole="button"
           accessibilityLabel="Close routine"
         >
@@ -335,7 +304,7 @@ export default function RoutineStepScreen({ navigation, route }) {
 
         <Text style={styles.navTitle}>{routineTitle}</Text>
 
-        <Text style={styles.navStep}>Step {stepIndex + 1} of {total}</Text>
+        <Text style={styles.navStep}>{allDone ? 'All done' : `Step ${stepIndex + 1} of ${total}`}</Text>
       </View>
 
       {/* Progress bar */}
@@ -359,17 +328,28 @@ export default function RoutineStepScreen({ navigation, route }) {
         <View style={{ height: 20 }} />
 
         {/* Completed steps */}
-        {steps.slice(0, stepIndex).map(s => (
+        {steps.slice(0, doneCount).map(s => (
           <CompletedStepRow key={s.key} title={s.title} />
         ))}
 
-        {/* Active step */}
-        <ActiveStepCard index={stepIndex + 1} step={current} onComplete={handleComplete} />
+        {allDone ? (
+          <View style={styles.allDoneCard}>
+            <Ionicons name="sparkles" size={20} color={colors.primary} />
+            <Text style={styles.allDoneText}>
+              Every step is done — tap Finish Routine to log today toward your streak.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Active step */}
+            <ActiveStepCard index={stepIndex + 1} step={current} onComplete={handleComplete} />
 
-        {/* Locked steps */}
-        {steps.slice(stepIndex + 1).map((s, i) => (
-          <LockedStepRow key={s.key} index={stepIndex + 2 + i} category={s.category} title={s.title} />
-        ))}
+            {/* Locked steps */}
+            {steps.slice(stepIndex + 1).map((s, i) => (
+              <LockedStepRow key={s.key} index={stepIndex + 2 + i} category={s.category} title={s.title} />
+            ))}
+          </>
+        )}
 
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -463,6 +443,15 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   finishBtnText: { color: colors.white, fontWeight: '800', fontSize: 15 },
+  allDoneCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16, marginBottom: 10,
+    borderWidth: 2, borderColor: colors.primary,
+  },
+  allDoneText: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.textMid },
   moreBtn: {
     width: 44, height: 44, borderRadius: 22,
     justifyContent: 'center', alignItems: 'center',

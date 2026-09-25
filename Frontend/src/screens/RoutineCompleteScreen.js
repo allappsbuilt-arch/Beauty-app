@@ -16,10 +16,10 @@ import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import { shareText } from '../utils/feedback';
 
-const SELFIE_URI = 'https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?w=400&q=60';
-
 export default function RoutineCompleteScreen({ navigation, route }) {
-  const streak = route?.params?.streak ?? 14;
+  const streak = route?.params?.streak ?? 0;
+  // Points are only awarded for the first routine finished each day.
+  const pointsAwarded = route?.params?.pointsAwarded ?? 0;
   const [note, setNote] = useState('');
 
   return (
@@ -55,9 +55,11 @@ export default function RoutineCompleteScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Points pill */}
-        <View style={styles.pointsPill}>
-          <Text style={styles.pointsText}>+50 points</Text>
-        </View>
+        {pointsAwarded > 0 && (
+          <View style={styles.pointsPill}>
+            <Text style={styles.pointsText}>+{pointsAwarded} points</Text>
+          </View>
+        )}
 
         {/* Flame badge */}
         <View style={styles.flameOuter}>
@@ -68,7 +70,7 @@ export default function RoutineCompleteScreen({ navigation, route }) {
 
         <Text style={styles.title}>Routine Complete!</Text>
         <Text style={styles.subtitle}>
-          {streak} Day Streak <Text style={styles.subtitlePlus}>+1</Text>
+          {streak} Day Streak{pointsAwarded > 0 && <Text style={styles.subtitlePlus}> +1</Text>}
         </Text>
 
         {/* Coach tip */}
@@ -100,7 +102,6 @@ export default function RoutineCompleteScreen({ navigation, route }) {
 
         {/* Photo row */}
         <View style={styles.photoRow}>
-          <Image source={{ uri: SELFIE_URI }} style={styles.photo} resizeMode="cover" />
           <TouchableOpacity
             style={styles.addPhoto}
             activeOpacity={0.8}
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sectionBg,
   },
   addPhoto: {
-    flex: 1, aspectRatio: 1,
+    flex: 1, paddingVertical: 22,
     borderRadius: 16,
     backgroundColor: colors.primaryPale,
     borderWidth: 1.5, borderColor: colors.accentDark, borderStyle: 'dashed',

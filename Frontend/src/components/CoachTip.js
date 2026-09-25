@@ -67,7 +67,7 @@ export default function CoachTip({ onMicPress }) {
 
         <TouchableOpacity
           style={styles.micBtn}
-          onPress={onMicPress}
+          onPress={() => onMicPress?.(TIPS[tipIndex].replace(/^"|"$/g, ''))}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel="Voice reply to coach"

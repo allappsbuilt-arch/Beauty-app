@@ -76,6 +76,14 @@ export function AuthProvider({ children }) {
     setUser(GUEST_USER);
   }, []);
 
+  // Rename the signed-in user; the new name shows everywhere immediately.
+  const updateProfile = useCallback(async ({ name }) => {
+    const { user: updated } = await apiRequest('/api/auth/me', { method: 'PATCH', body: { name }, token });
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(updated));
+    setUser(updated);
+    return updated;
+  }, [token]);
+
   const logout = useCallback(async () => {
     await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
     setToken(null);
@@ -93,8 +101,8 @@ export function AuthProvider({ children }) {
   }, [logout]);
 
   const value = useMemo(
-    () => ({ token, user, isLoading, isAuthenticated: !!token, isGuest: token === GUEST_TOKEN, error, setError, login, signup, logout, continueAsGuest }),
-    [token, user, isLoading, error, login, signup, logout, continueAsGuest]
+    () => ({ token, user, isLoading, isAuthenticated: !!token, isGuest: token === GUEST_TOKEN, error, setError, login, signup, logout, continueAsGuest, updateProfile }),
+    [token, user, isLoading, error, login, signup, logout, continueAsGuest, updateProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

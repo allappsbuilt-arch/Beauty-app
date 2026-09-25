@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 
@@ -34,9 +34,13 @@ const STATS = [
   },
 ];
 
-function StatItem({ icon, value, label, color, bg, isLast }) {
+function StatItem({ icon, value, label, color, bg, isLast, onPress }) {
+  const Wrapper = onPress ? TouchableOpacity : View;
+  const pressProps = onPress
+    ? { onPress, activeOpacity: 0.7, accessibilityRole: 'button', accessibilityLabel: `${label}: ${value}` }
+    : {};
   return (
-    <View style={[styles.item, !isLast && styles.itemBorder]}>
+    <Wrapper style={[styles.item, !isLast && styles.itemBorder]} {...pressProps}>
       {/* Coloured icon pill */}
       <View style={[styles.iconPill, { backgroundColor: bg }]}>
         <Ionicons name={icon} size={17} color={color} />
@@ -45,7 +49,7 @@ function StatItem({ icon, value, label, color, bg, isLast }) {
       <Text style={[styles.value, { color }]}>{value}</Text>
       {/* Label */}
       <Text style={styles.label}>{label}</Text>
-    </View>
+    </Wrapper>
   );
 }
 

@@ -15,9 +15,6 @@ import { colors } from '../theme/colors';
 import ErrorBanner from '../components/ErrorBanner';
 import { useTracker } from '../api/useTracker';
 
-const PHOTO_1 = 'https://images.unsplash.com/photo-1583001809873-a128495da465?w=300&q=60';
-const PHOTO_2 = 'https://images.unsplash.com/photo-1583001931096-959e9a1a6223?w=300&q=60';
-
 
 // ─── Score ring ────────────────────────────────────────────────────────────
 function ScoreRing({ percent, label, tint }) {
@@ -175,8 +172,12 @@ export default function EyelashTrackerScreen({ navigation }) {
         </View>
 
         <View style={styles.photoRow}>
-          <Image source={{ uri: PHOTO_1 }} style={styles.photo} resizeMode="cover" />
-          <Image source={{ uri: PHOTO_2 }} style={styles.photo} resizeMode="cover" />
+          {(tracker?.history ?? []).slice(-2).map((h) => (
+            <View key={h.id} style={[styles.photo, styles.scoreTile]}>
+              <Text style={styles.scoreTileValue}>{h.score}</Text>
+              <Text style={styles.scoreTileDate}>{new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}</Text>
+            </View>
+          ))}
           <TouchableOpacity
             style={styles.addPhoto}
             activeOpacity={0.8}
@@ -219,6 +220,9 @@ export default function EyelashTrackerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  scoreTile: { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderLight },
+  scoreTileValue: { fontSize: 22, fontWeight: '800', color: colors.primary },
+  scoreTileDate: { fontSize: 10, fontWeight: '700', color: colors.textFaint, marginTop: 2 },
   noScan: { fontSize: 13, color: colors.textMid, textAlign: 'center', marginHorizontal: 24, marginBottom: 12 },
   safe: { flex: 1, backgroundColor: colors.primaryBg },
   scroll: { flex: 1 },

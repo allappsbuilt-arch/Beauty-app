@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ErrorBanner from '../components/ErrorBanner';
-import { comingSoon, notify } from '../utils/feedback';
+import { notify } from '../utils/feedback';
 import { useApiData } from '../api/useApiData';
 
 const SKIN_TYPES = ['Oily', 'Dry', 'Combination', 'Normal', 'Sensitive'];
@@ -124,10 +124,6 @@ function ReviewCard({ item, index, onToggleHelpful }) {
         >
           <Ionicons name={item.markedHelpful ? 'thumbs-up' : 'thumbs-up-outline'} size={14} color={item.markedHelpful ? colors.primary : colors.textMid} />
           <Text style={rev.footerBtnText}>Helpful ({item.helpful})</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={rev.footerBtn} onPress={() => comingSoon('Replies')} accessibilityRole="button" accessibilityLabel="Reply">
-          <Ionicons name="chatbubble-outline" size={14} color={colors.textMid} />
-          <Text style={rev.footerBtnText}>Reply</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { goToTab } from '../utils/navigation';
 import ScreenHeader from '../components/ScreenHeader';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { useAuth } from '../context/AuthContext';
@@ -100,7 +101,7 @@ export default function WelcomeBackScreen({ navigation }) {
           <TouchableOpacity
             style={styles.primaryBtn}
             activeOpacity={0.85}
-            onPress={() => navigation?.navigate('Tabs', { screen: 'Routine' })}
+            onPress={() => goToTab(navigation, 'Routine')}
             accessibilityRole="button"
             accessibilityLabel="Fresh start"
           >

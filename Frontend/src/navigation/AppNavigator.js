@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useAuthedRequest } from '../api/useAuthedRequest';
+import { remindersSupported, syncRemindersFromServer, cancelReminders } from '../utils/reminders';
 import LoginScreen  from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 
@@ -49,6 +52,15 @@ import PrivacyScreen           from '../screens/PrivacyScreen';
 import ScanHistoryScreen       from '../screens/ScanHistoryScreen';
 import TeenageControlsScreen   from '../screens/TeenageControlsScreen';
 import MyCommunitiesScreen     from '../screens/MyCommunitiesScreen';
+import VirtualTryOnScreen      from '../screens/VirtualTryOnScreen';
+import AgingSimulatorScreen    from '../screens/AgingSimulatorScreen';
+import SymmetryCheckScreen     from '../screens/SymmetryCheckScreen';
+import TransformationTimelapseScreen from '../screens/TransformationTimelapseScreen';
+import CreatePostScreen        from '../screens/CreatePostScreen';
+import PostCommentsScreen      from '../screens/PostCommentsScreen';
+import UserProfileScreen       from '../screens/UserProfileScreen';
+import StoryViewerScreen       from '../screens/StoryViewerScreen';
+import MindfulnessSessionScreen from '../screens/MindfulnessSessionScreen';
 import { colors } from '../theme/colors';
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
@@ -134,15 +146,60 @@ function AuthLoadingScreen() {
   );
 }
 
+const navigationRef = createNavigationContainerRef();
+
+// Keeps the device's routine reminders in step with the signed-in account,
+// and opens the right routine when a reminder is tapped.
+function useRoutineReminders({ isAuthenticated, isGuest }) {
+  const request = useAuthedRequest();
+  // A tapped reminder waits here until the user is signed in and navigation
+  // is ready (e.g. the app was launched by tapping it).
+  const pendingRoutine = useRef(null);
+  const signedIn = useRef(isAuthenticated);
+  signedIn.current = isAuthenticated;
+
+  const flushPending = useCallback(() => {
+    if (pendingRoutine.current && signedIn.current && navigationRef.isReady()) {
+      navigationRef.navigate('RoutineStep', { routineTitle: pendingRoutine.current });
+      pendingRoutine.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!remindersSupported || isGuest) return;
+    if (!isAuthenticated) { cancelReminders(); return; }
+    // No permission prompt here — that happens when the user saves a reminder.
+    syncRemindersFromServer(request).catch(() => {});
+    flushPending();
+  }, [isAuthenticated, isGuest, request, flushPending]);
+
+  useEffect(() => {
+    if (!remindersSupported) return undefined;
+    const open = (response) => {
+      const routineTitle = response?.notification?.request?.content?.data?.routineTitle;
+      if (!routineTitle) return;
+      pendingRoutine.current = routineTitle;
+      flushPending();
+    };
+    // Launched by tapping a reminder (checked once per app start).
+    Notifications.getLastNotificationResponseAsync().then(open).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
+    return () => sub.remove();
+  }, [flushPending]);
+
+  return flushPending; // NavigationContainer onReady
+}
+
 export default function AppNavigator() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isGuest } = useAuth();
+  const onNavigationReady = useRoutineReminders({ isAuthenticated, isGuest });
 
   if (isLoading) {
     return <AuthLoadingScreen />;
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef} onReady={onNavigationReady}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <>
@@ -330,6 +387,58 @@ export default function AppNavigator() {
         <Stack.Screen
           name="MyCommunities"
           component={MyCommunitiesScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        {/* All Tools: "See All" category list + photo-based AI tools */}
+        <Stack.Screen
+          name="ToolCategory"
+          component={AllToolsScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="VirtualTryOn"
+          component={VirtualTryOnScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="AgingSimulator"
+          component={AgingSimulatorScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="SymmetryCheck"
+          component={SymmetryCheckScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="TransformationTimelapse"
+          component={TransformationTimelapseScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        {/* Socials */}
+        <Stack.Screen
+          name="CreatePost"
+          component={CreatePostScreen}
+          options={{ animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen
+          name="PostComments"
+          component={PostCommentsScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="UserProfile"
+          component={UserProfileScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="StoryViewer"
+          component={StoryViewerScreen}
+          options={{ animation: 'fade', presentation: 'fullScreenModal' }}
+        />
+        <Stack.Screen
+          name="MindfulnessSession"
+          component={MindfulnessSessionScreen}
           options={{ animation: 'slide_from_right' }}
         />
         </>

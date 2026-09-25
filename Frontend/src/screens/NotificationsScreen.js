@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuthedRequest } from '../api/useAuthedRequest';
+import { syncRemindersFromServer } from '../utils/reminders';
 
 const BANNER_URI = 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&q=60';
 
@@ -63,17 +64,23 @@ export default function NotificationsScreen({ navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Routine reminders are scheduled on the device, so re-sync them whenever
+  // a setting that affects them changes (asking for permission when enabling).
+  const resyncReminders = (enabling) => syncRemindersFromServer(request, { ask: enabling }).catch(() => {});
+
   const handleMuteAll = (next) => {
     setMuteAll(next);
-    request('/api/settings/notifications', { method: 'PUT', body: { muteAll: next } }).catch(() => {});
+    request('/api/settings/notifications', { method: 'PUT', body: { muteAll: next } })
+      .then(() => resyncReminders(!next))
+      .catch(() => {});
   };
 
   const toggle = (key) => {
-    setValues((v) => {
-      const next = { ...v, [key]: !v[key] };
-      request('/api/settings/notifications', { method: 'PUT', body: { categories: { [key]: next[key] } } }).catch(() => {});
-      return next;
-    });
+    const nextValue = !values[key];
+    setValues((v) => ({ ...v, [key]: nextValue }));
+    request('/api/settings/notifications', { method: 'PUT', body: { categories: { [key]: nextValue } } })
+      .then(() => { if (key === 'routine') resyncReminders(nextValue); })
+      .catch(() => {});
   };
 
   return (

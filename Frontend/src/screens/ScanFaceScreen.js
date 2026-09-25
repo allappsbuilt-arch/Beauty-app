@@ -13,9 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { notify } from '../utils/feedback';
-import { pickPhoto, toUploadable } from '../utils/photo';
+import { pickPhoto } from '../utils/photo';
+import LiveCamera from '../components/LiveCamera';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -24,18 +24,24 @@ const { width: SW, height: SH } = Dimensions.get('window');
 // using border + opacity. React Native doesn't natively support dashed borders
 // on all platforms, so we layer two ovals + a CSS dash trick via borderStyle.
 
-const OVAL_W = SW * 0.72;
-const OVAL_H = OVAL_W * 1.38;
+const OVAL_ASPECT = 1.38; // height / width
 
-function DashedOval({ animOpacity }) {
+// Sized from the screen's measured layout (not the window) so it fits the
+// phone frame on web as well as real devices.
+function ovalSize(box) {
+  const width = Math.min(box.w * 0.72, (box.h * 0.55) / OVAL_ASPECT);
+  return { width, height: width * OVAL_ASPECT };
+}
+
+function DashedOval({ animOpacity, width, height }) {
   return (
     <Animated.View
-      style={[oval.container, { opacity: animOpacity, pointerEvents: 'none' }]}
+      style={[oval.container, { width, height, borderRadius: width / 2, opacity: animOpacity, pointerEvents: 'none' }]}
     >
       {/* Outer glow ring */}
-      <View style={oval.glowRing} />
+      <View style={[oval.glowRing, { borderRadius: (width + 12) / 2 }]} />
       {/* Dashed oval border — using borderStyle dashed */}
-      <View style={oval.dashedRing} />
+      <View style={[oval.dashedRing, { borderRadius: width / 2 }]} />
     </Animated.View>
   );
 }
@@ -43,9 +49,6 @@ function DashedOval({ animOpacity }) {
 const oval = StyleSheet.create({
   container: {
     position: 'absolute',
-    width: OVAL_W,
-    height: OVAL_H,
-    borderRadius: OVAL_W / 2,
     alignSelf: 'center',
   },
   // soft pink outer glow
@@ -53,14 +56,12 @@ const oval = StyleSheet.create({
     position: 'absolute',
     top: -6, left: -6,
     right: -6, bottom: -6,
-    borderRadius: (OVAL_W + 12) / 2,
     borderWidth: 1,
     borderColor: 'rgba(220,120,160,0.18)',
   },
   // dashed inner ring
   dashedRing: {
     flex: 1,
-    borderRadius: OVAL_W / 2,
     borderWidth: 2,
     borderColor: 'rgba(230,160,190,0.90)',
     borderStyle: 'dashed',
@@ -221,62 +222,14 @@ const shutter = StyleSheet.create({
   },
 });
 
-// ─── Camera Viewfinder ──────────────────────────────────────────────────────
-// Live front camera once permission is granted; a neutral backdrop until then.
-
-function Viewfinder({ cameraRef, granted, flash, onReady, children }) {
-  return (
-    <View style={vf.container}>
-      {granted ? (
-        <CameraView
-          ref={cameraRef}
-          style={StyleSheet.absoluteFill}
-          facing="front"
-          flash={flash ? 'on' : 'off'}
-          mirror
-          onCameraReady={onReady}
-        />
-      ) : (
-        <>
-          <View style={vf.bg} />
-          <View style={vf.centreGlow} />
-        </>
-      )}
-      {children}
-    </View>
-  );
-}
-
-const vf = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#C4A882',  // warm neutral skin tone
-    overflow: 'hidden',
-  },
-  // subtle radial gradient simulation via a large circle
-  bg: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#B8977A',
-  },
-  centreGlow: {
-    position: 'absolute',
-    top: SH * 0.15, left: SW * 0.20,
-    width: SW * 0.6, height: SW * 0.8,
-    borderRadius: SW * 0.4,
-    backgroundColor: 'rgba(240,210,185,0.50)',
-  },
-});
-
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function ScanFaceScreen({ navigation }) {
   const [scanning, setScanning]   = useState(false);
   const [analysing, setAnalysing] = useState(false);
   const [flash, setFlash] = useState(false);
-  const [cameraReady, setCameraReady] = useState(false);
-  const [permission, requestPermission] = useCameraPermissions();
+  const [cameraStatus, setCameraStatus] = useState('starting');
   const cameraRef = useRef(null);
-  const granted = !!permission?.granted;
   // Oval pulse animation
   const ovalOpacity = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -297,17 +250,16 @@ export default function ScanFaceScreen({ navigation }) {
   const startAnalysis = (image) => navigation?.navigate('ScanAnalyzing', { image });
 
   const handleShutter = async () => {
-    if (!granted) {
-      const res = await requestPermission();
-      if (!res.granted) notify('Camera access needed', 'Allow camera access in your settings, or upload a photo from your gallery instead.');
+    if (cameraStatus !== 'ready') {
+      // No live camera (denied / unavailable): fall back to the gallery.
+      if (cameraStatus !== 'starting') handleGallery();
       return;
     }
-    if (!cameraReady || scanning) return;
+    if (scanning) return;
     setScanning(true);
     setAnalysing(true);
     try {
-      const shot = await cameraRef.current.takePictureAsync({ quality: 0.9 });
-      startAnalysis(await toUploadable(shot.uri, shot.width, shot.height));
+      startAnalysis(await cameraRef.current.capture());
     } catch (err) {
       notify('Could not take photo', err.message);
     } finally {
@@ -321,15 +273,21 @@ export default function ScanFaceScreen({ navigation }) {
     if (image) startAnalysis(image);
   };
 
+  // Measured size of this screen (the window size until the first layout).
+  const [box, setBox] = useState({ w: SW, h: SH });
+  const { width: OVAL_W, height: OVAL_H } = ovalSize(box);
   // Oval vertical centre (roughly upper-middle of screen)
-  const OVAL_TOP = SH * 0.13;
+  const OVAL_TOP = box.h * 0.13;
 
   return (
-    <View style={styles.root}>
+    <View
+      style={styles.root}
+      onLayout={(e) => setBox({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+    >
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       {/* ── Full-screen camera viewfinder ── */}
-      <Viewfinder cameraRef={cameraRef} granted={granted} flash={flash} onReady={() => setCameraReady(true)}>
+      <LiveCamera ref={cameraRef} style={{ flex: 1 }} flash={flash} onStatusChange={setCameraStatus}>
 
         {/* ── Top nav overlay ── */}
         <View style={styles.topBar}>
@@ -370,10 +328,10 @@ export default function ScanFaceScreen({ navigation }) {
         <View
           style={[
             styles.ovalPositioner,
-            { top: OVAL_TOP, pointerEvents: 'none' },
+            { top: OVAL_TOP, left: (box.w - OVAL_W) / 2, width: OVAL_W, height: OVAL_H, pointerEvents: 'none' },
           ]}
         >
-          <DashedOval animOpacity={ovalOpacity} />
+          <DashedOval animOpacity={ovalOpacity} width={OVAL_W} height={OVAL_H} />
         </View>
 
         {/* ── Tip callouts ── */}
@@ -392,16 +350,18 @@ export default function ScanFaceScreen({ navigation }) {
           style={{ top: OVAL_TOP + OVAL_H * 0.52 }}
         />
 
-      </Viewfinder>
+      </LiveCamera>
 
       {/* ── Bottom panel (sits over the viewfinder) ── */}
       <View style={styles.bottomPanel}>
         {/* Status text */}
-        <Text style={styles.holdText}>{granted ? 'Hold still' : 'Camera access needed'}</Text>
+        <Text style={styles.holdText}>
+          {cameraStatus === 'ready' ? 'Hold still' : cameraStatus === 'starting' ? 'Starting camera…' : 'No live camera'}
+        </Text>
         <Text style={styles.analysingText}>
-          {!granted
-            ? 'Tap the button to allow the camera, or upload a photo'
-            : analysing ? 'Capturing…' : 'Position your face in the oval'}
+          {cameraStatus === 'ready'
+            ? (analysing ? 'Capturing…' : 'Position your face in the oval')
+            : cameraStatus === 'starting' ? 'Allow camera access if asked' : 'Tap the button to upload a photo instead'}
         </Text>
 
         {/* Shutter */}
@@ -446,9 +406,6 @@ const styles = StyleSheet.create({
   // ── Oval positioner ───────────────────────────────────────
   ovalPositioner: {
     position: 'absolute',
-    left: (SW - OVAL_W) / 2,
-    width: OVAL_W,
-    height: OVAL_H,
   },
 
   // ── Bottom panel ──────────────────────────────────────────

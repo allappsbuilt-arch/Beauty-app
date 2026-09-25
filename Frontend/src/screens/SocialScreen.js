@@ -1,104 +1,68 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   StatusBar,
-  Platform,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
+import { useAuthedRequest } from '../api/useAuthedRequest';
+import PostCard from '../components/social/PostCard';
+import UserAvatar from '../components/social/UserAvatar';
+import { usePostList } from '../components/social/usePostList';
+import { avatarColors, firstName, initialsOf } from '../components/social/socialUtils';
+import { goToTab } from '../utils/navigation';
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const STORIES = [
-  { id: '0', isNew: true,  label: 'New Story', initials: '+',  color: colors.primary,  bg: colors.primaryPale },
-  { id: '1', isNew: false, label: 'Alex',      initials: 'AL', color: '#D96080',        bg: '#FFF0F3' },
-  { id: '2', isNew: false, label: 'Maya',      initials: 'MA', color: '#C77DFF',        bg: '#F5EEFF' },
-  { id: '3', isNew: false, label: 'Jordan',    initials: 'JO', color: '#48B8E0',        bg: '#EDF8FE' },
-  { id: '4', isNew: false, label: 'Elena',     initials: 'EL', color: '#F07840',        bg: '#FFF4EC' },
+const TABS = [
+  { key: 'following', label: 'Following' },
+  { key: 'discover', label: 'Discover' },
 ];
-
-const POSTS = [
-  {
-    id: '1',
-    user: 'Sarah Miller',
-    initials: 'SM',
-    avatarColor: '#D96080',
-    avatarBg: '#FFF0F3',
-    time: '2 hours ago',
-    tag: 'Morning Flow',
-    tagColor: '#28A090',
-    tagBg: '#E6F8F5',
-    // yoga / wellness image placeholder rendered as gradient block
-    imageAspect: 0.72,
-    imageTint: '#8BB89A',
-    likes: 1200,
-    comments: 24,
-    liked: false,
-    caption: 'Finally hit my 30-day streak of morning mindfulness! It\'s amazing how much more centered I feel throughout the day...',
-    hasMore: true,
-  },
-  {
-    id: '2',
-    user: 'David Chen',
-    initials: 'DC',
-    avatarColor: '#3A8ED4',
-    avatarBg: '#EAF4FD',
-    time: '5 hours ago',
-    tag: 'HIIT Challenge',
-    tagColor: '#E07840',
-    tagBg: '#FFF3EC',
-    imageAspect: 0.68,
-    imageTint: '#7A6A8A',
-    likes: 856,
-    comments: 12,
-    liked: false,
-    caption: 'Push day was brutal but worth it. Tracking my progress using the new MyFace AI Coach is a game changer for real-time form correction.',
-    hasMore: true,
-  },
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatCount(n) {
-  if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k';
-  return String(n);
-}
 
 // ─── Live Banner ──────────────────────────────────────────────────────────────
+// The daily guided mindfulness session. "LIVE NOW" only shows while other
+// members are actually in the session; otherwise it shows today's count.
 
-function LiveBanner() {
+function LiveBanner({ live, onPress }) {
+  const isLive = live?.liveCount > 0;
+  const pill = isLive
+    ? `LIVE NOW · ${live.liveCount} IN SESSION`
+    : live?.completedToday ? 'DONE TODAY ✓' : live?.todayCount ? `${live.todayCount} JOINED TODAY` : 'DAILY SESSION';
   return (
     <TouchableOpacity
       style={styles.liveBanner}
       activeOpacity={0.88}
+      onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Watch live: Daily Mindfulness Routine"
+      accessibilityLabel={`${isLive ? 'Join live' : 'Start'}: ${live?.title ?? 'Daily Mindfulness Routine'}`}
     >
-      {/* Avatar */}
       <View style={styles.liveAvatarWrap}>
         <View style={styles.liveAvatar}>
-          <Ionicons name="person" size={16} color={colors.white} />
+          <Ionicons name={isLive ? 'person' : 'leaf'} size={16} color={colors.white} />
         </View>
-        {/* LIVE dot */}
-        <View style={styles.liveDotBadge}>
-          <View style={styles.liveDotInner} />
-        </View>
+        {isLive && (
+          <View style={styles.liveDotBadge}>
+            <View style={styles.liveDotInner} />
+          </View>
+        )}
       </View>
 
-      {/* Text */}
       <View style={styles.liveText}>
         <View style={styles.liveLabelRow}>
           <View style={styles.livePill}>
-            <Text style={styles.livePillText}>LIVE NOW</Text>
+            <Text style={styles.livePillText}>{pill}</Text>
           </View>
         </View>
-        <Text style={styles.liveTitle} numberOfLines={1}>Daily Mindfulness Routine</Text>
+        <Text style={styles.liveTitle} numberOfLines={1}>{live?.title ?? 'Daily Mindfulness Routine'}</Text>
       </View>
 
       <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.8)" />
@@ -106,173 +70,32 @@ function LiveBanner() {
   );
 }
 
-// ─── Story Bubble ─────────────────────────────────────────────────────────────
+// ─── Stories ─────────────────────────────────────────────────────────────────
 
-function StoryBubble({ story }) {
-  const isAdd = story.id === '0';
+function StoryBubble({ label, user, isAdd, onPress }) {
+  const { color, bg } = avatarColors(user?.id || '');
   return (
     <TouchableOpacity
       style={styles.storyWrap}
       activeOpacity={0.80}
+      onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={isAdd ? 'Create new story' : `${story.label}'s story`}
+      accessibilityLabel={isAdd ? 'Create new story' : `${label}'s story`}
     >
-      {/* ring only on real stories */}
-      <View style={[
-        styles.storyRing,
-        isAdd  && styles.storyRingAdd,
-        !isAdd && styles.storyRingActive,
-      ]}>
-        <View style={[styles.storyCircle, { backgroundColor: story.bg }]}>
+      <View style={[styles.storyRing, isAdd ? styles.storyRingAdd : styles.storyRingActive]}>
+        <View style={[styles.storyCircle, { backgroundColor: isAdd ? colors.primaryPale : bg }]}>
           {isAdd
             ? <Ionicons name="add" size={22} color={colors.primary} />
-            : <Text style={[styles.storyInitials, { color: story.color }]}>{story.initials}</Text>
-          }
+            : <Text style={[styles.storyInitials, { color }]}>{initialsOf(user?.name)}</Text>}
         </View>
-        {/* add badge */}
         {isAdd && (
           <View style={styles.addBadge}>
             <Ionicons name="add" size={10} color={colors.white} />
           </View>
         )}
       </View>
-      <Text style={styles.storyLabel} numberOfLines={1}>{story.label}</Text>
+      <Text style={styles.storyLabel} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
-  );
-}
-
-// ─── Image Placeholder ────────────────────────────────────────────────────────
-// Since we don't have real photo assets, we render a soft abstract "aurora"
-// card instead of a flat tint + icon — reads as an intentional editorial
-// treatment rather than a broken/missing image.
-
-function PostImage({ tint, aspect }) {
-  const height = Math.round(260 * aspect);
-  return (
-    <View style={[styles.postImageWrap, { height, backgroundColor: tint }]}>
-      <View style={[styles.postImageBlobA, { backgroundColor: colors.white }]} pointerEvents="none" />
-      <View style={[styles.postImageBlobB, { backgroundColor: '#00000022' }]} pointerEvents="none" />
-      <View style={styles.postImageOverlay} pointerEvents="none" />
-    </View>
-  );
-}
-
-// ─── Post Card ────────────────────────────────────────────────────────────────
-
-function PostCard({ post }) {
-  const [liked, setLiked]   = useState(post.liked);
-  const [likes, setLikes]   = useState(post.likes);
-  const [saved, setSaved]   = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  const toggleLike = () => {
-    setLiked(v => !v);
-    setLikes(n => liked ? n - 1 : n + 1);
-  };
-
-  return (
-    <View style={styles.card}>
-
-      {/* ── Header row ── */}
-      <View style={styles.cardHeader}>
-        {/* Avatar */}
-        <View style={[styles.cardAvatarRing, { borderColor: post.avatarColor + '55' }]}>
-          <View style={[styles.cardAvatar, { backgroundColor: post.avatarBg }]}>
-            <Text style={[styles.cardAvatarText, { color: post.avatarColor }]}>
-              {post.initials}
-            </Text>
-          </View>
-        </View>
-
-        {/* Name + tag + time */}
-        <View style={styles.cardMeta}>
-          <View style={styles.cardNameRow}>
-            <Text style={styles.cardUser}>{post.user}</Text>
-            <View style={[styles.tagPill, { backgroundColor: post.tagBg }]}>
-              <Text style={[styles.tagText, { color: post.tagColor }]}>{post.tag}</Text>
-            </View>
-          </View>
-          <Text style={styles.cardTime}>{post.time}</Text>
-        </View>
-
-        {/* More */}
-        <TouchableOpacity
-          style={styles.moreBtn}
-          accessibilityRole="button"
-          accessibilityLabel="More options"
-        >
-          <Ionicons name="ellipsis-horizontal" size={18} color={colors.textFaint} />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Post image ── */}
-      <PostImage tint={post.imageTint} aspect={post.imageAspect} />
-
-      {/* ── Action bar ── */}
-      <View style={styles.actionBar}>
-        {/* Left: like / comment / share */}
-        <View style={styles.actionLeft}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={toggleLike}
-            accessibilityRole="button"
-            accessibilityLabel={liked ? 'Unlike' : 'Like'}
-          >
-            <Ionicons
-              name={liked ? 'heart' : 'heart-outline'}
-              size={22}
-              color={liked ? colors.primary : colors.textMid}
-            />
-            <Text style={[styles.actionCount, liked && styles.actionCountLiked]}>
-              {formatCount(likes)}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Comments"
-          >
-            <Ionicons name="chatbubble-outline" size={20} color={colors.textMid} />
-            <Text style={styles.actionCount}>{post.comments}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Share"
-          >
-            <Ionicons name="arrow-redo-outline" size={20} color={colors.textMid} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Right: save */}
-        <TouchableOpacity
-          onPress={() => setSaved(v => !v)}
-          accessibilityRole="button"
-          accessibilityLabel={saved ? 'Unsave' : 'Save'}
-        >
-          <Ionicons
-            name={saved ? 'bookmark' : 'bookmark-outline'}
-            size={21}
-            color={saved ? colors.primary : colors.textMid}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Caption ── */}
-      <View style={styles.captionWrap}>
-        <Text style={styles.captionText} numberOfLines={expanded ? undefined : 2}>
-          <Text style={styles.captionUser}>{post.user} </Text>
-          {post.caption}
-        </Text>
-        {post.hasMore && !expanded && (
-          <TouchableOpacity onPress={() => setExpanded(true)}>
-            <Text style={styles.readMore}>read more</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
   );
 }
 
@@ -281,28 +104,183 @@ function PostCard({ post }) {
 function TabBar({ active, onToggle }) {
   return (
     <View style={styles.tabBar}>
-      {['Following', 'Discover'].map(t => (
+      {TABS.map((t) => (
         <TouchableOpacity
-          key={t}
+          key={t.key}
           style={styles.tabItem}
-          onPress={() => onToggle(t)}
+          onPress={() => onToggle(t.key)}
           accessibilityRole="tab"
-          accessibilityState={{ selected: active === t }}
+          accessibilityState={{ selected: active === t.key }}
+          accessibilityLabel={t.label}
         >
-          <Text style={[styles.tabText, active === t && styles.tabTextActive]}>
-            {t}
-          </Text>
-          {active === t && <View style={styles.tabIndicator} />}
+          <Text style={[styles.tabText, active === t.key && styles.tabTextActive]}>{t.label}</Text>
+          {active === t.key && <View style={styles.tabIndicator} />}
         </TouchableOpacity>
       ))}
     </View>
   );
 }
 
+// ─── People to follow ────────────────────────────────────────────────────────
+
+function Suggestions({ users, navigation }) {
+  if (!users.length) return null;
+  return (
+    <View style={styles.suggestWrap}>
+      <Text style={styles.suggestTitle}>PEOPLE TO FOLLOW</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestRow}>
+        {users.map((u) => (
+          <TouchableOpacity key={u.id} style={styles.suggestCard}
+            onPress={() => navigation?.navigate('UserProfile', { userId: u.id })}
+            accessibilityRole="button" accessibilityLabel={`Open ${u.name}'s profile`}>
+            <UserAvatar user={u} size={46} />
+            <Text style={styles.suggestName} numberOfLines={1}>{firstName(u.name)}</Text>
+            <Text style={styles.suggestAction}>View</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
+const emptyTab = { loaded: false, loading: false, error: null, cursor: null, loadingMore: false };
+
 export default function SocialScreen({ navigation }) {
-  const [activeTab, setActiveTab] = useState('Following');
+  const request = useAuthedRequest();
+  const [activeTab, setActiveTab] = useState('following');
+  const [tabState, setTabState] = useState({ following: emptyTab, discover: emptyTab });
+  const [live, setLive] = useState(null);
+  const [stories, setStories] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [headerError, setHeaderError] = useState(null);
+
+  // Each tab keeps its own list; both stay in sync with likes/comments/etc.
+  const staleRef = useRef(false);
+  const markStale = useCallback(() => { staleRef.current = true; }, []);
+  const [followingPosts, setFollowingPosts] = usePostList(markStale);
+  const [discoverPosts, setDiscoverPosts] = usePostList(markStale);
+  const setters = { following: setFollowingPosts, discover: setDiscoverPosts };
+  const posts = activeTab === 'following' ? followingPosts : discoverPosts;
+  const tab = tabState[activeTab];
+
+  const patchTab = (key, patch) => setTabState((s) => ({ ...s, [key]: { ...s[key], ...patch } }));
+
+  const loadFeed = useCallback(async (key, { more = false } = {}) => {
+    const cursor = more ? tabState[key].cursor : null;
+    if (more && !cursor) return;
+    patchTab(key, more ? { loadingMore: true } : { loading: true, error: null });
+    try {
+      const q = `/api/social/feed?tab=${key}${cursor ? `&before=${encodeURIComponent(cursor)}` : ''}`;
+      const data = await request(q);
+      setters[key]((list) => (more ? [...list, ...data.posts.filter((p) => !list.some((x) => x.id === p.id))] : data.posts));
+      patchTab(key, { loaded: true, loading: false, loadingMore: false, cursor: data.nextCursor, error: null });
+    } catch (err) {
+      patchTab(key, { loading: false, loadingMore: false, error: err.message || 'Could not load posts.' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request, tabState]);
+
+  const loadHeader = useCallback(async () => {
+    setHeaderError(null);
+    try {
+      const [l, s, sug] = await Promise.all([
+        request('/api/social/live'),
+        request('/api/social/stories'),
+        request('/api/social/suggestions'),
+      ]);
+      setLive(l);
+      setStories(s.stories);
+      setSuggestions(sug.users);
+    } catch (err) {
+      setHeaderError(err.message || 'Could not load stories.');
+    }
+  }, [request]);
+
+  // Refresh stories/live on every visit; the feed when first shown or after
+  // the user posted something.
+  useFocusEffect(useCallback(() => {
+    loadHeader();
+    if (staleRef.current) {
+      staleRef.current = false;
+      loadFeed('following');
+      loadFeed('discover');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []));
+
+  // First load of each tab.
+  useEffect(() => {
+    if (!tabState[activeTab].loaded && !tabState[activeTab].loading) loadFeed(activeTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    await Promise.all([loadHeader(), loadFeed(activeTab)]);
+    setRefreshing(false);
+  };
+
+  const myStories = stories.find((g) => g.isMine);
+  const otherStories = stories.filter((g) => !g.isMine);
+  const openStories = (group) => navigation?.navigate('StoryViewer', { groups: stories, startUserId: group.user.id });
+
+  const header = (
+    <>
+      <LiveBanner live={live} onPress={() => navigation?.navigate('MindfulnessSession')} />
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.storiesRow} style={styles.storiesScroll}>
+        <StoryBubble isAdd label="New Story" onPress={() => navigation?.navigate('CreatePost', { mode: 'story' })} />
+        {myStories && <StoryBubble label="Your story" user={myStories.user} onPress={() => openStories(myStories)} />}
+        {otherStories.map((g) => (
+          <StoryBubble key={g.user.id} label={firstName(g.user.name)} user={g.user} onPress={() => openStories(g)} />
+        ))}
+      </ScrollView>
+
+      {tab.error
+        ? <ErrorBanner message={tab.error} onRetry={refresh} />
+        : <ErrorBanner message={headerError} onRetry={loadHeader} onDismiss={() => setHeaderError(null)} />}
+      {activeTab === 'discover' && <Suggestions users={suggestions} navigation={navigation} />}
+    </>
+  );
+
+  const empty = tab.error && !tab.loading ? (
+    // The error banner (with Retry) is shown in the list header.
+    <View style={styles.stateWrap}>
+      <Ionicons name="cloud-offline-outline" size={34} color={colors.textPlaceholder} />
+      <Text style={styles.stateText}>Posts couldn’t be loaded.</Text>
+    </View>
+  ) : tab.loading || !tab.loaded ? (
+    <View style={styles.stateWrap}>
+      <ActivityIndicator color={colors.primary} />
+      <Text style={styles.stateText}>Loading posts…</Text>
+    </View>
+  ) : (
+    <View style={styles.stateWrap}>
+      <Ionicons name={activeTab === 'following' ? 'people-outline' : 'sparkles-outline'} size={34} color={colors.primary} />
+      <Text style={styles.stateTitle}>{activeTab === 'following' ? 'Your feed is empty' : 'No posts yet'}</Text>
+      <Text style={styles.stateText}>
+        {activeTab === 'following'
+          ? 'Share your first post, or follow people from Discover to see their updates here.'
+          : 'Be the first to share your routine with the community.'}
+      </Text>
+      <View style={styles.stateActions}>
+        <TouchableOpacity style={styles.stateBtn} onPress={() => navigation?.navigate('CreatePost', { mode: 'post' })}
+          accessibilityRole="button" accessibilityLabel="Create a post">
+          <Text style={styles.stateBtnText}>Create a Post</Text>
+        </TouchableOpacity>
+        {activeTab === 'following' && (
+          <TouchableOpacity style={[styles.stateBtn, styles.stateBtnGhost]} onPress={() => setActiveTab('discover')}
+            accessibilityRole="button" accessibilityLabel="Go to Discover">
+            <Text style={[styles.stateBtnText, styles.stateBtnGhostText]}>Discover</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -311,32 +289,20 @@ export default function SocialScreen({ navigation }) {
       {/* ── Nav bar ── */}
       <ScreenHeader
         title="MyFace AI"
-        onBack={() => navigation?.navigate('Home')}
+        onBack={() => (navigation?.canGoBack() ? navigation.goBack() : goToTab(navigation, 'Home'))}
         bordered={false}
         right={
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={() => navigation?.navigate('Leaderboard')}
-              accessibilityRole="button"
-              accessibilityLabel="Leaderboard"
-            >
+            <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation?.navigate('Leaderboard')}
+              accessibilityRole="button" accessibilityLabel="Leaderboard">
               <Ionicons name="podium-outline" size={20} color={colors.textDark} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={() => navigation?.navigate('MyCommunities')}
-              accessibilityRole="button"
-              accessibilityLabel="Communities"
-            >
+            <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation?.navigate('MyCommunities')}
+              accessibilityRole="button" accessibilityLabel="Communities">
               <Ionicons name="people-outline" size={20} color={colors.textDark} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={() => navigation?.navigate('Home')}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
+            <TouchableOpacity style={styles.headerIconBtn} onPress={() => goToTab(navigation, 'Home')}
+              accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close" size={22} color={colors.textDark} />
             </TouchableOpacity>
           </View>
@@ -347,35 +313,29 @@ export default function SocialScreen({ navigation }) {
       <TabBar active={activeTab} onToggle={setActiveTab} />
 
       {/* ── Feed ── */}
-      <ScrollView
+      <FlatList
         style={styles.scroll}
         contentContainerStyle={styles.feed}
+        data={posts}
+        keyExtractor={(p) => p.id}
+        renderItem={({ item }) => <PostCard post={item} navigation={navigation} />}
+        ListHeaderComponent={header}
+        ListEmptyComponent={empty}
+        ListFooterComponent={
+          tab.loadingMore ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
+            : <View style={{ height: 80 }} />
+        }
+        onEndReached={() => loadFeed(activeTab, { more: true })}
+        onEndReachedThreshold={0.4}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
-        overScrollMode="never"
-      >
-        {/* Live banner */}
-        <LiveBanner />
-
-        {/* Stories */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.storiesRow}
-          style={styles.storiesScroll}
-        >
-          {STORIES.map(s => <StoryBubble key={s.id} story={s} />)}
-        </ScrollView>
-
-        {/* Posts */}
-        {POSTS.map(p => <PostCard key={p.id} post={p} />)}
-
-        <View style={{ height: 80 }} />
-      </ScrollView>
+      />
 
       {/* ── FAB ── */}
       <TouchableOpacity
         style={styles.fab}
         activeOpacity={0.85}
+        onPress={() => navigation?.navigate('CreatePost', { mode: 'post' })}
         accessibilityRole="button"
         accessibilityLabel="Create new post"
       >
@@ -390,7 +350,7 @@ export default function SocialScreen({ navigation }) {
 const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: colors.white },
   scroll: { flex: 1, backgroundColor: colors.primaryBg },
-  feed:   { paddingBottom: 20 },
+  feed:   { paddingBottom: 20, flexGrow: 1 },
 
   // ── Header actions ───────────────────────────────────────
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
@@ -440,7 +400,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     gap: 12,
-    // premium shadow with tinted colour
     shadowColor: colors.primaryDark,
     shadowOpacity: 0.28,
     shadowRadius: 14,
@@ -482,18 +441,13 @@ const styles = StyleSheet.create({
   },
 
   // ── Stories ───────────────────────────────────────────────
-  storiesScroll: { backgroundColor: colors.white },
+  storiesScroll: { backgroundColor: colors.white, marginTop: 10, flexGrow: 0 },
   storiesRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 14,
-    // subtle bottom shadow on the stories strip
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
   },
   storyWrap: { alignItems: 'center', gap: 5, width: 64 },
   storyRing: {
@@ -502,7 +456,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   storyRingActive: {
-    // gradient-like border: use a slightly larger ring with primary color
     borderWidth: 2.5,
     borderColor: colors.primary,
     padding: 2,
@@ -530,110 +483,26 @@ const styles = StyleSheet.create({
     maxWidth: 60, textAlign: 'center',
   },
 
-  // ── Post card ─────────────────────────────────────────────
-  card: {
-    backgroundColor: colors.white,
-    marginHorizontal: 0,
-    marginBottom: 10,
-    // no border-radius at edges — full-bleed cards like Instagram
-    overflow: 'hidden',
-    // hairline separator
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.borderUltraLight,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderUltraLight,
+  // ── Suggestions ───────────────────────────────────────────
+  suggestWrap: { backgroundColor: colors.white, paddingTop: 12, paddingBottom: 14, marginBottom: 10 },
+  suggestTitle: { fontSize: 10, fontWeight: '700', color: colors.textFaint, letterSpacing: 1.4, marginHorizontal: 16, marginBottom: 10 },
+  suggestRow: { paddingHorizontal: 16, gap: 10 },
+  suggestCard: {
+    width: 92, alignItems: 'center', gap: 6, paddingVertical: 12,
+    borderRadius: 14, borderWidth: 1, borderColor: colors.borderLight, backgroundColor: colors.white,
   },
+  suggestName: { fontSize: 12.5, fontWeight: '700', color: colors.textDark, maxWidth: 80 },
+  suggestAction: { fontSize: 11.5, fontWeight: '700', color: colors.primary },
 
-  // Card header
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 10,
-    gap: 10,
-  },
-  cardAvatarRing: {
-    width: 44, height: 44, borderRadius: 22,
-    borderWidth: 1.5,
-    padding: 2,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  cardAvatar: {
-    width: 36, height: 36, borderRadius: 18,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  cardAvatarText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
-  cardMeta: { flex: 1, gap: 2 },
-  cardNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  cardUser: { fontSize: 14, fontWeight: '700', color: colors.textDark },
-  tagPill: { borderRadius: 100, paddingHorizontal: 8, paddingVertical: 3 },
-  tagText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.3, textTransform: 'uppercase' },
-  cardTime: { fontSize: 11, color: colors.textPlaceholder, fontWeight: '500' },
-  moreBtn: {
-    width: 32, height: 32,
-    justifyContent: 'center', alignItems: 'center',
-  },
-
-  // Post image placeholder — layered soft blobs standing in for a photo
-  postImageWrap: {
-    width: '100%',
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  postImageBlobA: {
-    position: 'absolute',
-    top: '-30%',
-    left: '-20%',
-    width: '90%',
-    aspectRatio: 1,
-    borderRadius: 999,
-    opacity: 0.22,
-    ...(Platform.OS === 'web' ? { filter: 'blur(60px)' } : null),
-  },
-  postImageBlobB: {
-    position: 'absolute',
-    bottom: '-35%',
-    right: '-15%',
-    width: '75%',
-    aspectRatio: 1,
-    borderRadius: 999,
-    opacity: 0.5,
-    ...(Platform.OS === 'web' ? { filter: 'blur(50px)' } : null),
-  },
-  postImageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.04)',
-  },
-
-  // Action bar
-  actionBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 6,
-  },
-  actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 18 },
-  actionBtn:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  actionCount: {
-    fontSize: 13, fontWeight: '600', color: colors.textMid,
-  },
-  actionCountLiked: { color: colors.primary },
-
-  // Caption
-  captionWrap: {
-    paddingHorizontal: 14,
-    paddingBottom: 16,
-    gap: 2,
-  },
-  captionText: {
-    fontSize: 13, color: colors.textMid, lineHeight: 20,
-  },
-  captionUser: { fontWeight: '700', color: colors.textDark },
-  readMore:    { fontSize: 13, color: colors.primary, fontWeight: '600', marginTop: 2 },
+  // ── Loading / empty states ───────────────────────────────
+  stateWrap: { alignItems: 'center', gap: 8, paddingHorizontal: 32, paddingVertical: 40 },
+  stateTitle: { fontSize: 17, fontWeight: '800', color: colors.textDark, marginTop: 4 },
+  stateText: { fontSize: 13, color: colors.textLight, textAlign: 'center', lineHeight: 19 },
+  stateActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  stateBtn: { backgroundColor: colors.primary, borderRadius: 100, paddingHorizontal: 18, paddingVertical: 10 },
+  stateBtnText: { color: colors.white, fontWeight: '800', fontSize: 13.5 },
+  stateBtnGhost: { backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border },
+  stateBtnGhostText: { color: colors.primary },
 
   // ── FAB ───────────────────────────────────────────────────
   fab: {

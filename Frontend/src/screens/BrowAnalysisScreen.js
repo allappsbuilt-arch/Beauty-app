@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -16,9 +16,10 @@ import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import { useSavedChoice } from '../api/usePreferences';
 import { useStyleAdvisor } from '../api/useStyleAdvisor';
+import SelfieFrame from '../components/SelfieFrame';
+import { notify } from '../utils/feedback';
 import { MatchBadge, AdviceSummary } from '../components/StyleVerdict';
 
-const FACE_FRAME_URI = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&q=60&sat=-100';
 
 const STYLES = [
   { key: 'natural',  label: 'Natural Arch',  uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=300&q=60' },
@@ -82,6 +83,22 @@ export default function BrowAnalysisScreen({ navigation }) {
   const [selected, setSelected] = useSavedChoice('styles', 'brow', 'natural', browGoalPatch);
   const advisor = useStyleAdvisor('brow');
   const bestKey = advisor.result?.ranking[0]?.key;
+  const cameraRef = useRef(null);
+  const captureLive = async () => {
+    if (!cameraRef.current?.isReady()) return null;
+    try {
+      return await cameraRef.current.capture();
+    } catch (err) {
+      notify('Could not take photo', err.message);
+      return undefined;
+    }
+  };
+
+  const analyzeBrows = async () => {
+    const image = await captureLive();
+    if (image === undefined) return;
+    advisor.analyze({ image });
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -116,8 +133,14 @@ export default function BrowAnalysisScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Face frame */}
-        <View style={styles.frameCard}>
-          <Image source={{ uri: advisor.photo ?? FACE_FRAME_URI }} style={styles.frameImage} resizeMode="cover" />
+        <SelfieFrame
+          cameraRef={cameraRef}
+          photo={advisor.photo}
+          onRetake={advisor.reset}
+          onGallery={() => advisor.analyze({ newPhoto: true })}
+          aspectRatio={0.85}
+          style={styles.frameCard}
+        >
           <View style={styles.frameOverlay} pointerEvents="none">
             <View style={styles.crosshairH} />
             <View style={styles.frameBox} />
@@ -127,13 +150,13 @@ export default function BrowAnalysisScreen({ navigation }) {
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Analyze my face"
-            onPress={() => advisor.analyze({ newPhoto: true })}
+            onPress={analyzeBrows}
             disabled={advisor.loading}
           >
-            <Text style={styles.analyzeBtnText}>{advisor.photo ? 'Use Another Photo' : 'Analyze My Face'}</Text>
+            <Text style={styles.analyzeBtnText}>{advisor.loading ? 'Analysing…' : 'Analyze My Face'}</Text>
           </TouchableOpacity>
-        </View>
-        <Text style={styles.frameCaption}>Use a clear, front-facing photo with your brows visible</Text>
+        </SelfieFrame>
+        <Text style={styles.frameCaption}>Face the camera in good light with your brows visible</Text>
 
         {/* Generate button */}
         <TouchableOpacity
@@ -141,7 +164,7 @@ export default function BrowAnalysisScreen({ navigation }) {
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Get AI brow recommendations"
-          onPress={() => advisor.analyze()}
+          onPress={analyzeBrows}
           disabled={advisor.loading}
         >
           {advisor.loading
@@ -208,11 +231,10 @@ const styles = StyleSheet.create({
   navTitle: { fontSize: 18, fontWeight: '800', color: colors.primary },
 
   frameCard: {
+    marginHorizontal: 0,
     borderRadius: 20, overflow: 'hidden',
     borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.sectionBg,
   },
-  frameImage: { width: '100%', aspectRatio: 0.85, opacity: 0.9 },
   frameOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
   crosshairH: {
     position: 'absolute', left: '10%', right: '10%', top: '48%',

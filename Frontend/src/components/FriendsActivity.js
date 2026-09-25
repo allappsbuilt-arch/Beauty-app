@@ -43,33 +43,43 @@ const ACTIVITIES = [
   },
 ];
 
-function ActivityRow({ item, isLast }) {
+function ActivityRow({ item, isLast, onPress }) {
   const [liked, setLiked] = useState(false);
   return (
     <>
       <View style={styles.row}>
-        {/* Avatar */}
-        <View style={[styles.avatarRing, { borderColor: item.avatarColor + '60' }]}>
-          <View style={[styles.avatar, { backgroundColor: item.avatarBg }]}>
-            <Text style={[styles.initials, { color: item.avatarColor }]}>
-              {item.initials}
-            </Text>
-          </View>
-        </View>
-
-        {/* Text block */}
-        <View style={styles.textBlock}>
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>{item.name}</Text>
-            {/* Tag pill */}
-            <View style={[styles.tagPill, { backgroundColor: item.tagColor + '18' }]}>
-              <Text style={[styles.tagText, { color: item.tagColor }]}>{item.tag}</Text>
+        {/* Avatar + text open the activity feed (kept separate from the like
+            button so we never nest one button inside another on web) */}
+        <TouchableOpacity
+          style={styles.rowMain}
+          onPress={onPress}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.name} ${item.action}`}
+        >
+          {/* Avatar */}
+          <View style={[styles.avatarRing, { borderColor: item.avatarColor + '60' }]}>
+            <View style={[styles.avatar, { backgroundColor: item.avatarBg }]}>
+              <Text style={[styles.initials, { color: item.avatarColor }]}>
+                {item.initials}
+              </Text>
             </View>
           </View>
-          <Text style={styles.action} numberOfLines={1}>
-            {item.action} {item.emoji}
-          </Text>
-        </View>
+
+          {/* Text block */}
+          <View style={styles.textBlock}>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{item.name}</Text>
+              {/* Tag pill */}
+              <View style={[styles.tagPill, { backgroundColor: item.tagColor + '18' }]}>
+                <Text style={[styles.tagText, { color: item.tagColor }]}>{item.tag}</Text>
+              </View>
+            </View>
+            <Text style={styles.action} numberOfLines={1}>
+              {item.action} {item.emoji}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Time + like */}
         <View style={styles.rightCol}>
@@ -106,7 +116,12 @@ export default function FriendsActivity({ activities = ACTIVITIES }) {
       {/* Card */}
       <View style={styles.card}>
         {activities.map((a, i) => (
-          <ActivityRow key={a.key} item={a} isLast={i === activities.length - 1} />
+          <ActivityRow
+            key={a.key}
+            item={a}
+            isLast={i === activities.length - 1}
+            onPress={() => navigation.navigate('Social')}
+          />
         ))}
       </View>
     </View>
@@ -158,6 +173,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 13,
+    gap: 11,
+  },
+  rowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 11,
   },
 

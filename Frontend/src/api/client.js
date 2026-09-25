@@ -37,12 +37,20 @@ export function warmUpServer() {
   fetch(`${API_BASE_URL}/health`).catch(() => {});
 }
 
-export async function apiRequest(path, { method = 'GET', body, token } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+// The user's local calendar day (YYYY-MM-DD). Routines, check-ins and streaks
+// are stored per day, so the backend files them under the user's date rather
+// than the server's UTC date.
+export function localDateStr(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+export async function apiRequest(path, { method = 'GET', body, token, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
+  const headers = { 'Content-Type': 'application/json', 'X-Client-Date': localDateStr() };
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   let response;
   try {

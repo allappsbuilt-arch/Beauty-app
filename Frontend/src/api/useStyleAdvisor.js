@@ -12,8 +12,10 @@ export function useStyleAdvisor(kind) {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const analyze = useCallback(async ({ userRequest = '', newPhoto = false } = {}) => {
-    const image = (!newPhoto && photo) || await choosePhoto('Photo for style advice');
+  // `image` = a photo just captured from the live camera; otherwise reuse the
+  // last photo, or ask the user to pick one.
+  const analyze = useCallback(async ({ userRequest = '', newPhoto = false, image: captured = null } = {}) => {
+    const image = captured || (!newPhoto && photo) || await choosePhoto('Photo for style advice');
     if (!image) return;
     setPhoto(image);
     setLoading(true);
@@ -33,5 +35,8 @@ export function useStyleAdvisor(kind) {
     result ? [...styles].sort((a, b) => (rankFor(b.key)?.match ?? 0) - (rankFor(a.key)?.match ?? 0)) : styles
   ), [result, rankFor]);
 
-  return { photo, result, loading, analyze, rankFor, sortStyles };
+  // Back to the live camera for a retake.
+  const reset = useCallback(() => { setPhoto(null); setResult(null); }, []);
+
+  return { photo, result, loading, analyze, reset, rankFor, sortStyles };
 }

@@ -18,12 +18,12 @@ export default function ErrorBanner({ message, onRetry, onDismiss }) {
       <Text style={styles.text} numberOfLines={2}>{message}</Text>
       <View style={styles.actions}>
         {onRetry && (
-          <TouchableOpacity onPress={onRetry} style={styles.retryBtn} accessibilityRole="button">
+          <TouchableOpacity onPress={onRetry} style={styles.retryBtn} accessibilityRole="button" accessibilityLabel="Retry">
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         )}
         {onDismiss && (
-          <TouchableOpacity onPress={onDismiss} accessibilityRole="button">
+          <TouchableOpacity onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss error">
             <Ionicons name="close" size={16} color="#D03050" />
           </TouchableOpacity>
         )}

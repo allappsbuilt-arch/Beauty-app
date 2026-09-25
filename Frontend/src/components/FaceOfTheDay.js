@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 
-export default function FaceOfTheDay({ onPress }) {
+export default function FaceOfTheDay({ onPress, streak = 0 }) {
   return (
     <View style={styles.card}>
       {/* Decorative rings */}
@@ -26,7 +26,11 @@ export default function FaceOfTheDay({ onPress }) {
       {/* Streak badge */}
       <View style={styles.streakBadge}>
         <Ionicons name="flame" size={13} color="#FF8C42" />
-        <Text style={styles.streakText}>12-day streak — keep it up!</Text>
+        <Text style={styles.streakText}>
+          {streak > 0
+            ? `${streak}-day streak — keep it up!`
+            : 'Start your streak today!'}
+        </Text>
       </View>
 
       {/* CTA Button */}

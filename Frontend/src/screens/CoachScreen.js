@@ -65,10 +65,16 @@ function TypingIndicator() {
   );
 }
 
-export default function CoachScreen({ navigation }) {
+export default function CoachScreen({ navigation, route }) {
   const request = useAuthedRequest();
   const [messages, setMessages] = useState([WELCOME]);
   const [input, setInput] = useState('');
+
+  // Arriving from the Home "Reply" button: pre-fill a reply about that tip.
+  const prefill = route?.params?.prefill;
+  useEffect(() => {
+    if (prefill) setInput(`About your tip "${prefill}" — `);
+  }, [prefill]);
   const [isTyping, setIsTyping] = useState(false);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef(null);

@@ -35,51 +35,6 @@ const STATUS_COLORS = {
   HIGH:      { bg: '#FDEAEA', text: '#D03030', border: '#F5AAAA' },
 };
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-const ZONES = [
-  {
-    key:   'skin',
-    title: 'Skin',
-    icon:  'leaf-outline',
-    score: 88,
-    // placeholder image bg colour
-    photoBg: '#B8906C',
-    photoAccent: 'rgba(200,150,100,0.30)',
-    metrics: [
-      { label: 'Hydration Level', status: 'OPTIMAL' },
-      { label: 'Pore Clarity',    status: 'FAIR'    },
-      { label: 'Elasticity',      status: 'EXCELLENT'},
-    ],
-    trend: {
-      label: '4-WEEK TREND',
-      value: '+4.2%',
-      // relative bar heights 0-1
-      bars: [0.40, 0.55, 0.80, 0.95],
-    },
-    quote: '"Your barrier function is remarkably strong this week. Focus on double-cleansing tonight to maintain that pore clarity score."',
-  },
-  {
-    key:   'eyes',
-    title: 'Eyes',
-    icon:  'eye-outline',
-    score: 72,
-    photoBg: '#7A5040',
-    photoAccent: 'rgba(140,90,60,0.25)',
-    metrics: [
-      { label: 'Dark Circles', status: 'MODERATE' },
-      { label: 'Puffiness',    status: 'LOW'      },
-    ],
-    trend: null,
-    quote: '"Visible fatigue patterns detected in the periorbital region. Ensure 7+ hours of sleep and use a caffeine-based serum."',
-  },
-];
-
-const ANCILLARY = [
-  { key: 'lips',  label: 'Lips',  score: 94, icon: 'happy-outline',   photoBg: '#C08080', metricLabel: 'Hydration', metricVal: 'Optimal'  },
-  { key: 'hair',  label: 'Hair',  score: 81, icon: 'cut-outline',     photoBg: '#806040', metricLabel: 'Density',   metricVal: 'Good'     },
-  { key: 'brows', label: 'Brows', score: 82, icon: 'brush-outline',   photoBg: '#7A6050', metricLabel: 'Fullness',  metricVal: 'Moderate' },
-];
-
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const cfg = STATUS_COLORS[status] ?? STATUS_COLORS.FAIR;
@@ -381,7 +336,7 @@ function ZoneCard({ zone }) {
 
       {/* ── Metrics ── */}
       <View style={styles.metricsBlock}>
-        {zone.metrics.map((m, i) => (
+        {(zone.metrics || []).map((m, i) => (
           <MetricRow
             key={m.label}
             label={m.label}
@@ -454,6 +409,7 @@ export default function FullScanAnalysisScreen({ navigation, route }) {
   const [zones, setZones] = useState(route?.params?.zones || null);
   const [ancillary, setAncillary] = useState(route?.params?.ancillary || null);
   const [loading, setLoading] = useState(!route?.params?.zones);
+  const [loadError, setLoadError] = useState(null); // null | 'empty' | message
 
   useEffect(() => {
     if (zones) return; // already have data from params
@@ -464,13 +420,10 @@ export default function FullScanAnalysisScreen({ navigation, route }) {
           setZones(scans[0].zones);
           setAncillary(scans[0].ancillary);
         } else {
-          // No scans yet — use fallback static data
-          setZones(ZONES);
-          setAncillary(ANCILLARY);
+          setLoadError('empty');
         }
-      } catch {
-        setZones(ZONES);
-        setAncillary(ANCILLARY);
+      } catch (err) {
+        setLoadError(err?.message || 'Could not load your scan.');
       } finally {
         setLoading(false);
       }
@@ -507,6 +460,24 @@ export default function FullScanAnalysisScreen({ navigation, route }) {
       {loading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : loadError ? (
+        <View style={styles.emptyWrap}>
+          <Ionicons name={loadError === 'empty' ? 'scan-outline' : 'cloud-offline-outline'} size={34} color={colors.primary} />
+          <Text style={styles.emptyTitle}>{loadError === 'empty' ? 'No scans yet' : 'Could not load your scan'}</Text>
+          <Text style={styles.emptyText}>
+            {loadError === 'empty'
+              ? 'Take your first AI face scan to see a full analysis of every zone.'
+              : loadError}
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyBtn}
+            onPress={() => navigation?.navigate('ScanFace')}
+            accessibilityRole="button"
+            accessibilityLabel="Take a face scan"
+          >
+            <Text style={styles.emptyBtnText}>Take a Face Scan</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         /* ── Scroll feed ── */
@@ -545,6 +516,11 @@ export default function FullScanAnalysisScreen({ navigation, route }) {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: colors.primaryBg },
+  emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, padding: 32 },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: colors.textDark },
+  emptyText: { fontSize: 13.5, color: colors.textLight, textAlign: 'center', lineHeight: 20 },
+  emptyBtn: { backgroundColor: colors.primary, borderRadius: 100, paddingHorizontal: 22, paddingVertical: 12, marginTop: 6 },
+  emptyBtnText: { color: colors.white, fontWeight: '800', fontSize: 14 },
   scroll: { flex: 1 },
   content: { paddingTop: 12, paddingBottom: 24 },
 

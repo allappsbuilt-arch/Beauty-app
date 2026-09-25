@@ -14,8 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import { useSavedChoice } from '../api/usePreferences';
+import LiveCamera from '../components/LiveCamera';
 
-const FACE_URI = 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=500&q=60&sat=-100';
 
 const STYLES = [
   { key: 'natural',   label: 'Natural Full',   uri: 'https://images.unsplash.com/photo-1583001809873-a128495da465?w=300&q=60' },
@@ -59,10 +59,10 @@ const cards = StyleSheet.create({
 function Header() {
   return (
     <View style={styles.faceCard}>
-      <Image source={{ uri: FACE_URI }} style={styles.faceImage} resizeMode="cover" />
-      <View style={styles.detectedPill}>
-        <Ionicons name="happy-outline" size={13} color={colors.white} />
-        <Text style={styles.detectedText}>FACE DETECTED</Text>
+      <LiveCamera style={styles.faceImage} />
+      <View style={styles.detectedPill} pointerEvents="none">
+        <Ionicons name="videocam-outline" size={13} color={colors.white} />
+        <Text style={styles.detectedText}>LIVE MIRROR</Text>
       </View>
     </View>
   );

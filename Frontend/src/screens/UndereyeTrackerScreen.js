@@ -24,12 +24,6 @@ const DARK_CIRCLE_LABEL = {
   OPTIMAL: 'MINIMAL', EXCELLENT: 'MINIMAL', FAIR: 'MILD', LOW: 'MILD', MODERATE: 'MODERATE', HIGH: 'VISIBLE',
 };
 
-const PHOTOS = [
-  { key: 'mon', label: 'MON', uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=60' },
-  { key: 'wed', label: 'WED', uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=200&q=60' },
-  { key: 'today', label: 'TODAY', uri: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200&q=60', active: true },
-];
-
 const ROUTINE = [
   { key: 'cold',  icon: 'snow',           label: 'Cold Compress', meta: '5 MINS',  color: '#1EA868', bg: '#E6F9F0' },
   { key: 'gua',   icon: 'leaf',           label: 'Gua Sha',        meta: '3 MINS',  color: '#7A5CD0', bg: '#F1ECFB' },
@@ -169,17 +163,25 @@ export default function UndereyeTrackerScreen({ navigation }) {
         {/* Weekly progress */}
         <Text style={styles.sectionTitle}>Weekly Progress</Text>
         <FlatList
-          data={PHOTOS}
-          keyExtractor={(p) => p.key}
+          data={(tracker?.history ?? []).slice(-5)}
+          keyExtractor={(p) => p.id}
+          ListEmptyComponent={<Text style={styles.photoLabel}>Take a face scan to start tracking.</Text>}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.photoRow}
-          renderItem={({ item }) => (
-            <View style={styles.photoCol}>
-              <Image source={{ uri: item.uri }} style={[styles.photo, item.active && styles.photoActive]} resizeMode="cover" />
-              <Text style={[styles.photoLabel, item.active && styles.photoLabelActive]}>{item.label}</Text>
-            </View>
-          )}
+          renderItem={({ item: h, index }) => {
+            const active = index === Math.min(tracker.history.length, 5) - 1;
+            return (
+              <View style={styles.photoCol}>
+                <View style={[styles.photo, styles.scoreTile, active && styles.photoActive]}>
+                  <Text style={styles.scoreTileValue}>{h.score}</Text>
+                </View>
+                <Text style={[styles.photoLabel, active && styles.photoLabelActive]}>
+                  {active ? 'LATEST' : new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
+                </Text>
+              </View>
+            );
+          }}
         />
 
         {/* Depuffing routine */}
@@ -255,6 +257,8 @@ export default function UndereyeTrackerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  scoreTile: { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderLight },
+  scoreTileValue: { fontSize: 22, fontWeight: '800', color: colors.primary },
   safe: { flex: 1, backgroundColor: colors.primaryBg },
   content: { paddingTop: 16, paddingBottom: 12 },
 

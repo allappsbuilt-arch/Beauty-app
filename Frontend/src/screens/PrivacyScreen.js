@@ -9,11 +9,13 @@ import {
   StatusBar,
   Image,
   Platform,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
-import { comingSoon, confirm, notify, shareText } from '../utils/feedback';
+import Constants from 'expo-constants';
+import { confirm, notify, shareText } from '../utils/feedback';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { useAuth } from '../context/AuthContext';
 
@@ -34,6 +36,28 @@ function deliverExport(data) {
 }
 
 const HERO_URI = 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&q=60';
+
+// What the app actually does with data — keep in sync with the backend.
+const PROCESSING_SUMMARY = [
+  'Stored in your account: name, email, routine progress, check-ins, scan scores, points, coach chats, saved looks, product shelf, reviews and settings.',
+  'Photos (face scans, label scans, try-ons, style advice) are sent to our AI provider (OpenAI) for that one analysis and are never stored — only the resulting scores are saved.',
+  'Your password is stored only as a secure hash.',
+  'Use "Download Data" to export everything, or "Delete Account" to erase it.',
+].join('\n\n');
+
+function showProcessingInsights() {
+  notify('How your data is processed', PROCESSING_SUMMARY);
+}
+
+// Set "privacyPolicyUrl" under "extra" in app.json once the policy is published.
+function openPrivacyPolicy() {
+  const url = Constants.expoConfig?.extra?.privacyPolicyUrl;
+  if (url) {
+    Linking.openURL(url).catch(() => notify('Could not open the privacy policy', url));
+  } else {
+    notify('Privacy summary', PROCESSING_SUMMARY);
+  }
+}
 
 export default function PrivacyScreen({ navigation }) {
   const request = useAuthedRequest();
@@ -132,13 +156,13 @@ export default function PrivacyScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={16} color={colors.textPlaceholder} />
           </TouchableOpacity>
           <View style={styles.rowDivider} />
-          <TouchableOpacity style={styles.row} onPress={() => comingSoon('Processing insights')} accessibilityRole="button" accessibilityLabel="Processing insights">
+          <TouchableOpacity style={styles.row} onPress={showProcessingInsights} accessibilityRole="button" accessibilityLabel="Processing insights">
             <Ionicons name="bar-chart-outline" size={18} color={colors.primary} style={styles.rowIcon} />
             <Text style={styles.rowLabel}>Processing Insights</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textPlaceholder} />
           </TouchableOpacity>
           <View style={styles.rowDivider} />
-          <TouchableOpacity style={styles.row} onPress={() => comingSoon('Privacy policy')} accessibilityRole="button" accessibilityLabel="Privacy policy">
+          <TouchableOpacity style={styles.row} onPress={openPrivacyPolicy} accessibilityRole="button" accessibilityLabel="Privacy policy">
             <Ionicons name="document-text-outline" size={18} color={colors.primary} style={styles.rowIcon} />
             <Text style={styles.rowLabel}>Privacy Policy</Text>
             <Ionicons name="open-outline" size={16} color={colors.textPlaceholder} />

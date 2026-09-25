@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -23,8 +23,9 @@ import FriendsActivity from '../components/FriendsActivity';
 import FaceOfTheDay from '../components/FaceOfTheDay';
 import ErrorBanner from '../components/ErrorBanner';
 import { useAuthedRequest } from '../api/useAuthedRequest';
+import { AM_STEPS } from '../data/routineSteps';
 
-const AM_STEP_COUNT = 6;
+const AM_STEP_COUNT = AM_STEPS.length;
 
 function SectionLabel({ title, actionLabel, onAction }) {
   return (
@@ -57,9 +58,13 @@ export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Only the very first load blocks the page with a spinner; refetches on
+  // re-focus update the dashboard in place instead of flashing a loader.
+  const hasLoaded = useRef(false);
+
   const load = useCallback(async () => {
     setError(null);
-    setLoading(true);
+    if (!hasLoaded.current) setLoading(true);
     try {
       const [summary, checkin, pointsSummary] = await Promise.all([
         request('/api/routines/summary'),
@@ -71,6 +76,7 @@ export default function HomeScreen({ navigation }) {
       setFeeling(checkin.feeling ?? null);
       setBalance(pointsSummary.balance ?? 0);
       setLevelLabel(pointsSummary.levelLabel ?? 'Level 1');
+      hasLoaded.current = true;
     } catch (err) {
       setError('Could not load your data. Check your connection and try again.');
     } finally {
@@ -81,19 +87,23 @@ export default function HomeScreen({ navigation }) {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const handleFeelingSelect = async (key) => {
+    const previous = feeling;
     setFeeling(key);
     try {
       await request('/api/checkins', { method: 'POST', body: { feeling: key } });
     } catch {
+      setFeeling(previous);
       setError('Could not save check-in. Please try again.');
     }
   };
 
+  const startRoutine = () => navigation?.navigate('RoutineStep', { routineTitle: 'AM Routine' });
+
   const stats = [
-    { icon: 'calendar',  value: String(streak),  label: 'STREAK',  color: colors.statDays,  bg: '#FFF0F3' },
-    { icon: 'star',      value: String(balance),  label: 'POINTS',  color: colors.statScore, bg: '#FFF0F3' },
-    { icon: 'ribbon',    value: levelLabel.split(':')[0] || 'Lv 1', label: 'LEVEL', color: colors.statGlass, bg: '#EDF8FE' },
-    { icon: 'checkmark-circle', value: `${amCompleted}/${AM_STEP_COUNT}`, label: 'STEPS', color: colors.statSleep, bg: '#F3F0FC' },
+    { icon: 'calendar',  value: String(streak),  label: 'STREAK',  color: colors.statDays,  bg: '#FFF0F3', onPress: () => navigation?.navigate('WeeklyReport') },
+    { icon: 'star',      value: String(balance),  label: 'POINTS',  color: colors.statScore, bg: '#FFF0F3', onPress: () => navigation?.navigate('Rewards') },
+    { icon: 'ribbon',    value: levelLabel.split(':')[0].replace('Level', 'Lv').trim() || 'Lv 1', label: 'LEVEL', color: colors.statGlass, bg: '#EDF8FE', onPress: () => navigation?.navigate('Rewards') },
+    { icon: 'checkmark-circle', value: `${amCompleted}/${AM_STEP_COUNT}`, label: 'STEPS', color: colors.statSleep, bg: '#F3F0FC', onPress: startRoutine },
   ];
 
   return (
@@ -129,13 +139,13 @@ export default function HomeScreen({ navigation }) {
           <SectionLabel
             title="TODAY'S ROUTINE"
             actionLabel="See steps"
-            onAction={() => navigation?.navigate('RoutineStep', { routineTitle: 'AM Routine' })}
+            onAction={() => navigation?.navigate('Routine')}
           />
           <RoutineCard
             title="AM Routine"
             completed={amCompleted}
             total={AM_STEP_COUNT}
-            onPress={() => navigation?.navigate('Routine')}
+            onPress={startRoutine}
           />
           <View style={styles.gap4} />
 
@@ -162,7 +172,7 @@ export default function HomeScreen({ navigation }) {
             actionLabel="Chat now"
             onAction={() => navigation?.navigate('Coach')}
           />
-          <CoachTip />
+          <CoachTip onMicPress={(tip) => navigation?.navigate('Coach', { prefill: tip })} />
           <View style={styles.gap4} />
           <Divider />
           <View style={styles.gap4} />
@@ -174,7 +184,7 @@ export default function HomeScreen({ navigation }) {
               if (key === 'scan')      navigation?.navigate('ScanFace');
               if (key === 'routine')   navigation?.navigate('Routine');
               if (key === 'community') navigation?.navigate('Social');
-              if (key === 'makeup')    navigation?.navigate('AllTools');
+              if (key === 'makeup')    navigation?.navigate('OccasionPicker');
             }}
           />
           <View style={styles.gap4} />
@@ -186,7 +196,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.gap6} />
 
           {/* Face of the Day */}
-          <FaceOfTheDay onPress={() => navigation?.navigate('Coach')} />
+          <FaceOfTheDay streak={streak} onPress={() => navigation?.navigate('ScanFace')} />
 
           <View style={styles.bottomSpacer} />
         </ScrollView>

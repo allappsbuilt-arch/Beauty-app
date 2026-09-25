@@ -16,9 +16,6 @@ import ErrorBanner from '../components/ErrorBanner';
 import { useTracker, timeAgo } from '../api/useTracker';
 import { usePreferences } from '../api/usePreferences';
 
-const PHOTO_START = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=60&sat=-100';
-const PHOTO_LATEST = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=60';
-
 const TIMELINE_SLOTS = 5;
 
 // Visual style per product; names, streaks and usage come from the backend.
@@ -48,13 +45,6 @@ function coachMessage(tracker) {
   if (tracker.change < 0) return `Your fullness dipped ${Math.abs(tracker.change)}% since your last scan. Avoid over-plucking and keep up your serum routine.`;
   return 'Your fullness is holding steady. Consistency is key — keep logging your serum every night.';
 }
-
-const PHOTO_LOGS = [
-  { key: '1', bw: true },
-  { key: '2', bw: true },
-  { key: '3', bw: true },
-  { key: '4', bw: false },
-];
 
 // ─── Ring progress ─────────────────────────────────────────────────────────────
 function RingProgress({ percent, size = 100 }) {
@@ -249,24 +239,24 @@ export default function EyebrowTrackerScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Photo comparison */}
+        {/* Start vs latest fullness */}
         <View style={styles.photoRow}>
           <View style={styles.photoCol}>
-            <Image source={{ uri: PHOTO_START }} style={styles.photo} resizeMode="cover" />
-            <Text style={styles.photoCaption}>
-              {tracker?.firstScore != null ? `START · ${tracker.firstScore}%` : 'START'}
-            </Text>
+            <View style={[styles.photo, styles.scoreBox]}>
+              <Text style={styles.scoreBig}>{tracker?.firstScore != null ? `${tracker.firstScore}%` : '—'}</Text>
+            </View>
+            <Text style={styles.photoCaption}>FIRST SCAN</Text>
           </View>
           <View style={styles.photoCol}>
             <View style={styles.photoLatestWrap}>
-              <Image source={{ uri: PHOTO_LATEST }} style={styles.photo} resizeMode="cover" />
+              <View style={[styles.photo, styles.scoreBox, styles.scoreBoxActive]}>
+                <Text style={[styles.scoreBig, styles.scoreBigActive]}>{tracker?.score != null ? `${tracker.score}%` : '—'}</Text>
+              </View>
               <View style={styles.latestBadge}>
                 <Text style={styles.latestBadgeText}>LATEST</Text>
               </View>
             </View>
-            <Text style={[styles.photoCaption, styles.photoCaptionActive]}>
-              {tracker?.score != null ? `LATEST · ${tracker.score}%` : 'LATEST'}
-            </Text>
+            <Text style={[styles.photoCaption, styles.photoCaptionActive]}>LATEST SCAN</Text>
           </View>
         </View>
 
@@ -288,19 +278,17 @@ export default function EyebrowTrackerScreen({ navigation }) {
 
         {/* Photo logs */}
         <View style={styles.logsHeader}>
-          <Text style={styles.sectionTitle}>Photo Logs</Text>
+          <Text style={styles.sectionTitle}>Scan Log</Text>
           <Text style={styles.logsCount}>{tracker?.scanCount ?? 0} {tracker?.scanCount === 1 ? 'scan' : 'scans'}</Text>
         </View>
         <View style={styles.logsRow}>
-          {PHOTO_LOGS.map(log => (
-            <View key={log.key} style={[styles.logThumb, !log.bw && styles.logThumbActive]}>
-              <Image
-                source={{ uri: log.bw ? PHOTO_START : PHOTO_LATEST }}
-                style={styles.logImage}
-                resizeMode="cover"
-              />
+          {(tracker?.history ?? []).slice(-4).map((h, i, arr) => (
+            <View key={h.id} style={[styles.logThumb, styles.scoreBox, i === arr.length - 1 && styles.logThumbActive]}>
+              <Text style={styles.logScore}>{h.score}</Text>
+              <Text style={styles.logDate}>{new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}</Text>
             </View>
           ))}
+          {!tracker?.history?.length && <Text style={styles.logDate}>Take a face scan to start your log.</Text>}
         </View>
 
         {/* Coach analysis */}
@@ -404,7 +392,12 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.borderLight,
   },
   logThumbActive: { borderWidth: 2, borderColor: colors.primary },
-  logImage: { width: '100%', height: '100%' },
+  scoreBox: { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderLight },
+  scoreBoxActive: { borderColor: colors.primary, borderWidth: 2 },
+  scoreBig: { fontSize: 30, fontWeight: '800', color: colors.textMid },
+  scoreBigActive: { color: colors.primary },
+  logScore: { fontSize: 17, fontWeight: '800', color: colors.primary },
+  logDate: { fontSize: 9, fontWeight: '700', color: colors.textFaint, marginTop: 2 },
 
   coachCard: {
     backgroundColor: '#F1E8FB', borderRadius: 18,

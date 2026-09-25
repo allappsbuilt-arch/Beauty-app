@@ -14,7 +14,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ErrorBanner from '../components/ErrorBanner';
-import { comingSoon } from '../utils/feedback';
 import { useTracker, timeAgo } from '../api/useTracker';
 
 // Tile styling per metric; values come from the latest scan.
@@ -234,14 +233,14 @@ export default function ScalpTrackerScreen({ navigation }) {
         </View>
 
         {/* Special treatment promo */}
-        <TouchableOpacity style={styles.treatmentCard} activeOpacity={0.9} onPress={() => comingSoon('Deep conditioning treatment')} accessibilityRole="button" accessibilityLabel="Deep conditioning treatment">
+        <TouchableOpacity style={styles.treatmentCard} activeOpacity={0.9} onPress={() => toggle('mask')} accessibilityRole="button" accessibilityLabel={item('mask')?.doneToday ? 'Undo deep conditioning for today' : 'Log deep conditioning treatment'}>
           <Text style={styles.treatmentLabel}>SPECIAL TREATMENT</Text>
           <Text style={styles.treatmentTitle}>Deep Conditioning</Text>
           <Text style={styles.treatmentDesc}>
             Unlock better hydration levels by leaving your mask on for 20 minutes today.
           </Text>
           <View style={styles.treatmentBtn}>
-            <Text style={styles.treatmentBtnText}>Get Started</Text>
+            <Text style={styles.treatmentBtnText}>{item('mask')?.doneToday ? 'Done Today ✓' : 'Log Treatment'}</Text>
           </View>
         </TouchableOpacity>
 

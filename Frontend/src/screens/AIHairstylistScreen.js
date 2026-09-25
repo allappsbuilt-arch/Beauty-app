@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
-import { comingSoon } from '../utils/feedback';
+import { notify, openTutorial } from '../utils/feedback';
+import SelfieFrame from '../components/SelfieFrame';
 import { useSavedChoice } from '../api/usePreferences';
 import { useStyleAdvisor } from '../api/useStyleAdvisor';
 import { MatchBadge, AdviceSummary } from '../components/StyleVerdict';
 
-const FACE_URI = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&q=60';
 
 const CHIPS = ['Modern Bob', 'Wolf Cut', 'Pastel Pink'];
 
@@ -104,6 +104,23 @@ export default function AIHairstylistScreen({ navigation }) {
   const rankedStyles = advisor.sortStyles(STYLES);
   const bestKey = advisor.result?.ranking[0]?.key;
 
+  const cameraRef = useRef(null);
+  const captureLive = async () => {
+    if (!cameraRef.current?.isReady()) return null;
+    try {
+      return await cameraRef.current.capture();
+    } catch (err) {
+      notify('Could not take photo', err.message);
+      return undefined;
+    }
+  };
+
+  const findStyles = async () => {
+    const image = await captureLive();
+    if (image === undefined) return;
+    advisor.analyze({ userRequest, image });
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.primaryBg} />
@@ -129,20 +146,16 @@ export default function AIHairstylistScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
-            <View style={styles.frameCard}>
-              <Image source={{ uri: advisor.photo ?? FACE_URI }} style={styles.frameImage} resizeMode="cover" />
-              <View style={styles.alignPill}>
-                <Text style={styles.alignPillText}>{advisor.photo ? 'Your Photo' : 'Add a Selfie'}</Text>
+            <SelfieFrame
+              cameraRef={cameraRef}
+              photo={advisor.photo}
+              onRetake={advisor.reset}
+              onGallery={() => advisor.analyze({ userRequest, newPhoto: true })}
+            >
+              <View style={styles.alignPill} pointerEvents="none">
+                <Text style={styles.alignPillText}>{advisor.photo ? 'Your Photo' : 'Align Your Face'}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.flipBtn}
-                onPress={() => advisor.analyze({ userRequest, newPhoto: true })}
-                accessibilityRole="button"
-                accessibilityLabel={advisor.photo ? 'Use a different photo' : 'Add a photo'}
-              >
-                <Ionicons name="camera-reverse-outline" size={20} color={colors.white} />
-              </TouchableOpacity>
-            </View>
+            </SelfieFrame>
 
             <View style={styles.inputWrap}>
               <TextInput
@@ -172,7 +185,7 @@ export default function AIHairstylistScreen({ navigation }) {
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Get AI hairstyle recommendations"
-              onPress={() => advisor.analyze({ userRequest })}
+              onPress={findStyles}
               disabled={advisor.loading}
             >
               {advisor.loading
@@ -200,7 +213,7 @@ export default function AIHairstylistScreen({ navigation }) {
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Get tutorial"
-              onPress={() => comingSoon('Hairstyle tutorials')}
+              onPress={() => openTutorial(`${advisor.rankFor(selectedStyle)?.label ?? userRequest} hairstyle`)}
             >
               <Ionicons name="play-circle-outline" size={17} color={colors.white} />
               <Text style={styles.tutorialBtnText}>Get Tutorial</Text>
@@ -235,19 +248,12 @@ const styles = StyleSheet.create({
   navBtn: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
   navTitle: { fontSize: 18, fontWeight: '800', color: colors.primary },
 
-  frameCard: { marginHorizontal: 16, borderRadius: 20, overflow: 'hidden', position: 'relative' },
-  frameImage: { width: '100%', aspectRatio: 1.05, backgroundColor: colors.sectionBg },
   alignPill: {
-    position: 'absolute', top: '46%', alignSelf: 'center',
+    position: 'absolute', top: 12, alignSelf: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 100,
     paddingHorizontal: 14, paddingVertical: 6,
   },
   alignPillText: { fontSize: 12, fontWeight: '700', color: colors.white },
-  flipBtn: {
-    position: 'absolute', bottom: 12, right: 12,
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center',
-  },
 
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',

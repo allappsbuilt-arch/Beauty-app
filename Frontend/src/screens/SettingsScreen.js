@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,17 @@ import {
   TouchableOpacity,
   StatusBar,
   Image,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import { useAuth } from '../context/AuthContext';
-import { comingSoon, notify } from '../utils/feedback';
+import InitialsAvatar from '../components/InitialsAvatar';
+import { notify } from '../utils/feedback';
 import { usePreferences } from '../api/usePreferences';
-
-const AVATAR_URI = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&q=60';
 
 function SettingsRow({ icon, label, value, onPress, isLast, right }) {
   return (
@@ -62,10 +64,71 @@ function ReminderRow({ icon, label, time, isLast }) {
   );
 }
 
+function EditNameModal({ visible, initialName, onCancel, onSave }) {
+  const [name, setName] = useState(initialName);
+  const [saving, setSaving] = useState(false);
+
+  // Reset the field each time the dialog opens.
+  React.useEffect(() => { if (visible) setName(initialName); }, [visible, initialName]);
+
+  const save = async () => {
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    try {
+      await onSave(name.trim());
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalSheet}>
+          <Text style={styles.modalTitle}>Edit Profile</Text>
+          <Text style={styles.modalLabel}>NAME</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={name}
+            onChangeText={setName}
+            maxLength={60}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={save}
+            placeholder="Your name"
+            placeholderTextColor={colors.textPlaceholder}
+            accessibilityLabel="Name"
+          />
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={[styles.modalBtn, styles.modalBtnGhost]} onPress={onCancel}
+              accessibilityRole="button" accessibilityLabel="Cancel">
+              <Text style={[styles.modalBtnText, styles.modalBtnGhostText]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalBtn, !name.trim() && { opacity: 0.5 }]} onPress={save}
+              disabled={!name.trim() || saving} accessibilityRole="button" accessibilityLabel="Save profile">
+              {saving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.modalBtnText}>Save</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function SettingsScreen({ navigation }) {
   const { prefs } = usePreferences();
   const teenageMode = !!prefs?.teenControls.enabled;
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
+  const [editingName, setEditingName] = useState(false);
+
+  const saveName = async (name) => {
+    try {
+      await updateProfile({ name });
+      setEditingName(false);
+    } catch (err) {
+      notify('Could not update your profile', err.message);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -80,16 +143,16 @@ export default function SettingsScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* ── Profile ── */}
         <View style={styles.profileCard}>
-          <Image source={{ uri: AVATAR_URI }} style={styles.avatar} />
+          <InitialsAvatar name={user?.name} />
           <View style={styles.profileText}>
-            <Text style={styles.profileName}>{user?.name || 'Alex Rivera'}</Text>
-            <Text style={styles.profileEmail}>{user?.email || 'alex.rivera@myface.ai'}</Text>
+            <Text style={styles.profileName}>{user?.name ?? ''}</Text>
+            <Text style={styles.profileEmail}>{user?.email ?? ''}</Text>
           </View>
           <TouchableOpacity
             style={styles.editBtn}
             accessibilityRole="button"
             accessibilityLabel="Edit profile"
-            onPress={() => comingSoon('Editing your profile')}
+            onPress={() => setEditingName(true)}
           >
             <Ionicons name="pencil" size={15} color={colors.textMid} />
           </TouchableOpacity>
@@ -141,7 +204,6 @@ export default function SettingsScreen({ navigation }) {
         {/* ── Integrations ── */}
         <Text style={styles.sectionTitle}>INTEGRATIONS</Text>
         <View style={styles.card}>
-          <SettingsRow icon="link-outline" label="Connected Apps" onPress={() => comingSoon('Connected apps')} />
           <SettingsRow
             icon="notifications-outline"
             label="Notifications"
@@ -153,8 +215,7 @@ export default function SettingsScreen({ navigation }) {
         {/* ── System ── */}
         <Text style={styles.sectionTitle}>SYSTEM</Text>
         <View style={styles.card}>
-          <SettingsRow icon="server-outline" label="Data & Storage" onPress={() => navigation?.navigate('Privacy')} />
-          <SettingsRow icon="bag-outline" label="Restore Purchases" isLast onPress={() => comingSoon('Restoring purchases')} />
+          <SettingsRow icon="server-outline" label="Data & Storage" isLast onPress={() => navigation?.navigate('Privacy')} />
         </View>
 
         <TouchableOpacity
@@ -171,6 +232,12 @@ export default function SettingsScreen({ navigation }) {
 
         <View style={{ height: 24 }} />
       </ScrollView>
+      <EditNameModal
+        visible={editingName}
+        initialName={user?.name ?? ''}
+        onCancel={() => setEditingName(false)}
+        onSave={saveName}
+      />
     </SafeAreaView>
   );
 }
@@ -184,7 +251,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white, borderRadius: 16, padding: 14,
     borderWidth: 1, borderColor: colors.borderLight, marginBottom: 22,
   },
-  avatar: { width: 52, height: 52, borderRadius: 26 },
   profileText: { flex: 1 },
   profileName: { fontSize: 16.5, fontWeight: '800', color: colors.textDark },
   profileEmail: { fontSize: 12.5, color: colors.textLight, fontWeight: '500', marginTop: 2 },
@@ -229,4 +295,22 @@ const styles = StyleSheet.create({
   },
   signOutText: { fontSize: 15, fontWeight: '800', color: colors.primary },
   version: { textAlign: 'center', fontSize: 11.5, color: colors.textPlaceholder, fontWeight: '600', marginTop: 18 },
+
+  // ── Edit profile dialog ──
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(30,16,20,0.45)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalSheet: { width: '100%', maxWidth: 360, backgroundColor: colors.white, borderRadius: 18, padding: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: colors.textDark, marginBottom: 14 },
+  modalLabel: { fontSize: 11, fontWeight: '800', color: colors.textFaint, letterSpacing: 1.1, marginBottom: 6 },
+  modalInput: {
+    borderWidth: 1.5, borderColor: colors.borderLight, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: colors.textDark, backgroundColor: colors.sectionBg,
+  },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 18 },
+  modalBtn: {
+    flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 44,
+    backgroundColor: colors.primary, borderRadius: 100, paddingVertical: 12,
+  },
+  modalBtnText: { color: colors.white, fontWeight: '800', fontSize: 14 },
+  modalBtnGhost: { backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border },
+  modalBtnGhostText: { color: colors.textMid },
 });

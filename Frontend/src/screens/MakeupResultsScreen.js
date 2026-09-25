@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import ErrorBanner from '../components/ErrorBanner';
-import { comingSoon, confirm, notify, shareText } from '../utils/feedback';
+import { confirm, notify, openTutorial, shareText } from '../utils/feedback';
 
 function LookCard({ item, selected, recommended, onPress }) {
   return (
@@ -192,11 +192,24 @@ export default function MakeupResultsScreen({ navigation, route }) {
               style={styles.tutorialBtn}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="Start tutorial"
-              onPress={() => comingSoon('Makeup tutorials')}
+              accessibilityLabel="Try this look on me"
+              disabled={!selectedLook}
+              onPress={() => navigation?.navigate('VirtualTryOn', { lookKey: selectedLook?.key })}
             >
-              <Ionicons name="play-circle-outline" size={17} color={colors.white} />
-              <Text style={styles.tutorialBtnText}>Start Tutorial</Text>
+              <Ionicons name="color-palette-outline" size={17} color={colors.white} />
+              <Text style={styles.tutorialBtnText}>Try This Look On Me</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tutorialBtn, styles.tutorialBtnOutline]}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Start tutorial"
+              disabled={!selectedLook}
+              onPress={() => openTutorial(`${selectedLook?.label} ${selectedLook?.description} makeup`)}
+            >
+              <Ionicons name="play-circle-outline" size={17} color={colors.primary} />
+              <Text style={[styles.tutorialBtnText, styles.tutorialBtnOutlineText]}>Start Tutorial</Text>
             </TouchableOpacity>
           </View>
         }
@@ -271,4 +284,9 @@ const styles = StyleSheet.create({
     shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
   tutorialBtnText: { color: colors.white, fontWeight: '800', fontSize: 15 },
+  tutorialBtnOutline: {
+    marginTop: 10, backgroundColor: colors.white,
+    borderWidth: 1.5, borderColor: colors.primary, shadowOpacity: 0, elevation: 0,
+  },
+  tutorialBtnOutlineText: { color: colors.primary },
 });

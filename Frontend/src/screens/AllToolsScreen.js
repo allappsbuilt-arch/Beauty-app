@@ -12,221 +12,114 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { comingSoon } from '../utils/feedback';
+import { goToTab } from '../utils/navigation';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-// `section` maps a chip to the SECTIONS key it filters to; `tab` instead
-// jumps straight to a bottom tab for chips with no matching tool section.
+// Each chip filters the list to one SECTIONS key.
 const QUICK_ACCESS = [
   { key: 'analysis', icon: 'scan-outline', label: 'Analysis', section: 'face' },
   { key: 'makeup', icon: 'color-palette-outline', label: 'Makeup', section: 'makeup' },
   { key: 'serums', icon: 'flask-outline', label: 'Serums', section: 'products' },
   { key: 'progress', icon: 'stats-chart-outline', label: 'Progress', section: 'progress' },
-  { key: 'coach', icon: 'sparkles-outline', label: 'Coach', tab: 'Coach' },
+  { key: 'coach', icon: 'sparkles-outline', label: 'Coach', section: 'coach' },
 ];
 
+// `route` is a root-stack screen; `tab` is a bottom tab (reached through the
+// Tabs navigator). `keywords` widen search beyond the label/description.
 const SECTIONS = [
   {
     key: 'face',
     title: 'FACE ANALYSIS',
     tools: [
-      {
-        key: 'deep-scan',
-        icon: 'scan-outline',
-        label: 'Deep Scan AI',
-        desc: 'Complete map of skin texture and tone',
-        route: 'ScanFace',
-      },
-      {
-        key: 'symmetry',
-        icon: 'body-outline',
-        label: 'Symmetry Check',
-        desc: 'Analyze facial proportions and balance',
-      },
-      {
-        key: 'scan-history',
-        icon: 'time-outline',
-        label: 'Scan History',
-        desc: 'Review your past face scans',
-        route: 'ScanHistory',
-      },
+      { key: 'deep-scan', icon: 'scan-outline', label: 'Deep Scan AI', desc: 'Complete map of skin texture and tone', route: 'ScanFace', keywords: 'camera selfie skin analysis' },
+      { key: 'full-analysis', icon: 'analytics-outline', label: 'Full Scan Analysis', desc: 'Every zone from your latest scan in detail', route: 'FullScanAnalysis', keywords: 'results report zones' },
+      { key: 'symmetry', icon: 'body-outline', label: 'Symmetry Check', desc: 'Analyze facial proportions and balance', route: 'SymmetryCheck', keywords: 'balance proportions face shape' },
+      { key: 'scan-history', icon: 'time-outline', label: 'Scan History', desc: 'Review your past face scans', route: 'ScanHistory', keywords: 'past previous scans' },
     ],
   },
   {
     key: 'routines',
     title: 'ROUTINES & CARE',
     tools: [
-      {
-        key: 'routine-builder',
-        icon: 'calendar-outline',
-        label: 'Daily Routine Builder',
-        desc: 'Customized AM/PM skincare flows',
-      },
-      {
-        key: 'eyebrow-tracker',
-        icon: 'brush-outline',
-        label: 'Eyebrow Tracker',
-        desc: 'Track fullness and growth over time',
-        route: 'EyebrowTracker',
-      },
-      {
-        key: 'eyelash-tracker',
-        icon: 'eye-outline',
-        label: 'Eyelash Tracker',
-        desc: 'Track length, density and aftercare',
-        route: 'EyelashTracker',
-      },
-      {
-        key: 'undereye-tracker',
-        icon: 'moon-outline',
-        label: 'Undereye Tracker',
-        desc: 'Monitor dark circles and depuffing habits',
-        route: 'UndereyeTracker',
-      },
-      {
-        key: 'lip-vitality',
-        icon: 'happy-outline',
-        label: 'Lip Vitality',
-        desc: 'Hydration, surface health and routine',
-        route: 'LipVitality',
-      },
-      {
-        key: 'scalp-tracker',
-        icon: 'analytics-outline',
-        label: 'Scalp & Hair Tracker',
-        desc: 'Scalp health, wash cycle and hairline log',
-        route: 'ScalpTracker',
-      },
+      { key: 'routine-builder', icon: 'calendar-outline', label: 'Daily Routine Builder', desc: 'Customized AM/PM skincare flows', tab: 'Routine', keywords: 'morning evening steps skincare' },
+      { key: 'eyebrow-tracker', icon: 'brush-outline', label: 'Eyebrow Tracker', desc: 'Track fullness and growth over time', route: 'EyebrowTracker', keywords: 'brows' },
+      { key: 'eyelash-tracker', icon: 'eye-outline', label: 'Eyelash Tracker', desc: 'Track length, density and aftercare', route: 'EyelashTracker', keywords: 'lashes' },
+      { key: 'undereye-tracker', icon: 'moon-outline', label: 'Undereye Tracker', desc: 'Monitor dark circles and depuffing habits', route: 'UndereyeTracker', keywords: 'dark circles puffiness eyes' },
+      { key: 'lip-vitality', icon: 'happy-outline', label: 'Lip Vitality', desc: 'Hydration, surface health and routine', route: 'LipVitality', keywords: 'lips' },
+      { key: 'scalp-tracker', icon: 'analytics-outline', label: 'Scalp & Hair Tracker', desc: 'Scalp health, wash cycle and hairline log', route: 'ScalpTracker', keywords: 'hair scalp' },
     ],
   },
   {
     key: 'visualizers',
     title: 'AI VISUALIZERS',
     tools: [
-      {
-        key: 'aging',
-        icon: 'time-outline',
-        label: 'Aging Simulator',
-        desc: 'Predict skin health over 10–20 years',
-      },
-      {
-        key: 'hairstylist',
-        icon: 'color-wand-outline',
-        label: 'AI Hairstylist',
-        desc: 'Generate and preview new hairstyles',
-        route: 'AIHairstylist',
-      },
-      {
-        key: 'lash-styler',
-        icon: 'eye-outline',
-        label: 'Lash Styler',
-        desc: 'Preview lash styles with the AI visualizer',
-        route: 'LashStyler',
-      },
+      { key: 'aging', icon: 'hourglass-outline', label: 'Aging Simulator', desc: 'Predict skin health over 10–20 years', route: 'AgingSimulator', keywords: 'age future wrinkles' },
+      { key: 'hairstylist', icon: 'color-wand-outline', label: 'AI Hairstylist', desc: 'Generate and preview new hairstyles', route: 'AIHairstylist', keywords: 'hair cut style' },
+      { key: 'lash-styler', icon: 'eye-outline', label: 'Lash Styler', desc: 'Preview lash styles with the AI visualizer', route: 'LashStyler', keywords: 'lashes extensions' },
     ],
   },
   {
     key: 'makeup',
     title: 'MAKEUP & GROOMING',
     tools: [
-      {
-        key: 'tryon',
-        icon: 'glasses-outline',
-        label: 'Virtual Try-On',
-        desc: 'AR makeup and grooming placement',
-        route: 'OccasionPicker',
-      },
+      { key: 'tryon', icon: 'glasses-outline', label: 'Virtual Try-On', desc: 'AR makeup and grooming placement', route: 'VirtualTryOn', keywords: 'makeup look selfie apply' },
+      { key: 'occasion-looks', icon: 'sparkles-outline', label: 'Looks for an Occasion', desc: 'AI makeup looks for any event', route: 'OccasionPicker', keywords: 'makeup wedding party event' },
+      { key: 'saved-looks', icon: 'images-outline', label: 'My Makeup Looks', desc: 'Your latest AI-generated looks', route: 'MakeupResults', keywords: 'makeup results saved' },
+      { key: 'brow-styling', icon: 'brush-outline', label: 'Brow Styling', desc: 'Find the brow shape that suits your face', route: 'BrowAnalysis', keywords: 'eyebrows grooming shape' },
     ],
   },
   {
     key: 'products',
     title: 'PRODUCTS & INGREDIENTS',
     tools: [
-      {
-        key: 'ingredients',
-        icon: 'barcode-outline',
-        label: 'Ingredient Analyzer',
-        desc: 'Scan labels for irritants and actives',
-        route: 'IngredientScanner',
-      },
-      {
-        key: 'product-shelf',
-        icon: 'file-tray-stacked-outline',
-        label: 'Product Shelf',
-        desc: 'Track your routine and monitor results',
-        route: 'ProductShelf',
-      },
-      {
-        key: 'ingredient-guide',
-        icon: 'book-outline',
-        label: 'Ingredient Guide',
-        desc: 'Learn what’s in your products, weekly',
-        route: 'IngredientGuide',
-      },
+      { key: 'ingredients', icon: 'barcode-outline', label: 'Ingredient Analyzer', desc: 'Scan labels for irritants and actives', route: 'IngredientScanner', keywords: 'serum label scan' },
+      { key: 'product-shelf', icon: 'file-tray-stacked-outline', label: 'Product Shelf', desc: 'Track your routine and monitor results', route: 'ProductShelf', keywords: 'serums products' },
+      { key: 'ingredient-guide', icon: 'book-outline', label: 'Ingredient Guide', desc: 'Learn what’s in your products, weekly', route: 'IngredientGuide', keywords: 'serums actives retinol niacinamide vitamin' },
+      { key: 'dupe-finder', icon: 'swap-horizontal-outline', label: 'Dupe Finder', desc: 'Find affordable alternatives to products', route: 'DupeFinder', keywords: 'cheaper alternative serum budget' },
+      { key: 'product-reviews', icon: 'chatbox-ellipses-outline', label: 'Product Reviews', desc: 'Read and write reviews from the community', route: 'ProductReviews', keywords: 'ratings serum' },
     ],
   },
   {
     key: 'progress',
     title: 'PROGRESS & RECAPS',
     tools: [
-      {
-        key: 'timelapse',
-        icon: 'trending-up-outline',
-        label: 'Transformation Timelapse',
-        desc: 'Compare your skin over weeks or months',
-      },
-      {
-        key: 'rewards',
-        icon: 'trophy-outline',
-        label: 'Points & Rewards',
-        desc: 'Track your balance and earn more',
-        route: 'Rewards',
-      },
-      {
-        key: 'leaderboard',
-        icon: 'podium-outline',
-        label: 'Leaderboard',
-        desc: 'See how you rank against others',
-        route: 'Leaderboard',
-      },
-      {
-        key: 'communities',
-        icon: 'people-outline',
-        label: 'Communities',
-        desc: 'Join groups and share your journey',
-        route: 'Communities',
-      },
-      {
-        key: 'challenges',
-        icon: 'flag-outline',
-        label: 'Challenges',
-        desc: 'Join challenges and compare with friends',
-        route: 'Challenges',
-      },
+      { key: 'timelapse', icon: 'trending-up-outline', label: 'Transformation Timelapse', desc: 'Compare your skin over weeks or months', route: 'TransformationTimelapse', keywords: 'before after compare' },
+      { key: 'weekly-report', icon: 'bar-chart-outline', label: 'Weekly Report', desc: 'Your routine consistency and zone trends', route: 'WeeklyReport', keywords: 'audit stats recap' },
+      { key: 'rewards', icon: 'trophy-outline', label: 'Points & Rewards', desc: 'Track your balance and earn more', tab: 'Rewards', keywords: 'earn points' },
+      { key: 'leaderboard', icon: 'podium-outline', label: 'Leaderboard', desc: 'See how you rank against others', route: 'Leaderboard', keywords: 'rank' },
+      { key: 'communities', icon: 'people-outline', label: 'Communities', desc: 'Join groups and share your journey', route: 'Communities', keywords: 'groups social' },
+      { key: 'challenges', icon: 'flag-outline', label: 'Challenges', desc: 'Join challenges and compare with friends', route: 'Challenges', keywords: 'friends' },
+    ],
+  },
+  {
+    key: 'coach',
+    title: 'AI COACH',
+    tools: [
+      { key: 'coach-chat', icon: 'chatbubbles-outline', label: 'Chat with AI Coach', desc: 'Ask anything about your skin and routine', route: 'Coach', keywords: 'ask question help advice' },
+      { key: 'coach-style', icon: 'options-outline', label: 'Coach Style', desc: 'Choose how your coach talks to you', route: 'CoachStyle', keywords: 'personality reminders' },
     ],
   },
   {
     key: 'settings',
     title: 'SETTINGS & PERSONALIZATION',
     tools: [
-      {
-        key: 'app-settings',
-        icon: 'settings-outline',
-        label: 'Settings',
-        desc: 'Profile, reminders, and account options',
-        route: 'Settings',
-      },
-      {
-        key: 'privacy',
-        icon: 'shield-checkmark-outline',
-        label: 'Data Privacy',
-        desc: 'Manage your scan and routine data',
-        route: 'Privacy',
-      },
+      { key: 'app-settings', icon: 'settings-outline', label: 'Settings', desc: 'Profile, reminders, and account options', route: 'Settings', keywords: 'account profile' },
+      { key: 'notifications', icon: 'notifications-outline', label: 'Notifications', desc: 'Choose which alerts you receive', route: 'Notifications', keywords: 'alerts reminders' },
+      { key: 'privacy', icon: 'shield-checkmark-outline', label: 'Data Privacy', desc: 'Manage your scan and routine data', route: 'Privacy', keywords: 'export delete data' },
+      { key: 'teen-controls', icon: 'lock-closed-outline', label: 'Teen Controls', desc: 'Safety settings for younger users', route: 'TeenageControls', keywords: 'parental teenage' },
     ],
   },
 ];
+
+// Case-insensitive partial match on every word of the query against the
+// tool's label, description, keywords and section title.
+function matchesQuery(tool, section, query) {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const haystack = `${tool.label} ${tool.desc} ${tool.keywords || ''} ${section.title}`.toLowerCase();
+  return words.every((w) => haystack.includes(w));
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -256,19 +149,27 @@ function PageHeader({ onBack, onClose }) {
   );
 }
 
-function SearchBar({ value, onChangeText }) {
+function SearchBar({ value, onChangeText, placeholder }) {
   return (
     <View style={styles.searchWrap}>
       <Ionicons name="search-outline" size={17} color={colors.textPlaceholder} style={styles.searchIcon} />
       <TextInput
         style={styles.searchInput}
-        placeholder="Search tools..."
+        placeholder={placeholder}
         placeholderTextColor={colors.textPlaceholder}
         value={value}
         onChangeText={onChangeText}
         returnKeyType="search"
+        autoCorrect={false}
+        autoCapitalize="none"
         accessibilityLabel="Search tools"
       />
+      {value.length > 0 && (
+        <TouchableOpacity onPress={() => onChangeText('')} style={styles.searchClear}
+          accessibilityRole="button" accessibilityLabel="Clear search text">
+          <Ionicons name="close-circle" size={18} color={colors.textPlaceholder} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -293,9 +194,11 @@ function SectionHeader({ title, onSeeAll }) {
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      <TouchableOpacity onPress={onSeeAll} accessibilityRole="button" accessibilityLabel={`See all ${title}`}>
-        <Text style={styles.seeAll}>See All</Text>
-      </TouchableOpacity>
+      {onSeeAll && (
+        <TouchableOpacity onPress={onSeeAll} accessibilityRole="button" accessibilityLabel={`See all ${title}`}>
+          <Text style={styles.seeAll}>See All</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -333,10 +236,10 @@ function ToolRow({ icon, label, desc, isLast, onPress }) {
   );
 }
 
-function ToolSection({ title, tools, onToolPress }) {
+function ToolSection({ title, tools, onToolPress, onSeeAll }) {
   return (
     <View style={styles.section}>
-      <SectionHeader title={title} />
+      <SectionHeader title={title} onSeeAll={onSeeAll} />
       <View style={styles.sectionCard}>
         {tools.map((tool, i) => (
           <ToolRow
@@ -355,23 +258,29 @@ function ToolSection({ title, tools, onToolPress }) {
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-export default function AllToolsScreen({ navigation }) {
+// Also used for "See All": the ToolCategory route renders this screen with
+// `route.params.section`, listing just that category.
+export default function AllToolsScreen({ navigation, route }) {
+  const categoryKey = route?.params?.section ?? null;
+  const category = SECTIONS.find((s) => s.key === categoryKey) ?? null;
+
   const [search, setSearch] = useState('');
   const [activeChip, setActiveChip] = useState(null);
+  const query = search.trim();
 
-  // Filter sections/tools by search query and the active Quick Access chip
-  const filteredSections = SECTIONS
-    .filter((s) => !activeChip || s.key === activeChip)
-    .map((s) => ({
-      ...s,
-      tools: s.tools.filter(
-        (t) =>
-          search === '' ||
-          t.label.toLowerCase().includes(search.toLowerCase()) ||
-          t.desc.toLowerCase().includes(search.toLowerCase())
-      ),
-    }))
+  // Filter sections/tools by the category page, the active Quick Access chip
+  // and the search query.
+  const visibleSections = category ? [category] : SECTIONS.filter((s) => !activeChip || s.key === activeChip);
+  const filteredSections = visibleSections
+    .map((s) => ({ ...s, tools: s.tools.filter((t) => matchesQuery(t, s, query)) }))
     .filter((s) => s.tools.length > 0);
+
+  const openTool = (tool) => {
+    if (tool.tab) goToTab(navigation, tool.tab);
+    else navigation?.navigate(tool.route);
+  };
+
+  const goBack = () => (navigation?.canGoBack() ? navigation.goBack() : navigation?.navigate('Home'));
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -379,8 +288,8 @@ export default function AllToolsScreen({ navigation }) {
 
       {/* ── Top header ── */}
       <PageHeader
-        onBack={() => navigation?.navigate('Home')}
-        onClose={() => navigation?.navigate('Home')}
+        onBack={goBack}
+        onClose={() => goToTab(navigation, 'Home')}
       />
 
       <ScrollView
@@ -390,11 +299,15 @@ export default function AllToolsScreen({ navigation }) {
       >
         {/* ── Search ── */}
         <View style={styles.searchSection}>
-          <SearchBar value={search} onChangeText={setSearch} />
+          <SearchBar
+            value={search}
+            onChangeText={setSearch}
+            placeholder={category ? `Search ${category.title.toLowerCase()}...` : 'Search tools...'}
+          />
         </View>
 
         {/* ── Quick Access ── */}
-        {search === '' && (
+        {!category && query === '' && (
           <View style={styles.quickSection}>
             <Text style={styles.quickLabel}>QUICK ACCESS</Text>
             <ScrollView
@@ -407,12 +320,8 @@ export default function AllToolsScreen({ navigation }) {
                   key={c.key}
                   icon={c.icon}
                   label={c.label}
-                  active={!!c.section && activeChip === c.section}
-                  onPress={() =>
-                    c.tab
-                      ? navigation?.navigate(c.tab)
-                      : setActiveChip(activeChip === c.section ? null : c.section)
-                  }
+                  active={activeChip === c.section}
+                  onPress={() => setActiveChip(activeChip === c.section ? null : c.section)}
                 />
               ))}
             </ScrollView>
@@ -425,9 +334,27 @@ export default function AllToolsScreen({ navigation }) {
             key={s.key}
             title={s.title}
             tools={s.tools}
-            onToolPress={(tool) => (tool.route ? navigation?.navigate(tool.route) : comingSoon(tool.label))}
+            onToolPress={openTool}
+            onSeeAll={category ? null : () => navigation?.navigate('ToolCategory', { section: s.key })}
           />
         ))}
+
+        {/* ── No results ── */}
+        {filteredSections.length === 0 && (
+          <View style={styles.noResults}>
+            <Ionicons name="search-outline" size={30} color={colors.textPlaceholder} />
+            <Text style={styles.noResultsTitle}>No tools found</Text>
+            <Text style={styles.noResultsText}>Nothing matches “{query}”. Try a different word.</Text>
+            <TouchableOpacity
+              style={styles.noResultsBtn}
+              onPress={() => setSearch('')}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+            >
+              <Text style={styles.noResultsBtnText}>Clear search</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -645,4 +572,15 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: 32,
   },
+
+  // ── Search extras ──
+  searchClear: { paddingLeft: 8, paddingVertical: 4 },
+  noResults: { alignItems: 'center', gap: 6, paddingHorizontal: 32, paddingTop: 40 },
+  noResultsTitle: { fontSize: 16, fontWeight: '800', color: colors.textDark, marginTop: 4 },
+  noResultsText: { fontSize: 13, color: colors.textLight, textAlign: 'center' },
+  noResultsBtn: {
+    marginTop: 10, borderRadius: 100, paddingHorizontal: 18, paddingVertical: 9,
+    backgroundColor: colors.primaryPale,
+  },
+  noResultsBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
 });
