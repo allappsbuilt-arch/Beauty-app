@@ -66,11 +66,22 @@ CREATE TABLE IF NOT EXISTS notification_prefs (
   categories_json JSONB NOT NULL
 );
 
--- 8. COACH MESSAGES
+-- 8. TRACKER CHECKS (water intake, rewards dedup, referrals)
+CREATE TABLE IF NOT EXISTS tracker_checks (
+  id         SERIAL PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  area       TEXT NOT NULL,           -- 'water' | 'rewards' | 'referred_by'
+  item_key   TEXT NOT NULL,
+  date       TEXT NOT NULL,           -- 'YYYY-MM-DD' or 'once' for lifetime
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id, area, item_key, date)
+);
+
+-- 9. COACH MESSAGES
 CREATE TABLE IF NOT EXISTS coach_messages (
   id         SERIAL PRIMARY KEY,
   user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  from       TEXT NOT NULL,           -- 'user' or 'coach'
+  "from"     TEXT NOT NULL,           -- 'user' or 'coach'
   text       TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL
 );
@@ -144,6 +155,7 @@ ALTER TABLE checkins                 DISABLE ROW LEVEL SECURITY;
 ALTER TABLE scans                    DISABLE ROW LEVEL SECURITY;
 ALTER TABLE points_ledger            DISABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_prefs       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE tracker_checks          DISABLE ROW LEVEL SECURITY;
 ALTER TABLE coach_messages           DISABLE ROW LEVEL SECURITY;
 ALTER TABLE makeup_sessions          DISABLE ROW LEVEL SECURITY;
 ALTER TABLE user_preferences         DISABLE ROW LEVEL SECURITY;
