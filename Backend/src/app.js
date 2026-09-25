@@ -18,6 +18,7 @@ const productsRoutes = require('./routes/products.routes');
 const accountRoutes = require('./routes/account.routes');
 const stylesRoutes = require('./routes/styles.routes');
 const visualizersRoutes = require('./routes/visualizers.routes');
+const socialRoutes = require('./routes/social.routes');
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/account', accountRoutes);
 app.use('/api/styles', stylesRoutes);
 app.use('/api/visualizers', visualizersRoutes);
+app.use('/api/social', socialRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });

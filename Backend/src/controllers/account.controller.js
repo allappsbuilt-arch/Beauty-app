@@ -8,6 +8,19 @@ const USER_TABLES = [
   'tracker_checks', 'shelf_items', 'product_reviews', 'review_votes',
 ];
 
+// [table, owner column, columns] — photo bytes are left out of the export.
+const SOCIAL_EXPORTS = [
+  ['social_posts', 'user_id', '*'],
+  ['social_comments', 'user_id', '*'],
+  ['social_likes', 'user_id', '*'],
+  ['social_bookmarks', 'user_id', '*'],
+  ['social_follows', 'follower_id', '*'],
+  ['social_stories', 'user_id', '*'],
+  ['social_reports', 'user_id', '*'],
+  ['social_media', 'user_id', 'id, mime, created_at'],
+  ['mindfulness_sessions', 'user_id', '*'],
+];
+
 async function exportData(req, res) {
   const { data: user, error } = await supabase
     .from('users')
@@ -21,6 +34,11 @@ async function exportData(req, res) {
     const { data, error: tErr } = await supabase.from(table).select('*').eq('user_id', req.userId);
     if (tErr) throw new Error(`${table}: ${tErr.message}`);
     out[table] = data || [];
+  }
+  // Socials (social_setup.sql) — skipped if those tables don't exist yet.
+  for (const [table, column, columns] of SOCIAL_EXPORTS) {
+    const { data, error: tErr } = await supabase.from(table).select(columns).eq(column, req.userId);
+    if (!tErr) out[table] = data || [];
   }
   return res.json(out);
 }
