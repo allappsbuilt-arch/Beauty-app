@@ -25,6 +25,11 @@ export default function SignupScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
+  // Optional friend's referral code (also read from a ?ref=CODE link on web).
+  const [referralCode, setReferralCode] = useState(() => {
+    if (Platform.OS !== 'web') return '';
+    try { return new URLSearchParams(window.location.search).get('ref')?.toUpperCase() || ''; } catch { return ''; }
+  });
 
   const handleSubmit = async () => {
     if (!name || !email || !password) {
@@ -38,7 +43,7 @@ export default function SignupScreen({ navigation }) {
     setFormError(null);
     setSubmitting(true);
     try {
-      await signup(name.trim(), email.trim(), password);
+      await signup(name.trim(), email.trim(), password, referralCode.trim());
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : 'Unable to create account. Please try again.');
     } finally {
@@ -120,6 +125,21 @@ export default function SignupScreen({ navigation }) {
                 />
               </TouchableOpacity>
             </View>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Referral code (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Friend's code, e.g. 3F2A9C1E"
+              placeholderTextColor={colors.textPlaceholder}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={8}
+              value={referralCode}
+              onChangeText={(v) => setReferralCode(v.toUpperCase())}
+              accessibilityLabel="Referral code (optional)"
+            />
           </View>
 
           <TouchableOpacity

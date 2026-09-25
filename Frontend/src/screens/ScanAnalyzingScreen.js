@@ -415,7 +415,7 @@ export default function ScanAnalyzingScreen({ navigation, route }) {
     Promise.all([scanPromise, minDelay])
       .then(([scan]) => {
         if (cancelled) return;
-        navigation?.replace('ScanResults', { zones: scan.zones, ancillary: scan.ancillary });
+        navigation?.replace('ScanResults', { zones: scan.zones, ancillary: scan.ancillary, pointsAwarded: scan.pointsAwarded ?? 0 });
       })
       .catch((err) => {
         if (cancelled) return;

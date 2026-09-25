@@ -57,11 +57,11 @@ export function AuthProvider({ children }) {
     setUser(newUser);
   }, []);
 
-  const signup = useCallback(async (name, email, password) => {
+  const signup = useCallback(async (name, email, password, referralCode) => {
     setError(null);
     const { token: newToken, user: newUser } = await apiRequest('/api/auth/signup', {
       method: 'POST',
-      body: { name, email, password },
+      body: { name, email, password, ...(referralCode ? { referralCode } : {}) },
     });
     await AsyncStorage.multiSet([[TOKEN_KEY, newToken], [USER_KEY, JSON.stringify(newUser)]]);
     setToken(newToken);

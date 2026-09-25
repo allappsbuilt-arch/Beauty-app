@@ -28,14 +28,17 @@ async function getBalance(userId) {
   return (data || []).reduce((sum, row) => sum + row.points, 0);
 }
 
-async function getHistory(userId, limit = 50) {
-  const { data, error } = await supabase
+// Newest first; `before` (an ISO timestamp) pages back through older entries.
+async function getHistory(userId, limit = 50, before = null) {
+  let query = supabase
     .from('points_ledger')
     .select('id, label, points, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(limit);
+  if (before) query = query.lt('created_at', before);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -52,6 +55,7 @@ function getLevelInfo(balance) {
   return {
     levelLabel: current.label,
     nextLevelLabel: next ? next.label : null,
+    levelFloor: current.min,
     levelGoal: next ? next.min : current.min,
   };
 }

@@ -1,5 +1,6 @@
 const { supabase } = require('../db/database');
 const points = require('../services/points.service');
+const rewards = require('../services/rewards.service');
 const { todayStr, addDays, isDateStr, mondayFirstIndex, startOfWeek } = require('../services/date.util');
 const { ROUTINE_STEP_KEYS, LEGACY_PM_KEYS, normalizeStepKey } = require('../services/routineSteps');
 
@@ -137,6 +138,7 @@ async function finish(req, res) {
   const pointsAwarded = data && data.length > 0 ? ROUTINE_POINTS : 0;
   if (pointsAwarded) {
     await points.award(req.userId, 'Daily Routine Completed', pointsAwarded);
+    await rewards.rewardReferrer(req.userId);
   }
 
   return res.json({ streak: await computeStreak(req.userId), pointsAwarded });

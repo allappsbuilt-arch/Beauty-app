@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,64 +7,48 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import ErrorBanner from '../components/ErrorBanner';
 import { useAuthedRequest } from '../api/useAuthedRequest';
+import { goToTab } from '../utils/navigation';
+import { formatPoints, formatPointsDate, loadErrorMessage } from '../components/points/pointsUtils';
 
-// ─── Static catalog (ways to earn — not user data) ───────────────────────────
-
-const EARN_ACTIONS = [
-  { key: 'scan', icon: 'sparkles', label: 'Scan Face', desc: 'Analyze your skin today', points: 50, color: colors.primary, bg: colors.primaryPale },
-  { key: 'water', icon: 'water', label: 'Log Water', desc: 'Stay hydrated for glow', points: 20, color: '#1EA868', bg: '#E7F7EE' },
-  { key: 'refer', icon: 'person-add', label: 'Refer a Friend', desc: 'Share the routine', points: 500, color: '#8870C0', bg: '#F0EEFF' },
-];
-
-function formatHistoryDate(iso) {
-  const date = new Date(iso);
-  const now = new Date();
-  const isSameDay = date.toDateString() === now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const isYesterday = date.toDateString() === yesterday.toDateString();
-
-  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  if (isSameDay) return `Today, ${time}`;
-  if (isYesterday) return `Yesterday, ${time}`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
+const RECENT_COUNT = 5;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function EarnRow({ item }) {
+function EarnRow({ icon, label, desc, pill, done, color, bg, onPress }) {
   return (
-    <View style={styles.earnRow}>
-      <View style={[styles.earnIcon, { backgroundColor: item.bg }]}>
-        <Ionicons name={item.icon} size={20} color={item.color} />
+    <TouchableOpacity style={styles.earnRow} onPress={onPress} activeOpacity={0.8}
+      accessibilityRole="button" accessibilityLabel={`${label}: ${desc}. ${pill}`}>
+      <View style={[styles.earnIcon, { backgroundColor: bg }]}>
+        <Ionicons name={icon} size={20} color={color} />
       </View>
       <View style={styles.earnText}>
-        <Text style={styles.earnLabel}>{item.label}</Text>
-        <Text style={styles.earnDesc}>{item.desc}</Text>
+        <Text style={styles.earnLabel}>{label}</Text>
+        <Text style={styles.earnDesc}>{desc}</Text>
       </View>
-      <View style={styles.earnPill}>
-        <Text style={styles.earnPillText}>+{item.points}</Text>
+      <View style={[styles.earnPill, done && styles.earnPillDone]}>
+        <Text style={[styles.earnPillText, done && styles.earnPillTextDone]}>{pill}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 function HistoryRow({ item, isLast }) {
   return (
     <View style={[styles.historyRow, !isLast && styles.historyRowBorder]}>
-      <View>
-        <Text style={[styles.historyLabel, item.faded && styles.historyLabelFaded]}>{item.label}</Text>
-        <Text style={styles.historyDate}>{item.date}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.historyLabel}>{item.label}</Text>
+        <Text style={styles.historyDate}>{formatPointsDate(item.createdAt)}</Text>
       </View>
-      <Text style={[styles.historyPoints, item.faded && styles.historyPointsFaded]}>
-        +{item.points} pts
-      </Text>
+      <Text style={[styles.historyPoints, item.points < 0 && styles.historyPointsNeg]}>{formatPoints(item.points)}</Text>
     </View>
   );
 }
@@ -73,54 +57,83 @@ function HistoryRow({ item, isLast }) {
 
 export default function RewardsScreen({ navigation }) {
   const request = useAuthedRequest();
-  const [balance, setBalance] = useState(0);
-  const [levelGoal, setLevelGoal] = useState(3000);
-  const [levelLabel, setLevelLabel] = useState('Level 1: Fresh Start');
-  const [nextLevelLabel, setNextLevelLabel] = useState('Level 2: Glow Getter');
-  const [history, setHistory] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [earn, setEarn] = useState(null);
+  const [history, setHistory] = useState(null);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const loadedOnce = useRef(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      Promise.all([request('/api/points/summary'), request('/api/points/history')])
-        .then(([summary, historyRes]) => {
-          if (cancelled) return;
-          setBalance(summary.balance);
-          setLevelGoal(summary.levelGoal);
-          setLevelLabel(summary.levelLabel);
-          if (summary.nextLevelLabel) setNextLevelLabel(summary.nextLevelLabel);
-          setHistory(historyRes.history.map((h) => ({
-            key: String(h.id),
-            label: h.label,
-            date: formatHistoryDate(h.createdAt),
-            points: h.points,
-            faded: false,
-          })));
-        })
-        .catch(() => {
-          // Keep whatever was already on screen if the backend is unreachable.
-        });
-      return () => { cancelled = true; };
-    }, [request])
-  );
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const [s, e, h] = await Promise.all([
+        request('/api/points/summary'),
+        request('/api/points/earn'),
+        request(`/api/points/history?limit=${RECENT_COUNT}`),
+      ]);
+      setSummary(s);
+      setEarn(e);
+      setHistory(h.history);
+      loadedOnce.current = true;
+    } catch (err) {
+      setError(loadErrorMessage(err));
+    }
+  }, [request]);
 
-  const progress = Math.min(1, balance / levelGoal);
-  const remaining = Math.max(0, levelGoal - balance);
+  // Refresh on every visit so points earned elsewhere (routine, scan, water)
+  // show up immediately.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const refresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+
+  const leave = () => (navigation?.canGoBack() ? navigation.goBack() : goToTab(navigation, 'Home'));
+
+  // First load: full-screen spinner, or an error with Retry.
+  if (!loadedOnce.current && !summary) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
+        <ScreenHeader title="MyFace AI" onBack={leave} onClose={() => goToTab(navigation, 'Home')} />
+        {error ? (
+          <View style={styles.center}>
+            <Ionicons name="cloud-offline-outline" size={36} color={colors.textPlaceholder} />
+            <Text style={styles.centerText}>{error}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={load} accessibilityRole="button" accessibilityLabel="Retry">
+              <Text style={styles.retryBtnText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.centerText}>Loading your points…</Text>
+          </View>
+        )}
+      </SafeAreaView>
+    );
+  }
+
+  const { balance, levelLabel, nextLevelLabel, levelFloor, levelGoal, pointsToNext } = summary;
+  const span = Math.max(1, levelGoal - levelFloor);
+  const progress = nextLevelLabel ? Math.min(1, Math.max(0, (balance - levelFloor) / span)) : 1;
+  const water = earn.water;
+  const friends = earn.referral.friends;
+  const pendingFriends = friends.filter((f) => !f.rewarded).length;
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
-      <ScreenHeader
-        title="MyFace AI"
-        onBack={() => navigation?.goBack()}
-        onClose={() => navigation?.goBack()}
-      />
+      <ScreenHeader title="MyFace AI" onBack={leave} onClose={() => goToTab(navigation, 'Home')} />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
       >
+        {/* Stale data stays visible; the banner explains why it isn't fresh. */}
+        <ErrorBanner message={error} onRetry={load} onDismiss={() => setError(null)} />
+
         {/* ── Balance ── */}
         <View style={styles.balanceBlock}>
           <Text style={styles.balanceLabel}>TOTAL BALANCE</Text>
@@ -134,20 +147,47 @@ export default function RewardsScreen({ navigation }) {
         <View style={styles.levelBlock}>
           <View style={styles.levelRow}>
             <Text style={styles.levelLabel}>{levelLabel}</Text>
-            <Text style={styles.levelFraction}>{balance.toLocaleString()} / {levelGoal.toLocaleString()}</Text>
+            <Text style={styles.levelFraction}>
+              {nextLevelLabel ? `${balance.toLocaleString()} / ${levelGoal.toLocaleString()}` : `${balance.toLocaleString()} pts`}
+            </Text>
           </View>
           <View style={styles.levelTrack}>
             <View style={[styles.levelFill, { width: `${progress * 100}%` }]} />
           </View>
-          <Text style={styles.levelHint}>{remaining} points until {nextLevelLabel}</Text>
+          <Text style={styles.levelHint}>
+            {nextLevelLabel
+              ? `${pointsToNext.toLocaleString()} points until ${nextLevelLabel}`
+              : 'You’ve reached the top level — amazing!'}
+          </Text>
         </View>
 
         {/* ── Earn more points ── */}
         <Text style={styles.sectionTitle}>Earn More Points</Text>
         <View style={styles.earnList}>
-          {EARN_ACTIONS.map((item) => (
-            <EarnRow key={item.key} item={item} />
-          ))}
+          <EarnRow
+            icon="sparkles" label="Scan Face" color={colors.primary} bg={colors.primaryPale}
+            desc={earn.scan.doneToday ? 'Earned today — scan again tomorrow' : 'Analyze your skin today'}
+            pill={earn.scan.doneToday ? 'Done ✓' : `+${earn.scan.points}`}
+            done={earn.scan.doneToday}
+            onPress={() => navigation?.navigate('ScanFace')}
+          />
+          <EarnRow
+            icon="water" label="Log Water" color="#1EA868" bg="#E7F7EE"
+            desc={water.rewarded
+              ? `Goal reached · ${water.glasses} glasses today`
+              : water.glasses ? `${water.glasses} of ${water.goal} glasses today` : `Stay hydrated for glow · ${water.goal} glasses`}
+            pill={water.rewarded ? 'Done ✓' : `+${water.points}`}
+            done={water.rewarded}
+            onPress={() => navigation?.navigate('WaterLog')}
+          />
+          <EarnRow
+            icon="person-add" label="Refer a Friend" color="#8870C0" bg="#F0EEFF"
+            desc={friends.length
+              ? `${friends.length} joined${pendingFriends ? ` · ${pendingFriends} pending` : ''}`
+              : 'Share the routine'}
+            pill={`+${earn.referral.points}`}
+            onPress={() => navigation?.navigate('ReferFriend')}
+          />
         </View>
 
         {/* ── Recent history ── */}
@@ -157,7 +197,7 @@ export default function RewardsScreen({ navigation }) {
             <Text style={styles.emptyHistory}>No activity yet — complete a routine or scan to start earning.</Text>
           ) : (
             history.map((item, i) => (
-              <HistoryRow key={item.key} item={item} isLast={i === history.length - 1} />
+              <HistoryRow key={item.id} item={item} isLast={i === history.length - 1} />
             ))
           )}
         </View>
@@ -165,6 +205,7 @@ export default function RewardsScreen({ navigation }) {
         <TouchableOpacity
           style={styles.statementBtn}
           activeOpacity={0.7}
+          onPress={() => navigation?.navigate('PointsStatement')}
           accessibilityRole="button"
           accessibilityLabel="View full statement"
         >
@@ -182,6 +223,11 @@ export default function RewardsScreen({ navigation }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.primaryBg },
   scroll: { paddingBottom: 12 },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, padding: 32 },
+  centerText: { fontSize: 14, color: colors.textLight, textAlign: 'center', lineHeight: 20 },
+  retryBtn: { backgroundColor: colors.primary, borderRadius: 100, paddingHorizontal: 22, paddingVertical: 11 },
+  retryBtnText: { color: colors.white, fontWeight: '800', fontSize: 14 },
 
   balanceBlock: { alignItems: 'center', paddingTop: 28, paddingBottom: 8 },
   balanceLabel: { fontSize: 12, fontWeight: '800', color: colors.textLight, letterSpacing: 1.4 },
@@ -214,6 +260,8 @@ const styles = StyleSheet.create({
   earnDesc: { fontSize: 12.5, color: colors.textLight, fontWeight: '500' },
   earnPill: { backgroundColor: colors.primaryPale, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6 },
   earnPillText: { fontSize: 13, fontWeight: '800', color: colors.primary },
+  earnPillDone: { backgroundColor: '#E7F7EE' },
+  earnPillTextDone: { color: '#1EA868' },
 
   historyCard: {
     marginHorizontal: 20, backgroundColor: colors.white, borderRadius: 16,
@@ -224,15 +272,14 @@ const styles = StyleSheet.create({
   },
   historyRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 14, gap: 10,
   },
   historyRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderUltraLight },
   historyLabel: { fontSize: 14.5, fontWeight: '700', color: colors.textDark, marginBottom: 3 },
-  historyLabelFaded: { color: colors.textFaint },
   historyDate: { fontSize: 12, color: colors.textLight, fontWeight: '500' },
   historyPoints: { fontSize: 14.5, fontWeight: '800', color: '#1EA868' },
-  historyPointsFaded: { color: colors.textFaint },
+  historyPointsNeg: { color: '#D03050' },
 
-  statementBtn: { alignItems: 'center', marginTop: 20 },
+  statementBtn: { alignItems: 'center', marginTop: 20, paddingVertical: 8 },
   statementText: { fontSize: 12.5, fontWeight: '800', color: colors.primary, letterSpacing: 0.8 },
 });

@@ -61,6 +61,9 @@ import PostCommentsScreen      from '../screens/PostCommentsScreen';
 import UserProfileScreen       from '../screens/UserProfileScreen';
 import StoryViewerScreen       from '../screens/StoryViewerScreen';
 import MindfulnessSessionScreen from '../screens/MindfulnessSessionScreen';
+import WaterLogScreen          from '../screens/WaterLogScreen';
+import ReferFriendScreen       from '../screens/ReferFriendScreen';
+import PointsStatementScreen   from '../screens/PointsStatementScreen';
 import { colors } from '../theme/colors';
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
@@ -439,6 +442,22 @@ export default function AppNavigator() {
         <Stack.Screen
           name="MindfulnessSession"
           component={MindfulnessSessionScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        {/* Earn */}
+        <Stack.Screen
+          name="WaterLog"
+          component={WaterLogScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="ReferFriend"
+          component={ReferFriendScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="PointsStatement"
+          component={PointsStatementScreen}
           options={{ animation: 'slide_from_right' }}
         />
         </>

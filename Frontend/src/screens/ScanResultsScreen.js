@@ -444,8 +444,10 @@ function AncillaryCard({ zone, onPress }) {
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 export default function ScanResultsScreen({ navigation, route }) {
-  const zones = route?.params?.zones ?? ZONES;
-  const ancillary = route?.params?.ancillary ?? ANCILLARY;
+  const zones = route?.params?.zones ?? [];
+  const ancillary = route?.params?.ancillary ?? [];
+  // Set only when arriving straight from a new scan.
+  const pointsAwarded = route?.params?.pointsAwarded;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -465,12 +467,37 @@ export default function ScanResultsScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}
         overScrollMode="never"
       >
+        {pointsAwarded !== undefined && (
+          <TouchableOpacity
+            style={[styles.pointsBanner, !pointsAwarded && styles.pointsBannerMuted]}
+            onPress={() => navigation?.navigate('Tabs', { screen: 'Rewards' })}
+            accessibilityRole="button"
+            accessibilityLabel={pointsAwarded ? `${pointsAwarded} points earned. View points` : 'View points'}
+          >
+            <Ionicons name={pointsAwarded ? 'trophy' : 'checkmark-circle-outline'} size={18} color={pointsAwarded ? '#1EA868' : colors.textLight} />
+            <Text style={[styles.pointsBannerText, !pointsAwarded && { color: colors.textMid }]}>
+              {pointsAwarded ? `+${pointsAwarded} points earned for today’s scan!` : 'Scan saved. Today’s scan points were already earned.'}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
+          </TouchableOpacity>
+        )}
+
+        {zones.length === 0 && (
+          <View style={styles.noScan}>
+            <Text style={styles.noScanText}>No scan to show.</Text>
+            <TouchableOpacity style={styles.noScanBtn} onPress={() => navigation?.replace('ScanFace')} accessibilityRole="button" accessibilityLabel="Take a face scan">
+              <Text style={styles.noScanBtnText}>Take a Face Scan</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Primary zones: Skin, Eyes */}
         {zones.map(zone => (
           <ZoneCard key={zone.key} zone={zone} />
         ))}
 
         {/* Ancillary Zones section */}
+        {ancillary.length > 0 && (
         <View style={styles.ancSection}>
           <Text style={styles.ancHeader}>Ancillary Zones</Text>
           <View style={styles.ancRow}>
@@ -483,6 +510,7 @@ export default function ScanResultsScreen({ navigation, route }) {
             ))}
           </View>
         </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -493,6 +521,16 @@ export default function ScanResultsScreen({ navigation, route }) {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: colors.primaryBg },
+  pointsBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 12,
+    backgroundColor: '#E7F7EE', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
+  },
+  pointsBannerMuted: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderLight },
+  pointsBannerText: { flex: 1, fontSize: 13.5, fontWeight: '800', color: '#1EA868' },
+  noScan: { alignItems: 'center', gap: 12, paddingVertical: 40 },
+  noScanText: { fontSize: 15, color: colors.textLight },
+  noScanBtn: { backgroundColor: colors.primary, borderRadius: 100, paddingHorizontal: 22, paddingVertical: 11 },
+  noScanBtnText: { color: colors.white, fontWeight: '800' },
   scroll: { flex: 1 },
   content: { paddingTop: 12, paddingBottom: 24 },
 

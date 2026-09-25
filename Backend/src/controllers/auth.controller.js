@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const store = require('../db/usersRepo');
+const rewards = require('../services/rewards.service');
 const { jwtSecret, jwtExpiresIn } = require('../config');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -15,7 +16,7 @@ function signToken(user) {
 }
 
 async function signup(req, res) {
-  const { name, email, password } = req.body || {};
+  const { name, email, password, referralCode } = req.body || {};
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'name, email, and password are required' });
@@ -29,6 +30,10 @@ async function signup(req, res) {
   if (await store.findByEmail(email)) {
     return res.status(409).json({ error: 'An account with this email already exists' });
   }
+  const referrer = referralCode ? await rewards.findReferrer(referralCode) : null;
+  if (referralCode && String(referralCode).trim() && !referrer) {
+    return res.status(400).json({ error: 'That referral code isn’t valid — check it or leave it blank' });
+  }
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = {
@@ -39,6 +44,7 @@ async function signup(req, res) {
     createdAt: new Date().toISOString(),
   };
   await store.insertUser(user);
+  if (referrer) await rewards.recordReferral(user.id, referrer.id);
 
   const token = signToken(user);
   return res.status(201).json({ token, user: toPublicUser(user) });

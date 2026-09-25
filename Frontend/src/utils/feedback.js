@@ -33,6 +33,20 @@ export async function openTutorial(query) {
   }
 }
 
+// Copies text (web clipboard); on phones opens the share sheet, which has Copy.
+export async function copyText(text, label = 'Copied') {
+  try {
+    if (Platform.OS === 'web' && navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      notify(label, text);
+      return;
+    }
+    await Share.share({ message: text });
+  } catch {
+    notify('Could not copy', text);
+  }
+}
+
 export async function shareText(message) {
   try {
     if (Platform.OS === 'web' && !navigator.share) {

@@ -1,5 +1,5 @@
 const { supabase } = require('../db/database');
-const points = require('../services/points.service');
+const rewards = require('../services/rewards.service');
 const { analyzeFace } = require('../services/faceAnalysis.service');
 
 function toPublic(row) {
@@ -35,9 +35,12 @@ async function create(req, res) {
   });
   if (error) throw new Error(error.message);
 
-  await points.award(req.userId, 'Skin Analysis', 50);
+  // +50 for the first scan of the day; a referred user's first scan also
+  // pays their referrer.
+  const pointsAwarded = await rewards.awardScan(req.userId);
+  await rewards.rewardReferrer(req.userId);
 
-  return res.status(201).json(scan);
+  return res.status(201).json({ ...scan, pointsAwarded });
 }
 
 async function list(req, res) {
