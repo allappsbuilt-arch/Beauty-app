@@ -1,5 +1,6 @@
 const { supabase } = require('../db/database');
-const { OCCASIONS, generateSession } = require('../services/makeupGenerator');
+const { OCCASIONS, LOOK_CATALOG, generateSession, tryOnPrompt } = require('../services/makeupGenerator');
+const { editPhoto } = require('../services/imageEdit.service');
 
 const MAX_NOTES_LENGTH = 150;
 
@@ -91,4 +92,23 @@ async function removeLook(req, res) {
   return res.json(toPublic({ ...row, looks_json: looks, recommended_key: recommendedKey }));
 }
 
-module.exports = { create, list, getOne, removeLook };
+// Every look the app can generate, for the Virtual Try-On picker.
+async function looks(req, res) {
+  return res.json({
+    looks: LOOK_CATALOG.map(({ key, label, uri, description }) => ({ key, label, uri, description })),
+  });
+}
+
+// Selfie + look in, the selfie wearing that look out. The photo isn't stored.
+async function tryOn(req, res) {
+  const { image, lookKey, intensity } = req.body || {};
+  const look = LOOK_CATALOG.find((l) => l.key === lookKey);
+  if (!look) return res.status(400).json({ error: 'Choose a look to try on' });
+  if (intensity && !['natural', 'bold'].includes(intensity)) {
+    return res.status(400).json({ error: 'intensity must be "natural" or "bold"' });
+  }
+  const result = await editPhoto(image, tryOnPrompt(look, intensity));
+  return res.json({ lookKey: look.key, label: look.label, image: result });
+}
+
+module.exports = { create, list, getOne, removeLook, looks, tryOn };

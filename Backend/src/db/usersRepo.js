@@ -32,4 +32,15 @@ async function insertUser(user) {
   return user;
 }
 
-module.exports = { findByEmail, findById, insertUser };
+async function updateName(id, name) {
+  const { data, error } = await supabase
+    .from('users')
+    .update({ name })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+module.exports = { findByEmail, findById, insertUser, updateName };

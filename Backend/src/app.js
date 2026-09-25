@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { HttpError } = require('./utils/httpError');
+const { clientDateMiddleware } = require('./services/date.util');
 const authRoutes = require('./routes/auth.routes');
 const routinesRoutes = require('./routes/routines.routes');
 const checkinsRoutes = require('./routes/checkins.routes');
@@ -16,12 +17,14 @@ const trackersRoutes = require('./routes/trackers.routes');
 const productsRoutes = require('./routes/products.routes');
 const accountRoutes = require('./routes/account.routes');
 const stylesRoutes = require('./routes/styles.routes');
+const visualizersRoutes = require('./routes/visualizers.routes');
 
 const app = express();
 
 app.use(cors());
 // Photos are sent as base64, so allow larger bodies than the 100kb default.
 app.use(express.json({ limit: '10mb' }));
+app.use(clientDateMiddleware);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -42,6 +45,7 @@ app.use('/api/trackers', trackersRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/account', accountRoutes);
 app.use('/api/styles', stylesRoutes);
+app.use('/api/visualizers', visualizersRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });

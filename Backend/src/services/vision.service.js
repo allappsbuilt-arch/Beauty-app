@@ -77,4 +77,4 @@ async function analyzeImage({ system, prompt, image, schemaName, schema, detail 
   }
 }
 
-module.exports = { analyzeImage };
+module.exports = { analyzeImage, toDataUrl };

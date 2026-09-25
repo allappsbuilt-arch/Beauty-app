@@ -65,6 +65,7 @@ const AREAS = {
       { key: 'wash', label: 'Hair Wash' },
       { key: 'serum', label: 'Scalp Serum' },
       { key: 'massage', label: 'Scalp Massage' },
+      { key: 'mask', label: 'Deep Conditioning Mask' },
     ],
   },
 };

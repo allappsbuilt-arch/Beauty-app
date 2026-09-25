@@ -9,4 +9,6 @@ module.exports = {
   openaiApiKey: process.env.OPENAI_API_KEY,
   // Any vision-capable model that supports Structured Outputs.
   openaiModel: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  // Image-editing model for Virtual Try-On and the Aging Simulator.
+  openaiImageModel: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
 };

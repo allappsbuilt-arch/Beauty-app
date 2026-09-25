@@ -73,4 +73,17 @@ async function me(req, res) {
   return res.json({ user: toPublicUser(user) });
 }
 
-module.exports = { signup, login, me };
+const MAX_NAME_LENGTH = 60;
+
+async function updateMe(req, res) {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  if (name.length > MAX_NAME_LENGTH) {
+    return res.status(400).json({ error: `Name must be ${MAX_NAME_LENGTH} characters or less` });
+  }
+  const user = await store.updateName(req.userId, name);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  return res.json({ user: toPublicUser(user) });
+}
+
+module.exports = { signup, login, me, updateMe };

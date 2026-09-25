@@ -115,4 +115,13 @@ function generateSession({ occasion, notes }) {
   };
 }
 
-module.exports = { OCCASIONS, generateSession };
+// Instruction for rendering a look onto the user's own photo (Virtual Try-On).
+function tryOnPrompt(look, intensity = 'natural') {
+  const strength = intensity === 'bold' ? 'fully saturated, clearly visible' : 'soft, wearable, true-to-life';
+  return `Apply the "${look.label}" makeup look to the person in this photo: ${look.description}. `
+    + `Make the makeup ${strength}. Keep the person's identity, face shape, skin tone, skin texture, hair, `
+    + 'expression, pose, clothing, background, framing and lighting exactly the same — only add the makeup. '
+    + 'Photorealistic, like a real photo of them wearing it.';
+}
+
+module.exports = { OCCASIONS, LOOK_CATALOG, generateSession, tryOnPrompt };

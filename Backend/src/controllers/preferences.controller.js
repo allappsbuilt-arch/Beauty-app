@@ -9,7 +9,11 @@ const DEFAULTS = {
   styles: { brow: null, lash: null, hair: null },
   eyebrow: { goal: 'Full Arch' },
   allergies: { ingredients: ['linalool'] },
+  // Daily routine reminder times, 24h "HH:MM".
+  reminders: { morning: '07:30', evening: '22:00' },
 };
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const MAX_PREFS_BYTES = 8000;
 
@@ -47,6 +51,9 @@ async function update(req, res) {
     }
     for (const key of Object.keys(values)) {
       if (!(key in DEFAULTS[ns])) return res.status(400).json({ error: `Unknown setting: ${ns}.${key}` });
+      if (ns === 'reminders' && !TIME_RE.test(values[key])) {
+        return res.status(400).json({ error: `reminders.${key} must be a 24h time like 07:30` });
+      }
     }
   }
 
