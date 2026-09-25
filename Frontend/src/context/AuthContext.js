@@ -4,10 +4,6 @@ import { apiRequest, setUnauthorizedHandler, warmUpServer } from '../api/client'
 
 const TOKEN_KEY = 'beautyapp.authToken';
 const USER_KEY = 'beautyapp.authUser';
-// Dev-only sentinel token used by continueAsGuest() below to preview the app
-// without a live backend. Never issued by the real /api/auth endpoints.
-const GUEST_TOKEN = 'dev-guest-preview';
-const GUEST_USER = { id: 'guest', name: 'Guest', email: 'guest@preview.local', createdAt: new Date().toISOString() };
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -21,10 +17,9 @@ export function AuthProvider({ children }) {
     (async () => {
       const storedToken = await AsyncStorage.getItem(TOKEN_KEY).catch(() => null);
       try {
-        if (storedToken === GUEST_TOKEN) {
-          setToken(storedToken);
-          setUser(GUEST_USER);
-        } else if (storedToken) {
+        // (A token left over from the removed guest preview mode is rejected
+        // by /api/auth/me with 401, which signs the user out below.)
+        if (storedToken) {
           const { user: me } = await apiRequest('/api/auth/me', { token: storedToken });
           await AsyncStorage.setItem(USER_KEY, JSON.stringify(me));
           setToken(storedToken);
@@ -68,14 +63,6 @@ export function AuthProvider({ children }) {
     setUser(newUser);
   }, []);
 
-  // Dev-only: preview the app UI without a working backend connection.
-  const continueAsGuest = useCallback(async () => {
-    setError(null);
-    await AsyncStorage.setItem(TOKEN_KEY, GUEST_TOKEN);
-    setToken(GUEST_TOKEN);
-    setUser(GUEST_USER);
-  }, []);
-
   // Rename the signed-in user; the new name shows everywhere immediately.
   const updateProfile = useCallback(async ({ name }) => {
     const { user: updated } = await apiRequest('/api/auth/me', { method: 'PATCH', body: { name }, token });
@@ -93,16 +80,15 @@ export function AuthProvider({ children }) {
   // An expired/invalid token makes every request 401 — send the user back to
   // login rather than leaving them on screens that silently fail.
   useEffect(() => {
-    setUnauthorizedHandler((rejectedToken) => {
-      if (rejectedToken === GUEST_TOKEN) return;
+    setUnauthorizedHandler(() => {
       logout();
     });
     return () => setUnauthorizedHandler(null);
   }, [logout]);
 
   const value = useMemo(
-    () => ({ token, user, isLoading, isAuthenticated: !!token, isGuest: token === GUEST_TOKEN, error, setError, login, signup, logout, continueAsGuest, updateProfile }),
-    [token, user, isLoading, error, login, signup, logout, continueAsGuest, updateProfile]
+    () => ({ token, user, isLoading, isAuthenticated: !!token, error, setError, login, signup, logout, updateProfile }),
+    [token, user, isLoading, error, login, signup, logout, updateProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

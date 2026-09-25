@@ -153,7 +153,7 @@ const navigationRef = createNavigationContainerRef();
 
 // Keeps the device's routine reminders in step with the signed-in account,
 // and opens the right routine when a reminder is tapped.
-function useRoutineReminders({ isAuthenticated, isGuest }) {
+function useRoutineReminders({ isAuthenticated }) {
   const request = useAuthedRequest();
   // A tapped reminder waits here until the user is signed in and navigation
   // is ready (e.g. the app was launched by tapping it).
@@ -169,12 +169,12 @@ function useRoutineReminders({ isAuthenticated, isGuest }) {
   }, []);
 
   useEffect(() => {
-    if (!remindersSupported || isGuest) return;
+    if (!remindersSupported) return;
     if (!isAuthenticated) { cancelReminders(); return; }
     // No permission prompt here — that happens when the user saves a reminder.
     syncRemindersFromServer(request).catch(() => {});
     flushPending();
-  }, [isAuthenticated, isGuest, request, flushPending]);
+  }, [isAuthenticated, request, flushPending]);
 
   useEffect(() => {
     if (!remindersSupported) return undefined;
@@ -194,8 +194,8 @@ function useRoutineReminders({ isAuthenticated, isGuest }) {
 }
 
 export default function AppNavigator() {
-  const { isAuthenticated, isLoading, isGuest } = useAuth();
-  const onNavigationReady = useRoutineReminders({ isAuthenticated, isGuest });
+  const { isAuthenticated, isLoading } = useAuth();
+  const onNavigationReady = useRoutineReminders({ isAuthenticated });
 
   if (isLoading) {
     return <AuthLoadingScreen />;

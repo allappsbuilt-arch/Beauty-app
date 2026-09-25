@@ -18,7 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 
 export default function LoginScreen({ navigation }) {
-  const { login, continueAsGuest } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -130,17 +130,6 @@ export default function LoginScreen({ navigation }) {
               <Text style={styles.footerLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>
-
-          {__DEV__ && (
-          <TouchableOpacity
-            style={styles.guestBtn}
-            onPress={() => continueAsGuest()}
-            accessibilityRole="button"
-            accessibilityLabel="Skip login and preview the app"
-          >
-            <Text style={styles.guestBtnText}>Skip login — preview app (dev)</Text>
-          </TouchableOpacity>
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -196,6 +185,4 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 13.5, color: colors.textLight, fontWeight: '600' },
   footerLink: { fontSize: 13.5, color: colors.primary, fontWeight: '800' },
 
-  guestBtn: { alignItems: 'center', marginTop: 18 },
-  guestBtnText: { fontSize: 12, color: colors.textPlaceholder, fontWeight: '600' },
 });
