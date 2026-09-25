@@ -53,11 +53,31 @@ async function followingIds(userId) {
   return rows.map((r) => r.followee_id);
 }
 
-function mediaUrl(req, mediaId) {
-  if (!mediaId) return null;
+// ─── photos ─────────────────────────────────────────────────────────────────
+// Stored in the public "social-media" Storage bucket as <user>/<id>.<ext>
+// and served straight from Supabase's CDN. If Storage isn't set up (bucket
+// or policies missing) the photo is kept in social_media.data instead and
+// served by GET /api/social/media/:id, so posting never breaks.
+
+const MEDIA_BUCKET = 'social-media';
+const MEDIA_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+
+function apiMediaUrl(req, mediaId) {
   const host = req.get('x-forwarded-host') || req.get('host');
   const proto = req.get('x-forwarded-proto') || req.protocol;
   return `${proto}://${host}/api/social/media/${mediaId}`;
+}
+
+function storageUrl(path) {
+  return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+// { mediaId: url } for the given media ids.
+async function mediaUrls(req, mediaIds) {
+  const ids = [...new Set(mediaIds.filter(Boolean))];
+  if (!ids.length) return {};
+  const rows = await q(supabase.from('social_media').select('id, storage_path').in('id', ids));
+  return Object.fromEntries(rows.map((m) => [m.id, m.storage_path ? storageUrl(m.storage_path) : apiMediaUrl(req, m.id)]));
 }
 
 // Validates and stores a photo; returns its id (or null when none sent).
@@ -65,22 +85,65 @@ async function saveMedia(userId, image) {
   if (!image) return null;
   const dataUrl = toDataUrl(image);
   const [, mime, b64] = dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+  if (!MEDIA_EXT[mime]) throw new HttpError(400, 'Please use a JPEG, PNG or WebP photo');
   if ((b64.length * 3) / 4 > MAX_MEDIA_BYTES) throw new HttpError(413, 'Photo is too large — please use a smaller image');
+
   const id = newId();
-  await q(supabase.from('social_media').insert({ id, user_id: userId, mime, data: b64, created_at: nowIso() }));
+  const path = `${userId}/${id}.${MEDIA_EXT[mime]}`;
+  const { error: uploadError } = await supabase.storage
+    .from(MEDIA_BUCKET)
+    .upload(path, Buffer.from(b64, 'base64'), { contentType: mime, upsert: false });
+  if (uploadError) {
+    console.warn(`Storage upload failed (${uploadError.message}); keeping photo in the database. Run social_setup.sql to enable Storage.`);
+  }
+
+  const row = { id, user_id: userId, mime, created_at: nowIso(), ...(uploadError ? { data: b64 } : { storage_path: path }) };
+  try {
+    await q(supabase.from('social_media').insert(row));
+  } catch (err) {
+    if (!uploadError) await supabase.storage.from(MEDIA_BUCKET).remove([path]).catch(() => {});
+    throw err;
+  }
   return id;
+}
+
+// Removes a photo's record and its Storage file.
+async function deleteMedia(mediaId) {
+  if (!mediaId) return;
+  const rows = await q(supabase.from('social_media').select('id, storage_path').eq('id', mediaId).limit(1));
+  if (rows[0]?.storage_path) {
+    const { error } = await supabase.storage.from(MEDIA_BUCKET).remove([rows[0].storage_path]);
+    if (error) console.warn(`Could not delete ${rows[0].storage_path} from Storage: ${error.message}`);
+  }
+  await q(supabase.from('social_media').delete().eq('id', mediaId));
+}
+
+// Deletes every Storage file a user uploaded (used when deleting an account;
+// their database rows are removed by ON DELETE CASCADE).
+async function deleteUserMediaFiles(userId) {
+  // Storage lists at most 1000 files per call; remove in batches until empty.
+  for (let batch = 0; batch < 100; batch++) {
+    const { data, error } = await supabase.storage.from(MEDIA_BUCKET).list(userId, { limit: 1000 });
+    if (error || !data?.length) return;
+    const { error: removeError } = await supabase.storage.from(MEDIA_BUCKET).remove(data.map((f) => `${userId}/${f.name}`));
+    if (removeError) {
+      console.warn(`Could not delete Storage files for user ${userId}: ${removeError.message}`);
+      return;
+    }
+  }
 }
 
 // Adds author, counts and the viewer's like/bookmark/follow state.
 async function hydratePosts(req, rows) {
   if (!rows.length) return [];
   const ids = rows.map((p) => p.id);
-  const [likes, comments, bookmarks, users, following] = await Promise.all([
+  const [likes, comments, bookmarks, users, following, urls] = await Promise.all([
     q(supabase.from('social_likes').select('post_id, user_id').in('post_id', ids)),
     q(supabase.from('social_comments').select('post_id').in('post_id', ids)),
     q(supabase.from('social_bookmarks').select('post_id').eq('user_id', req.userId).in('post_id', ids)),
     usersById(rows.map((p) => p.user_id)),
     followingIds(req.userId),
+    mediaUrls(req, rows.map((p) => p.media_id)),
   ]);
   const count = (list, id) => list.filter((x) => x.post_id === id).length;
   const saved = new Set(bookmarks.map((b) => b.post_id));
@@ -89,7 +152,7 @@ async function hydratePosts(req, rows) {
     author: publicUser(users[p.user_id]),
     caption: p.caption,
     tag: p.tag,
-    imageUrl: mediaUrl(req, p.media_id),
+    imageUrl: urls[p.media_id] ?? null,
     createdAt: p.created_at,
     likeCount: count(likes, p.id),
     commentCount: count(comments, p.id),
@@ -144,7 +207,7 @@ async function deletePost(req, res) {
   const post = await findPost(req.params.id);
   if (post.user_id !== req.userId) return res.status(403).json({ error: 'You can only delete your own posts' });
   await q(supabase.from('social_posts').delete().eq('id', post.id).eq('user_id', req.userId));
-  if (post.media_id) await q(supabase.from('social_media').delete().eq('id', post.media_id));
+  await deleteMedia(post.media_id);
   return res.json({ deleted: true });
 }
 
@@ -240,11 +303,14 @@ async function listStories(req, res) {
   const since = new Date(Date.now() - STORY_HOURS * 3600000).toISOString();
   const authors = [req.userId, ...(await followingIds(req.userId))];
   const rows = await q(supabase.from('social_stories').select('*').in('user_id', authors).gte('created_at', since).order('created_at', { ascending: true }));
-  const users = await usersById(rows.map((s) => s.user_id));
+  const [users, urls] = await Promise.all([
+    usersById(rows.map((s) => s.user_id)),
+    mediaUrls(req, rows.map((s) => s.media_id)),
+  ]);
   const groups = new Map();
   for (const s of rows) {
     if (!groups.has(s.user_id)) groups.set(s.user_id, { user: publicUser(users[s.user_id]), isMine: s.user_id === req.userId, items: [] });
-    groups.get(s.user_id).items.push({ id: s.id, text: s.text, bg: s.bg, imageUrl: mediaUrl(req, s.media_id), createdAt: s.created_at });
+    groups.get(s.user_id).items.push({ id: s.id, text: s.text, bg: s.bg, imageUrl: urls[s.media_id] ?? null, createdAt: s.created_at });
   }
   // Mine first, then most recent first.
   const list = [...groups.values()].sort((a, b) => (b.isMine - a.isMine)
@@ -261,7 +327,8 @@ async function createStory(req, res) {
   const mediaId = await saveMedia(req.userId, image);
   const row = { id: newId(), user_id: req.userId, text, bg, media_id: mediaId, created_at: nowIso() };
   await q(supabase.from('social_stories').insert(row));
-  return res.status(201).json({ story: { id: row.id, text, bg, imageUrl: mediaUrl(req, mediaId), createdAt: row.created_at } });
+  const urls = await mediaUrls(req, [mediaId]);
+  return res.status(201).json({ story: { id: row.id, text, bg, imageUrl: urls[mediaId] ?? null, createdAt: row.created_at } });
 }
 
 async function deleteStory(req, res) {
@@ -269,7 +336,7 @@ async function deleteStory(req, res) {
   if (!rows.length) return res.status(404).json({ error: 'Story not found' });
   if (rows[0].user_id !== req.userId) return res.status(403).json({ error: 'You can only delete your own stories' });
   await q(supabase.from('social_stories').delete().eq('id', rows[0].id));
-  if (rows[0].media_id) await q(supabase.from('social_media').delete().eq('id', rows[0].media_id));
+  await deleteMedia(rows[0].media_id);
   return res.json({ deleted: true });
 }
 
@@ -332,8 +399,9 @@ async function suggestions(req, res) {
 // ─── media (public, by unguessable id) ──────────────────────────────────────
 
 async function media(req, res) {
-  const rows = await q(supabase.from('social_media').select('mime, data').eq('id', req.params.id).limit(1));
+  const rows = await q(supabase.from('social_media').select('mime, data, storage_path').eq('id', req.params.id).limit(1));
   if (!rows.length) return res.status(404).json({ error: 'Not found' });
+  if (rows[0].storage_path) return res.redirect(301, storageUrl(rows[0].storage_path));
   res.set('Content-Type', rows[0].mime);
   res.set('Cache-Control', 'public, max-age=31536000, immutable');
   return res.send(Buffer.from(rows[0].data, 'base64'));
@@ -384,7 +452,7 @@ async function leaveLive(req, res) {
 }
 
 module.exports = {
-  TAGS, STORY_COLORS,
+  TAGS, STORY_COLORS, deleteUserMediaFiles,
   feed, createPost, deletePost, setLike, setBookmark, bookmarks, reportPost,
   listComments, addComment, deleteComment,
   listStories, createStory, deleteStory,

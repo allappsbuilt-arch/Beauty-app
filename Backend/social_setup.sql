@@ -4,15 +4,20 @@
 -- Safe to re-run: every statement is IF NOT EXISTS.
 -- ============================================
 
--- Uploaded photos for posts and stories (JPEG, base64). Served publicly by
--- random id at GET /api/social/media/:id.
+-- Uploaded photos for posts and stories. The file lives in the
+-- "social-media" Storage bucket (storage_path); `data` (base64) is only a
+-- fallback used if Storage isn't available.
 CREATE TABLE IF NOT EXISTS social_media (
-  id         TEXT PRIMARY KEY,
-  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  mime       TEXT NOT NULL,
-  data       TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  mime         TEXT NOT NULL,
+  data         TEXT,
+  storage_path TEXT,
+  created_at   TIMESTAMPTZ NOT NULL
 );
+-- Upgrades a social_media table created by an earlier version of this file.
+ALTER TABLE social_media ADD COLUMN IF NOT EXISTS storage_path TEXT;
+ALTER TABLE social_media ALTER COLUMN data DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS social_posts (
   id         TEXT PRIMARY KEY,
@@ -95,3 +100,20 @@ ALTER TABLE social_reports       DISABLE ROW LEVEL SECURITY;
 ALTER TABLE social_follows       DISABLE ROW LEVEL SECURITY;
 ALTER TABLE social_stories       DISABLE ROW LEVEL SECURITY;
 ALTER TABLE mindfulness_sessions DISABLE ROW LEVEL SECURITY;
+
+-- ============================================
+-- Photo storage: public-read bucket for post/story photos.
+-- Files are stored as <user id>/<random id>.<ext>; the backend uploads and
+-- deletes them (it uses the same key as for the tables above).
+-- ============================================
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('social-media', 'social-media', true, 2097152, ARRAY['image/jpeg', 'image/png', 'image/webp'])
+ON CONFLICT (id) DO UPDATE
+  SET public = true, file_size_limit = 2097152, allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
+
+DROP POLICY IF EXISTS "social-media backend read"   ON storage.objects;
+DROP POLICY IF EXISTS "social-media backend upload" ON storage.objects;
+DROP POLICY IF EXISTS "social-media backend delete" ON storage.objects;
+CREATE POLICY "social-media backend read"   ON storage.objects FOR SELECT TO anon USING (bucket_id = 'social-media');
+CREATE POLICY "social-media backend upload" ON storage.objects FOR INSERT TO anon WITH CHECK (bucket_id = 'social-media');
+CREATE POLICY "social-media backend delete" ON storage.objects FOR DELETE TO anon USING (bucket_id = 'social-media');

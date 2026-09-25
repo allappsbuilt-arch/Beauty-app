@@ -1,4 +1,5 @@
 const { supabase } = require('../db/database');
+const { deleteUserMediaFiles } = require('./social.controller');
 
 // Every table holding user data. Rows cascade-delete with the user, but the
 // export needs to read each one explicitly.
@@ -17,7 +18,7 @@ const SOCIAL_EXPORTS = [
   ['social_follows', 'follower_id', '*'],
   ['social_stories', 'user_id', '*'],
   ['social_reports', 'user_id', '*'],
-  ['social_media', 'user_id', 'id, mime, created_at'],
+  ['social_media', 'user_id', 'id, mime, storage_path, created_at'],
   ['mindfulness_sessions', 'user_id', '*'],
 ];
 
@@ -50,6 +51,8 @@ async function deleteAccount(req, res) {
   }
   // Votes on other people's reviews reference this user only by id.
   await supabase.from('review_votes').delete().eq('user_id', req.userId);
+  // Photo files live in Storage, outside the database cascade.
+  await deleteUserMediaFiles(req.userId).catch(() => {});
   const { error } = await supabase.from('users').delete().eq('id', req.userId);
   if (error) throw new Error(error.message);
   return res.json({ deleted: true });
