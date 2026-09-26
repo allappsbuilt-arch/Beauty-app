@@ -14,6 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ErrorBanner from '../components/ErrorBanner';
 import { useTracker } from '../api/useTracker';
+import { useI18n, formatDate } from '../i18n';
+import { trackerItemLabel } from '../utils/serverText';
 
 
 // ─── Score ring ────────────────────────────────────────────────────────────
@@ -57,6 +59,7 @@ const ringS = StyleSheet.create({
 // ─── Aftercare checklist item ───────────────────────────────────────────────
 function ChecklistItem({ item, isLast, onToggle }) {
   const checked = item.doneToday;
+  const label = trackerItemLabel('eyelash', item);
   return (
     <TouchableOpacity
       style={[checklist.row, !isLast && checklist.rowBorder]}
@@ -64,12 +67,12 @@ function ChecklistItem({ item, isLast, onToggle }) {
       activeOpacity={0.7}
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
-      accessibilityLabel={item.label}
+      accessibilityLabel={label}
     >
       <View style={[checklist.check, checked && checklist.checkActive]}>
         {checked && <Ionicons name="checkmark" size={13} color={colors.white} />}
       </View>
-      <Text style={[checklist.text, checked && checklist.textChecked, { flex: 1 }]}>{item.label}</Text>
+      <Text style={[checklist.text, checked && checklist.textChecked, { flex: 1 }]}>{label}</Text>
       {item.streak > 0 && <Text style={checklist.streak}>🔥 {item.streak}</Text>}
     </TouchableOpacity>
   );
@@ -92,6 +95,7 @@ const checklist = StyleSheet.create({
 export default function EyelashTrackerScreen({ navigation }) {
   const { tracker, error, reload, toggle } = useTracker('eyelash');
   const items = tracker?.items ?? [];
+  const { t } = useI18n();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -103,18 +107,18 @@ export default function EyelashTrackerScreen({ navigation }) {
           style={styles.navBtn}
           onPress={() => navigation?.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.goBack')}
         >
           <Ionicons name="arrow-back" size={22} color={colors.primary} />
         </TouchableOpacity>
 
-        <Text style={styles.navTitle}>Eyelash Tracker</Text>
+        <Text style={styles.navTitle}>{t('eyelash.title')}</Text>
 
         <TouchableOpacity
           style={styles.navBtn}
           onPress={() => navigation?.popToTop()}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t('common.close')}
         >
           <Ionicons name="close" size={22} color={colors.textDark} />
         </TouchableOpacity>
@@ -127,13 +131,13 @@ export default function EyelashTrackerScreen({ navigation }) {
       >
         <ErrorBanner message={error} onRetry={reload} />
         {tracker && tracker.metrics == null && (
-          <Text style={styles.noScan}>Take a face scan to measure your lash length and density.</Text>
+          <Text style={styles.noScan}>{t('eyelash.noScan')}</Text>
         )}
 
         {/* Score rings */}
         <View style={styles.ringRow}>
-          <ScoreRing percent={tracker?.metrics?.length} label="Length Score" tint={colors.primary} />
-          <ScoreRing percent={tracker?.metrics?.density} label="Density Score" tint="#1EA868" />
+          <ScoreRing percent={tracker?.metrics?.length} label={t('eyelash.lengthScore')} tint={colors.primary} />
+          <ScoreRing percent={tracker?.metrics?.density} label={t('eyelash.densityScore')} tint="#1EA868" />
         </View>
 
         {/* Safe removal notice */}
@@ -142,10 +146,8 @@ export default function EyelashTrackerScreen({ navigation }) {
             <Ionicons name="warning" size={18} color="#C47800" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.alertTitle}>Safe Removal Notice</Text>
-            <Text style={styles.alertText}>
-              Never pull or pluck extensions at home. Use a steam-oil method or visit a professional to prevent natural follicle damage.
-            </Text>
+            <Text style={styles.alertTitle}>{t('eyelash.removalTitle')}</Text>
+            <Text style={styles.alertText}>{t('eyelash.removalText')}</Text>
           </View>
         </View>
 
@@ -153,7 +155,7 @@ export default function EyelashTrackerScreen({ navigation }) {
         <View style={styles.aftercareCard}>
           <View style={styles.aftercareHeader}>
             <Ionicons name="brush-outline" size={17} color={colors.primary} />
-            <Text style={styles.aftercareTitle}>Lash Extension Aftercare</Text>
+            <Text style={styles.aftercareTitle}>{t('eyelash.aftercare')}</Text>
             <Ionicons name="chevron-down" size={16} color={colors.textFaint} />
           </View>
           <View style={styles.aftercareBody}>
@@ -165,9 +167,9 @@ export default function EyelashTrackerScreen({ navigation }) {
 
         {/* Weekly progress */}
         <View style={styles.progressHeader}>
-          <Text style={styles.sectionTitle}>Weekly Progress</Text>
-          <TouchableOpacity onPress={() => navigation?.navigate('ScanHistory')} accessibilityRole="button" accessibilityLabel="View history">
-            <Text style={styles.viewHistory}>View History</Text>
+          <Text style={styles.sectionTitle}>{t('eyelash.weeklyProgress')}</Text>
+          <TouchableOpacity onPress={() => navigation?.navigate('ScanHistory')} accessibilityRole="button" accessibilityLabel={t('eyelash.viewHistoryA11y')}>
+            <Text style={styles.viewHistory}>{t('eyelash.viewHistory')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -175,18 +177,18 @@ export default function EyelashTrackerScreen({ navigation }) {
           {(tracker?.history ?? []).slice(-2).map((h) => (
             <View key={h.id} style={[styles.photo, styles.scoreTile]}>
               <Text style={styles.scoreTileValue}>{h.score}</Text>
-              <Text style={styles.scoreTileDate}>{new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}</Text>
+              <Text style={styles.scoreTileDate}>{formatDate(h.date, { month: 'short', day: 'numeric' }).toUpperCase()}</Text>
             </View>
           ))}
           <TouchableOpacity
             style={styles.addPhoto}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Add week 3 photo"
+            accessibilityLabel={t('eyelash.addScanA11y')}
             onPress={() => navigation?.navigate('ScanFace')}
           >
             <Ionicons name="camera-outline" size={20} color={colors.primary} />
-            <Text style={styles.addPhotoText}>NEW SCAN</Text>
+            <Text style={styles.addPhotoText}>{t('eyelash.newScan')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -195,11 +197,11 @@ export default function EyelashTrackerScreen({ navigation }) {
           style={styles.takePhotoBtn}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Take photo"
+          accessibilityLabel={t('eyelash.takePhotoA11y')}
           onPress={() => navigation?.navigate('ScanFace')}
         >
           <Ionicons name="camera-outline" size={17} color={colors.white} />
-          <Text style={styles.takePhotoBtnText}>Take Photo</Text>
+          <Text style={styles.takePhotoBtnText}>{t('eyelash.takePhoto')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -207,10 +209,10 @@ export default function EyelashTrackerScreen({ navigation }) {
           activeOpacity={0.85}
           onPress={() => navigation?.navigate('LashStyler')}
           accessibilityRole="button"
-          accessibilityLabel="Try lash styles"
+          accessibilityLabel={t('eyelash.tryStylesA11y')}
         >
           <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
-          <Text style={styles.styleLashesBtnText}>Try Lash Styles</Text>
+          <Text style={styles.styleLashesBtnText}>{t('eyelash.tryStyles')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 24 }} />

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
 /**
  * ErrorBanner — shows a dismissible inline error strip.
@@ -11,6 +12,7 @@ import { colors } from '../theme/colors';
  *   onDismiss(function) — optional dismiss callback
  */
 export default function ErrorBanner({ message, onRetry, onDismiss }) {
+  const { t } = useI18n();
   if (!message) return null;
   return (
     <View style={styles.wrap}>
@@ -18,12 +20,12 @@ export default function ErrorBanner({ message, onRetry, onDismiss }) {
       <Text style={styles.text} numberOfLines={2}>{message}</Text>
       <View style={styles.actions}>
         {onRetry && (
-          <TouchableOpacity onPress={onRetry} style={styles.retryBtn} accessibilityRole="button" accessibilityLabel="Retry">
-            <Text style={styles.retryText}>Retry</Text>
+          <TouchableOpacity onPress={onRetry} style={styles.retryBtn} accessibilityRole="button" accessibilityLabel={t('common.retry')}>
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
           </TouchableOpacity>
         )}
         {onDismiss && (
-          <TouchableOpacity onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss error">
+          <TouchableOpacity onPress={onDismiss} accessibilityRole="button" accessibilityLabel={t('common.dismissError')}>
             <Ionicons name="close" size={16} color="#D03050" />
           </TouchableOpacity>
         )}

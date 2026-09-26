@@ -2,18 +2,17 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
 // Humidity level → colour mapping
 function levelConfig(humidity) {
-  if (humidity < 30) return { accent: '#C0405A', bg: '#FFF0F3', border: '#F5C0CC', label: 'Low' };
-  if (humidity < 60) return { accent: '#F0A020', bg: '#FFFAEC', border: '#F5D878', label: 'Moderate' };
-  return { accent: '#28A090', bg: '#EDFAF8', border: '#A0DED8', label: 'Good' };
+  if (humidity < 30) return { accent: '#C0405A', bg: '#FFF0F3', border: '#F5C0CC', labelKey: 'home.humidityLow' };
+  if (humidity < 60) return { accent: '#F0A020', bg: '#FFFAEC', border: '#F5D878', labelKey: 'home.humidityModerate' };
+  return { accent: '#28A090', bg: '#EDFAF8', border: '#A0DED8', labelKey: 'home.humidityGood' };
 }
 
-export default function HumidityAlert({
-  humidity = 24,
-  message = 'Expect potential dryness; consider a thicker barrier cream today.',
-}) {
+export default function HumidityAlert({ humidity = 24, message }) {
+  const { t } = useI18n();
   const cfg = levelConfig(humidity);
 
   return (
@@ -30,9 +29,9 @@ export default function HumidityAlert({
       <View style={styles.textBlock}>
         {/* Pill badge */}
         <View style={[styles.badge, { backgroundColor: cfg.accent }]}>
-          <Text style={styles.badgeText}>Humidity {cfg.label} · {humidity}%</Text>
+          <Text style={styles.badgeText}>{t('home.humidityBadge', { level: t(cfg.labelKey), humidity })}</Text>
         </View>
-        <Text style={styles.message}>{message}</Text>
+        <Text style={styles.message}>{message ?? t('home.humidityMessage')}</Text>
       </View>
     </View>
   );

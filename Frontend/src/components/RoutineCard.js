@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
 // ── Premium circular progress ring ───────────────────────────────────────────
 // Uses four border-sides to approximate a filled arc — clean and dependency-free
@@ -72,11 +73,13 @@ function StepDots({ completed, total }) {
 
 // ── Card ─────────────────────────────────────────────────────────────────────
 export default function RoutineCard({
-  title = 'AM Routine',
+  title,
   completed = 2,
   total = 6,
   onPress,
 }) {
+  const { t } = useI18n();
+  title = title ?? t('routines.am');
   const percent = Math.round((completed / total) * 100);
 
   return (
@@ -88,7 +91,7 @@ export default function RoutineCard({
       <View style={styles.info}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.sub}>
-          {completed} of {total} steps completed
+          {t('home.stepsCompleted', { completed, total })}
         </Text>
 
         {/* Step dot row */}
@@ -100,10 +103,10 @@ export default function RoutineCard({
           onPress={onPress}
           activeOpacity={0.82}
           accessibilityRole="button"
-          accessibilityLabel={`Start ${title}`}
+          accessibilityLabel={t('home.startRoutine', { title })}
         >
           <Ionicons name="play" size={13} color={colors.white} style={{ marginRight: 5 }} />
-          <Text style={styles.btnText}>Start {title}</Text>
+          <Text style={styles.btnText}>{t('home.startRoutine', { title })}</Text>
         </TouchableOpacity>
       </View>
     </View>

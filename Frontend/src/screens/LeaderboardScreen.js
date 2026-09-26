@@ -8,8 +8,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import { useAuthedRequest } from '../api/useAuthedRequest';
+import { useI18n } from '../i18n';
 
-const TABS = ['Global', 'Weekly'];
+const TABS = [
+  { id: 'global', labelKey: 'leaderboard.global' },
+  { id: 'weekly', labelKey: 'leaderboard.weekly' },
+];
 const DIR_ICON = { up: 'arrow-up', down: 'arrow-down', flat: 'remove' };
 const DIR_COLOR = { up: '#1EA868', down: '#D03050', flat: colors.textFaint };
 
@@ -28,6 +32,7 @@ function AvatarCircle({ name, size = 40, style }) {
 }
 
 function PodiumCard({ user, metric, rank }) {
+  const { t } = useI18n();
   const isFirst = rank === 1;
   const medalColor = rank === 1 ? '#F0B429' : rank === 2 ? '#A0AEC0' : '#D98A4A';
   const podiumHeight = rank === 1 ? 80 : rank === 2 ? 60 : 50;
@@ -43,7 +48,7 @@ function PodiumCard({ user, metric, rank }) {
       <Text style={podiumStyles.name} numberOfLines={1}>{user.name.split(' ')[0]}</Text>
       <Text style={podiumStyles.score}>{metric === 'score' ? user.score : user.streak}</Text>
       <View style={[podiumStyles.base, { height: podiumHeight }]}>
-        <Text style={podiumStyles.baseRank}>#{rank}</Text>
+        <Text style={podiumStyles.baseRank}>{t('leaderboard.rank', { rank })}</Text>
       </View>
     </View>
   );
@@ -71,14 +76,15 @@ const podiumStyles = StyleSheet.create({
 });
 
 function RankRow({ user, metric, isMe }) {
+  const { t } = useI18n();
   return (
     <View style={[styles.rankRow, isMe && styles.rankRowMe]}>
       <Text style={[styles.rankNum, isMe && styles.rankNumMe]}>{user.rank}</Text>
       <AvatarCircle name={user.name} size={40} />
       <View style={styles.rankMeta}>
-        <Text style={[styles.rankName, isMe && styles.rankNameMe]}>{user.name}{isMe ? ' (You)' : ''}</Text>
+        <Text style={[styles.rankName, isMe && styles.rankNameMe]}>{user.name}{isMe ? t('leaderboard.you') : ''}</Text>
         <Text style={[styles.rankSub, isMe && styles.rankSubMe]}>
-          {metric === 'score' ? `${user.streak} day streak` : `${user.score} pts total`}
+          {metric === 'score' ? t('leaderboard.dayStreak', { count: user.streak }) : t('leaderboard.ptsTotal', { count: user.score })}
         </Text>
       </View>
       <View style={styles.rankScoreCol}>
@@ -86,7 +92,7 @@ function RankRow({ user, metric, isMe }) {
           {metric === 'score' ? user.score : user.streak}
         </Text>
         <Text style={[styles.rankScoreLabel, isMe && styles.rankScoreLabelMe]}>
-          {metric === 'score' ? 'pts' : 'days'}
+          {metric === 'score' ? t('leaderboard.pts') : t('leaderboard.days')}
         </Text>
       </View>
     </View>
@@ -95,7 +101,8 @@ function RankRow({ user, metric, isMe }) {
 
 export default function LeaderboardScreen({ navigation }) {
   const request = useAuthedRequest();
-  const [activeTab, setActiveTab] = useState('Global');
+  const { t } = useI18n();
+  const [activeTab, setActiveTab] = useState('global');
   const [metric, setMetric] = useState('score');
   const [leaderboard, setLeaderboard] = useState([]);
   const [me, setMe] = useState(null);
@@ -131,23 +138,23 @@ export default function LeaderboardScreen({ navigation }) {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
       <ScreenHeader
-        title="Leaderboard"
+        title={t('leaderboard.title')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
 
       {/* Tabs */}
       <View style={styles.tabBar}>
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <TouchableOpacity
-            key={t}
+            key={tab.id}
             style={styles.tabItem}
-            onPress={() => setActiveTab(t)}
+            onPress={() => setActiveTab(tab.id)}
             accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === t }}
+            accessibilityState={{ selected: activeTab === tab.id }}
           >
-            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>{t}</Text>
-            {activeTab === t && <View style={styles.tabIndicator} />}
+            <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>{t(tab.labelKey)}</Text>
+            {activeTab === tab.id && <View style={styles.tabIndicator} />}
           </TouchableOpacity>
         ))}
       </View>
@@ -159,7 +166,7 @@ export default function LeaderboardScreen({ navigation }) {
       ) : leaderboard.length === 0 ? (
         <View style={styles.loadingWrap}>
           <Ionicons name="trophy-outline" size={40} color={colors.textFaint} />
-          <Text style={styles.emptyText}>No rankings yet. Complete routines to earn points!</Text>
+          <Text style={styles.emptyText}>{t('leaderboard.empty')}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -170,14 +177,14 @@ export default function LeaderboardScreen({ navigation }) {
               onPress={() => setMetric('score')}
             >
               <Ionicons name="trending-up" size={14} color={metric === 'score' ? colors.primary : colors.textMid} />
-              <Text style={[styles.metricText, metric === 'score' && styles.metricTextActive]}>Points</Text>
+              <Text style={[styles.metricText, metric === 'score' && styles.metricTextActive]}>{t('leaderboard.points')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.metricChip, metric === 'streak' && styles.metricChipActive]}
               onPress={() => setMetric('streak')}
             >
               <Ionicons name="flame" size={14} color={metric === 'streak' ? colors.primary : colors.textMid} />
-              <Text style={[styles.metricText, metric === 'streak' && styles.metricTextActive]}>Streak</Text>
+              <Text style={[styles.metricText, metric === 'streak' && styles.metricTextActive]}>{t('leaderboard.streak')}</Text>
             </TouchableOpacity>
           </View>
 

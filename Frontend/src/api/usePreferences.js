@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApiData } from './useApiData';
 import { notify } from '../utils/feedback';
+import { translate as tr } from '../i18n';
 
 // Server-backed user preferences. `save({ section: { key: value } })` merges
 // into that section on the backend and returns the saved preferences.
@@ -40,7 +41,7 @@ export function useSavedChoice(section, key, fallback, extraPatch) {
       await save({ [section]: { [key]: next }, ...(extraPatch ? extraPatch(next) : {}) });
     } catch (err) {
       setValue(saved ?? fallback);
-      notify('Could not save your choice', err.message);
+      notify(tr('common.saveChoiceFailed'), err.message);
     }
   }, [save, section, key, extraPatch, saved, fallback]);
 

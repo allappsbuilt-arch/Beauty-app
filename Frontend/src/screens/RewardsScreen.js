@@ -18,15 +18,18 @@ import ErrorBanner from '../components/ErrorBanner';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { goToTab } from '../utils/navigation';
 import { formatPoints, formatPointsDate, loadErrorMessage } from '../components/points/pointsUtils';
+import { useI18n, formatNumber } from '../i18n';
+import { levelName, ledgerLabel } from '../utils/serverText';
 
 const RECENT_COUNT = 5;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function EarnRow({ icon, label, desc, pill, done, color, bg, onPress }) {
+  const { t } = useI18n();
   return (
     <TouchableOpacity style={styles.earnRow} onPress={onPress} activeOpacity={0.8}
-      accessibilityRole="button" accessibilityLabel={`${label}: ${desc}. ${pill}`}>
+      accessibilityRole="button" accessibilityLabel={t('rewards.earnRowA11y', { label, desc, pill })}>
       <View style={[styles.earnIcon, { backgroundColor: bg }]}>
         <Ionicons name={icon} size={20} color={color} />
       </View>
@@ -45,7 +48,7 @@ function HistoryRow({ item, isLast }) {
   return (
     <View style={[styles.historyRow, !isLast && styles.historyRowBorder]}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.historyLabel}>{item.label}</Text>
+        <Text style={styles.historyLabel}>{ledgerLabel(item.label)}</Text>
         <Text style={styles.historyDate}>{formatPointsDate(item.createdAt)}</Text>
       </View>
       <Text style={[styles.historyPoints, item.points < 0 && styles.historyPointsNeg]}>{formatPoints(item.points)}</Text>
@@ -57,6 +60,7 @@ function HistoryRow({ item, isLast }) {
 
 export default function RewardsScreen({ navigation }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [summary, setSummary] = useState(null);
   const [earn, setEarn] = useState(null);
   const [history, setHistory] = useState(null);
@@ -74,7 +78,7 @@ export default function RewardsScreen({ navigation }) {
       ]);
       setSummary(s);
       setEarn(e);
-      setHistory(h.history);
+      setHistory(Array.isArray(h?.history) ? h.history : []);
       loadedOnce.current = true;
     } catch (err) {
       setError(loadErrorMessage(err));
@@ -90,41 +94,49 @@ export default function RewardsScreen({ navigation }) {
   const leave = () => (navigation?.canGoBack() ? navigation.goBack() : goToTab(navigation, 'Home'));
 
   // First load: full-screen spinner, or an error with Retry.
-  if (!loadedOnce.current && !summary) {
+  if (!summary || !earn) {
     return (
       <SafeAreaView style={styles.safe}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-        <ScreenHeader title="MyFace AI" onBack={leave} onClose={() => goToTab(navigation, 'Home')} />
+        <ScreenHeader title={t('common.appName')} onBack={leave} onClose={() => goToTab(navigation, 'Home')} />
         {error ? (
           <View style={styles.center}>
             <Ionicons name="cloud-offline-outline" size={36} color={colors.textPlaceholder} />
             <Text style={styles.centerText}>{error}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={load} accessibilityRole="button" accessibilityLabel="Retry">
-              <Text style={styles.retryBtnText}>Try Again</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={load} accessibilityRole="button" accessibilityLabel={t('common.retry')}>
+              <Text style={styles.retryBtnText}>{t('common.tryAgain')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.centerText}>Loading your points…</Text>
+            <Text style={styles.centerText}>{t('rewards.loading')}</Text>
           </View>
         )}
       </SafeAreaView>
     );
   }
 
-  const { balance, levelLabel, nextLevelLabel, levelFloor, levelGoal, pointsToNext } = summary;
+  // Defaults keep the page drawing even if the server leaves a field out.
+  const balance = Number(summary.balance) || 0;
+  const levelFloor = Number(summary.levelFloor) || 0;
+  const levelGoal = Number(summary.levelGoal) || 0;
+  const pointsToNext = Number(summary.pointsToNext) || 0;
+  const { levelLabel, nextLevelLabel } = summary;
   const span = Math.max(1, levelGoal - levelFloor);
   const progress = nextLevelLabel ? Math.min(1, Math.max(0, (balance - levelFloor) / span)) : 1;
-  const water = earn.water;
-  const friends = earn.referral.friends;
-  const pendingFriends = friends.filter((f) => !f.rewarded).length;
+  const scan = earn.scan ?? { points: 0, doneToday: false };
+  const water = earn.water ?? { glasses: 0, goal: 8, points: 0, rewarded: false };
+  const referral = earn.referral ?? { points: 0, friends: [] };
+  const friends = Array.isArray(referral.friends) ? referral.friends : [];
+  const pendingFriends = friends.filter((f) => !f?.rewarded).length;
+  const recent = Array.isArray(history) ? history : [];
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
-      <ScreenHeader title="MyFace AI" onBack={leave} onClose={() => goToTab(navigation, 'Home')} />
+      <ScreenHeader title={t('common.appName')} onBack={leave} onClose={() => goToTab(navigation, 'Home')} />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -136,19 +148,19 @@ export default function RewardsScreen({ navigation }) {
 
         {/* ── Balance ── */}
         <View style={styles.balanceBlock}>
-          <Text style={styles.balanceLabel}>TOTAL BALANCE</Text>
+          <Text style={styles.balanceLabel}>{t('rewards.totalBalance')}</Text>
           <View style={styles.balanceRow}>
-            <Text style={styles.balanceValue}>{balance.toLocaleString()}</Text>
-            <Text style={styles.balanceUnit}>pts</Text>
+            <Text style={styles.balanceValue}>{formatNumber(balance)}</Text>
+            <Text style={styles.balanceUnit}>{t('common.points')}</Text>
           </View>
         </View>
 
         {/* ── Level progress ── */}
         <View style={styles.levelBlock}>
           <View style={styles.levelRow}>
-            <Text style={styles.levelLabel}>{levelLabel}</Text>
+            <Text style={styles.levelLabel}>{levelName(levelLabel)}</Text>
             <Text style={styles.levelFraction}>
-              {nextLevelLabel ? `${balance.toLocaleString()} / ${levelGoal.toLocaleString()}` : `${balance.toLocaleString()} pts`}
+              {nextLevelLabel ? `${formatNumber(balance)} / ${formatNumber(levelGoal)}` : `${formatNumber(balance)} ${t('common.points')}`}
             </Text>
           </View>
           <View style={styles.levelTrack}>
@@ -156,48 +168,48 @@ export default function RewardsScreen({ navigation }) {
           </View>
           <Text style={styles.levelHint}>
             {nextLevelLabel
-              ? `${pointsToNext.toLocaleString()} points until ${nextLevelLabel}`
-              : 'You’ve reached the top level — amazing!'}
+              ? t('rewards.untilNext', { points: formatNumber(pointsToNext), level: levelName(nextLevelLabel) })
+              : t('rewards.topLevel')}
           </Text>
         </View>
 
         {/* ── Earn more points ── */}
-        <Text style={styles.sectionTitle}>Earn More Points</Text>
+        <Text style={styles.sectionTitle}>{t('rewards.earnMore')}</Text>
         <View style={styles.earnList}>
           <EarnRow
-            icon="sparkles" label="Scan Face" color={colors.primary} bg={colors.primaryPale}
-            desc={earn.scan.doneToday ? 'Earned today — scan again tomorrow' : 'Analyze your skin today'}
-            pill={earn.scan.doneToday ? 'Done ✓' : `+${earn.scan.points}`}
-            done={earn.scan.doneToday}
+            icon="sparkles" label={t('rewards.scanLabel')} color={colors.primary} bg={colors.primaryPale}
+            desc={scan.doneToday ? t('rewards.scanDone') : t('rewards.scanTodo')}
+            pill={scan.doneToday ? t('rewards.doneCheck') : `+${scan.points}`}
+            done={!!scan.doneToday}
             onPress={() => navigation?.navigate('ScanFace')}
           />
           <EarnRow
-            icon="water" label="Log Water" color="#1EA868" bg="#E7F7EE"
+            icon="water" label={t('rewards.waterLabel')} color="#1EA868" bg="#E7F7EE"
             desc={water.rewarded
-              ? `Goal reached · ${water.glasses} glasses today`
-              : water.glasses ? `${water.glasses} of ${water.goal} glasses today` : `Stay hydrated for glow · ${water.goal} glasses`}
-            pill={water.rewarded ? 'Done ✓' : `+${water.points}`}
-            done={water.rewarded}
+              ? t('rewards.waterDone', { count: water.glasses })
+              : water.glasses ? t('rewards.waterProgress', { count: water.glasses, goal: water.goal }) : t('rewards.waterTodo', { goal: water.goal })}
+            pill={water.rewarded ? t('rewards.doneCheck') : `+${water.points}`}
+            done={!!water.rewarded}
             onPress={() => navigation?.navigate('WaterLog')}
           />
           <EarnRow
-            icon="person-add" label="Refer a Friend" color="#8870C0" bg="#F0EEFF"
+            icon="person-add" label={t('rewards.referLabel')} color="#8870C0" bg="#F0EEFF"
             desc={friends.length
-              ? `${friends.length} joined${pendingFriends ? ` · ${pendingFriends} pending` : ''}`
-              : 'Share the routine'}
-            pill={`+${earn.referral.points}`}
+              ? `${t('rewards.referJoined', { count: friends.length })}${pendingFriends ? t('rewards.referPending', { count: pendingFriends }) : ''}`
+              : t('rewards.referTodo')}
+            pill={`+${referral.points}`}
             onPress={() => navigation?.navigate('ReferFriend')}
           />
         </View>
 
         {/* ── Recent history ── */}
-        <Text style={styles.sectionTitle}>Recent History</Text>
+        <Text style={styles.sectionTitle}>{t('rewards.recentHistory')}</Text>
         <View style={styles.historyCard}>
-          {history.length === 0 ? (
-            <Text style={styles.emptyHistory}>No activity yet — complete a routine or scan to start earning.</Text>
+          {recent.length === 0 ? (
+            <Text style={styles.emptyHistory}>{t('rewards.noHistory')}</Text>
           ) : (
-            history.map((item, i) => (
-              <HistoryRow key={item.id} item={item} isLast={i === history.length - 1} />
+            recent.map((item, i) => (
+              <HistoryRow key={item.id ?? i} item={item} isLast={i === recent.length - 1} />
             ))
           )}
         </View>
@@ -207,9 +219,9 @@ export default function RewardsScreen({ navigation }) {
           activeOpacity={0.7}
           onPress={() => navigation?.navigate('PointsStatement')}
           accessibilityRole="button"
-          accessibilityLabel="View full statement"
+          accessibilityLabel={t('rewards.fullStatementA11y')}
         >
-          <Text style={styles.statementText}>VIEW FULL STATEMENT</Text>
+          <Text style={styles.statementText}>{t('rewards.fullStatement')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 24 }} />

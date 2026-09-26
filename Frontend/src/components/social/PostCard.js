@@ -6,20 +6,22 @@ import { useAuthedRequest } from '../../api/useAuthedRequest';
 import { notify, shareText } from '../../utils/feedback';
 import UserAvatar from './UserAvatar';
 import PostMenu from './PostMenu';
-import { formatCount, tagColors, timeAgo } from './socialUtils';
+import { formatCount, tagColors, tagLabel, timeAgo } from './socialUtils';
+import { useI18n, translate as tr } from '../../i18n';
 import { emitPostChange } from './socialEvents';
 
 const READ_MORE_AT = 110;
 
 export function sharePost(post) {
-  const body = post.caption ? `“${post.caption}”` : 'Check out this post';
-  shareText(`${post.author.name} on MyFace AI: ${body}`);
+  const body = post.caption ? tr('post.quoted', { caption: post.caption }) : tr('post.checkOut');
+  shareText(tr('post.shareText', { name: post.author.name, body }));
 }
 
 // A feed post: like / comment / share / save persist through the backend;
 // changes are broadcast so every list showing this post stays in sync.
 export default function PostCard({ post, navigation }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState({ like: false, save: false });
@@ -38,7 +40,7 @@ export default function PostCard({ post, navigation }) {
       emitPostChange(post.id, { liked: res.liked, likeCount: res.likeCount });
     } catch (err) {
       emitPostChange(post.id, before);
-      notify('Could not update like', err.message);
+      notify(t('post.likeFailed'), err.message);
     } finally {
       setBusy((b) => ({ ...b, like: false }));
     }
@@ -53,7 +55,7 @@ export default function PostCard({ post, navigation }) {
       await request(`/api/social/posts/${post.id}/bookmark`, { method: 'POST', body: { bookmarked } });
     } catch (err) {
       emitPostChange(post.id, { bookmarked: !bookmarked });
-      notify('Could not update saved posts', err.message);
+      notify(t('post.saveFailed'), err.message);
     } finally {
       setBusy((b) => ({ ...b, save: false }));
     }
@@ -65,17 +67,17 @@ export default function PostCard({ post, navigation }) {
     <View style={styles.card}>
       {/* ── Header row ── */}
       <View style={styles.cardHeader}>
-        <TouchableOpacity onPress={openProfile} accessibilityRole="button" accessibilityLabel={`Open ${post.author.name}'s profile`}>
+        <TouchableOpacity onPress={openProfile} accessibilityRole="button" accessibilityLabel={t('post.openProfile', { name: post.author.name })}>
           <UserAvatar user={post.author} size={44} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.cardMeta} onPress={openProfile} activeOpacity={0.7}
-          accessibilityRole="button" accessibilityLabel={`${post.author.name}, ${timeAgo(post.createdAt)}`}>
+          accessibilityRole="button" accessibilityLabel={t('post.authorTime', { name: post.author.name, time: timeAgo(post.createdAt) })}>
           <View style={styles.cardNameRow}>
             <Text style={styles.cardUser} numberOfLines={1}>{post.author.name}</Text>
             {tag && (
               <View style={[styles.tagPill, { backgroundColor: tag.bg }]}>
-                <Text style={[styles.tagText, { color: tag.color }]}>{post.tag}</Text>
+                <Text style={[styles.tagText, { color: tag.color }]}>{tagLabel(post.tag)}</Text>
               </View>
             )}
           </View>
@@ -83,7 +85,7 @@ export default function PostCard({ post, navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.moreBtn} onPress={() => setMenuOpen(true)}
-          accessibilityRole="button" accessibilityLabel="More options">
+          accessibilityRole="button" accessibilityLabel={t('post.moreOptions')}>
           <Ionicons name="ellipsis-horizontal" size={18} color={colors.textFaint} />
         </TouchableOpacity>
       </View>
@@ -91,32 +93,32 @@ export default function PostCard({ post, navigation }) {
       {/* ── Photo ── */}
       {post.imageUrl ? (
         <Image source={{ uri: post.imageUrl }} style={styles.postImage} resizeMode="cover"
-          accessibilityLabel={`Photo posted by ${post.author.name}`} />
+          accessibilityLabel={t('post.photoBy', { name: post.author.name })} />
       ) : null}
 
       {/* ── Action bar ── */}
       <View style={styles.actionBar}>
         <View style={styles.actionLeft}>
           <TouchableOpacity style={styles.actionBtn} onPress={toggleLike}
-            accessibilityRole="button" accessibilityLabel={post.liked ? 'Unlike' : 'Like'} accessibilityState={{ selected: post.liked }}>
+            accessibilityRole="button" accessibilityLabel={post.liked ? t('post.unlike') : t('post.like')} accessibilityState={{ selected: post.liked }}>
             <Ionicons name={post.liked ? 'heart' : 'heart-outline'} size={22} color={post.liked ? colors.primary : colors.textMid} />
             <Text style={[styles.actionCount, post.liked && styles.actionCountLiked]}>{formatCount(post.likeCount)}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionBtn} onPress={() => navigation?.navigate('PostComments', { postId: post.id })}
-            accessibilityRole="button" accessibilityLabel={`Comments (${post.commentCount})`}>
+            accessibilityRole="button" accessibilityLabel={t('post.comments', { count: post.commentCount })}>
             <Ionicons name="chatbubble-outline" size={20} color={colors.textMid} />
             <Text style={styles.actionCount}>{formatCount(post.commentCount)}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionBtn} onPress={() => sharePost(post)}
-            accessibilityRole="button" accessibilityLabel="Share">
+            accessibilityRole="button" accessibilityLabel={t('post.share')}>
             <Ionicons name="arrow-redo-outline" size={20} color={colors.textMid} />
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={toggleSave} accessibilityRole="button"
-          accessibilityLabel={post.bookmarked ? 'Unsave' : 'Save'} accessibilityState={{ selected: post.bookmarked }}>
+          accessibilityLabel={post.bookmarked ? t('post.unsave') : t('post.save')} accessibilityState={{ selected: post.bookmarked }}>
           <Ionicons name={post.bookmarked ? 'bookmark' : 'bookmark-outline'} size={21} color={post.bookmarked ? colors.primary : colors.textMid} />
         </TouchableOpacity>
       </View>
@@ -129,8 +131,8 @@ export default function PostCard({ post, navigation }) {
             {post.caption}
           </Text>
           {longCaption && !expanded && (
-            <TouchableOpacity onPress={() => setExpanded(true)} accessibilityRole="button" accessibilityLabel="Read more">
-              <Text style={styles.readMore}>read more</Text>
+            <TouchableOpacity onPress={() => setExpanded(true)} accessibilityRole="button" accessibilityLabel={t('post.readMoreA11y')}>
+              <Text style={styles.readMore}>{t('post.readMore')}</Text>
             </TouchableOpacity>
           )}
         </View>

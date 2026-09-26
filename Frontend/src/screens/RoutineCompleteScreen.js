@@ -15,12 +15,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import { shareText } from '../utils/feedback';
+import { useI18n } from '../i18n';
 
 export default function RoutineCompleteScreen({ navigation, route }) {
   const streak = route?.params?.streak ?? 0;
   // Points are only awarded for the first routine finished each day.
   const pointsAwarded = route?.params?.pointsAwarded ?? 0;
   const [note, setNote] = useState('');
+  const { t } = useI18n();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -32,18 +34,18 @@ export default function RoutineCompleteScreen({ navigation, route }) {
           style={styles.navBtn}
           onPress={() => navigation?.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.goBack')}
         >
           <Ionicons name="arrow-back" size={22} color={colors.primary} />
         </TouchableOpacity>
 
-        <Text style={styles.navTitle}>MyFace AI</Text>
+        <Text style={styles.navTitle}>{t('common.appName')}</Text>
 
         <TouchableOpacity
           style={styles.navBtn}
           onPress={() => navigation?.popToTop()}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t('common.close')}
         >
           <Ionicons name="close" size={22} color={colors.textDark} />
         </TouchableOpacity>
@@ -57,7 +59,7 @@ export default function RoutineCompleteScreen({ navigation, route }) {
         {/* Points pill */}
         {pointsAwarded > 0 && (
           <View style={styles.pointsPill}>
-            <Text style={styles.pointsText}>+{pointsAwarded} points</Text>
+            <Text style={styles.pointsText}>{t('routineComplete.pointsEarned', { count: pointsAwarded })}</Text>
           </View>
         )}
 
@@ -68,34 +70,34 @@ export default function RoutineCompleteScreen({ navigation, route }) {
           </View>
         </View>
 
-        <Text style={styles.title}>Routine Complete!</Text>
+        <Text style={styles.title}>{t('routineComplete.title')}</Text>
         <Text style={styles.subtitle}>
-          {streak} Day Streak{pointsAwarded > 0 && <Text style={styles.subtitlePlus}> +1</Text>}
+          {t('routineComplete.dayStreak', { count: streak })}{pointsAwarded > 0 && <Text style={styles.subtitlePlus}> +1</Text>}
         </Text>
 
         {/* Coach tip */}
         <View style={styles.tipCard}>
           <View style={styles.tipAvatar}>
-            <Text style={styles.tipAvatarText}>AI</Text>
+            <Text style={styles.tipAvatarText}>{t('routineComplete.aiBadge')}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.tipLabel}>COACH TIP</Text>
+            <Text style={styles.tipLabel}>{t('routineComplete.tipLabel')}</Text>
             <Text style={styles.tipText}>
-              Great consistency! Your skin's hydration levels are peaking. Try to sleep on a silk pillowcase tonight to maintain these results.
+              {t('routineComplete.tip')}
             </Text>
           </View>
         </View>
 
         {/* Log a note */}
-        <Text style={styles.sectionLabel}>LOG A NOTE</Text>
+        <Text style={styles.sectionLabel}>{t('routineComplete.logNote')}</Text>
         <View style={styles.noteInputWrap}>
           <TextInput
             style={styles.noteInput}
-            placeholder="How does your face feel?"
+            placeholder={t('routineComplete.notePlaceholder')}
             placeholderTextColor={colors.textPlaceholder}
             value={note}
             onChangeText={setNote}
-            accessibilityLabel="Log a note about how your face feels"
+            accessibilityLabel={t('routineComplete.noteA11y')}
           />
           <Ionicons name="mic-outline" size={20} color={colors.textPlaceholder} />
         </View>
@@ -106,11 +108,11 @@ export default function RoutineCompleteScreen({ navigation, route }) {
             style={styles.addPhoto}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Add today's selfie"
+            accessibilityLabel={t('routineComplete.addSelfieA11y')}
             onPress={() => navigation?.navigate('ScanFace')}
           >
             <Ionicons name="camera-outline" size={22} color={colors.primary} />
-            <Text style={styles.addPhotoText}>Add Today's Selfie</Text>
+            <Text style={styles.addPhotoText}>{t('routineComplete.addSelfie')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -119,11 +121,11 @@ export default function RoutineCompleteScreen({ navigation, route }) {
           style={styles.shareBtn}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Share my streak"
-          onPress={() => shareText(`I'm on a ${streak}-day skincare streak on BeautyApp!`)}
+          accessibilityLabel={t('routineComplete.share')}
+          onPress={() => shareText(t('routineComplete.shareMessage', { count: streak }))}
         >
           <Ionicons name="share-social-outline" size={16} color={colors.primary} />
-          <Text style={styles.shareBtnText}>Share my streak</Text>
+          <Text style={styles.shareBtnText}>{t('routineComplete.share')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -131,9 +133,9 @@ export default function RoutineCompleteScreen({ navigation, route }) {
           onPress={() => navigation?.popToTop()}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Done"
+          accessibilityLabel={t('common.done')}
         >
-          <Text style={styles.doneBtnText}>Done</Text>
+          <Text style={styles.doneBtnText}>{t('common.done')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 24 }} />

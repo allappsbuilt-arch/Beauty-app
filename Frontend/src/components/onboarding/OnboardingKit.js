@@ -5,6 +5,7 @@ import { useNavigationState, useRoute } from '@react-navigation/native';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
 import { notify } from '../../utils/feedback';
+import { useI18n, translate } from '../../i18n';
 
 // Onboarding runs Welcome → Profile → Coach Voice → Allergies → All Set.
 export const ONBOARDING_STEPS = ['OnboardingWelcome', 'OnboardingProfile', 'OnboardingVoice', 'OnboardingAllergies', 'OnboardingAllSet'];
@@ -15,12 +16,13 @@ export const OB_RED = '#A8294A';
 
 // Row of step dots; the current step is a wide pill.
 export function StepDots({ step, total = TOTAL_STEPS, style }) {
+  const { t } = useI18n();
   return (
     <View
       style={[dots.row, style]}
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={`Step ${step} of ${total}`}
+      accessibilityLabel={t('onboarding.stepOf', { step, total })}
     >
       {Array.from({ length: total }, (_, i) => (
         <View key={i} style={[dots.dot, i + 1 === step && dots.active]} />
@@ -118,7 +120,7 @@ export function useOnboardingNav(navigation, { fallback } = {}) {
     try {
       await completeOnboarding();
     } catch (err) {
-      notify('Could not skip onboarding', err?.message || 'Please try again.');
+      notify(translate('onboarding.skipFailed'), err?.message || translate('onboarding.tryAgainLater'));
       setSkipping(false);
     }
   }, [isAuthenticated, completeOnboarding, navigation]);

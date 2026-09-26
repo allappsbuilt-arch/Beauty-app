@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import SkinTrendChart from '../components/SkinTrendChart';
+import { useI18n } from '../i18n';
+import { zoneName, metricName, statusName } from '../utils/scanText';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 
 const { width: SW } = Dimensions.get('window');
@@ -40,7 +42,7 @@ function StatusBadge({ status }) {
   const cfg = STATUS_COLORS[status] ?? STATUS_COLORS.FAIR;
   return (
     <View style={[badge.wrap, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
-      <Text style={[badge.text, { color: cfg.text }]}>{status}</Text>
+      <Text style={[badge.text, { color: cfg.text }]}>{String(statusName(status)).toUpperCase()}</Text>
     </View>
   );
 }
@@ -226,7 +228,7 @@ function ZoneCard({ zone }) {
           <View style={styles.zoneIconWrap}>
             <Ionicons name={zone.icon} size={18} color={colors.primary} />
           </View>
-          <Text style={styles.zoneTitle}>{zone.title}</Text>
+          <Text style={styles.zoneTitle}>{zoneName(zone)}</Text>
         </View>
         <ScorePill score={zone.score} />
       </View>
@@ -236,7 +238,7 @@ function ZoneCard({ zone }) {
         {(zone.metrics || []).map((m, i) => (
           <MetricRow
             key={m.label}
-            label={m.label}
+            label={metricName(m.label)}
             status={m.status}
             isLast={i === zone.metrics.length - 1}
           />
@@ -270,7 +272,7 @@ function AncillaryCard({ zone, onPress }) {
       style={[styles.ancCard, { width: MINI_W }]}
       activeOpacity={0.82}
       accessibilityRole="button"
-      accessibilityLabel={zone.label}
+      accessibilityLabel={zoneName(zone)}
       onPress={onPress}
     >
       {/* Mini photo */}
@@ -285,12 +287,12 @@ function AncillaryCard({ zone, onPress }) {
           <View style={styles.ancIconWrap}>
             <Ionicons name={zone.icon} size={12} color={colors.primary} />
           </View>
-          <Text style={styles.ancTitle}>{zone.label}</Text>
+          <Text style={styles.ancTitle}>{zoneName(zone)}</Text>
           <Text style={styles.ancScore}>{zone.score}</Text>
         </View>
         <View style={styles.ancFooter}>
-          <Text style={styles.ancMetricLabel}>{zone.metricLabel}</Text>
-          <Text style={styles.ancMetricVal}>{zone.metricVal}</Text>
+          <Text style={styles.ancMetricLabel}>{metricName(zone.metricLabel)}</Text>
+          <Text style={styles.ancMetricVal}>{statusName(zone.metricVal)}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -303,6 +305,7 @@ export default function FullScanAnalysisScreen({ navigation, route }) {
   // Accept scan data from route.params (passed from ScanResults/ScanAnalyzing)
   // or fall back to fetching the latest scan from the backend
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [zones, setZones] = useState(route?.params?.zones || null);
   const [ancillary, setAncillary] = useState(route?.params?.ancillary || null);
   const [loading, setLoading] = useState(!route?.params?.zones);
@@ -317,10 +320,10 @@ export default function FullScanAnalysisScreen({ navigation, route }) {
           setZones(scans[0].zones);
           setAncillary(scans[0].ancillary);
         } else {
-          setLoadError('empty');
+          setLoadError('empty'); // i18n-ignore: state flag
         }
       } catch (err) {
-        setLoadError(err?.message || 'Could not load your scan.');
+        setLoadError(err?.message || t('scanResults.loadFailed'));
       } finally {
         setLoading(false);
       }
@@ -337,18 +340,18 @@ export default function FullScanAnalysisScreen({ navigation, route }) {
           style={styles.navBtn}
           onPress={() => navigation?.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.goBack')}
         >
           <Ionicons name="arrow-back" size={22} color={colors.textDark} />
         </TouchableOpacity>
 
-        <Text style={styles.navTitle}>Full Scan Analysis</Text>
+        <Text style={styles.navTitle}>{t('scanResults.title')}</Text>
 
         <TouchableOpacity
           style={styles.navBtn}
           onPress={() => navigation?.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t('common.close')}
         >
           <Ionicons name="close" size={22} color={colors.textDark} />
         </TouchableOpacity>
@@ -361,19 +364,19 @@ export default function FullScanAnalysisScreen({ navigation, route }) {
       ) : loadError ? (
         <View style={styles.emptyWrap}>
           <Ionicons name={loadError === 'empty' ? 'scan-outline' : 'cloud-offline-outline'} size={34} color={colors.primary} />
-          <Text style={styles.emptyTitle}>{loadError === 'empty' ? 'No scans yet' : 'Could not load your scan'}</Text>
+          <Text style={styles.emptyTitle}>{loadError === 'empty' ? t('scanResults.noScansTitle') : t('scanResults.loadFailedTitle')}</Text>
           <Text style={styles.emptyText}>
             {loadError === 'empty'
-              ? 'Take your first AI face scan to see a full analysis of every zone.'
+              ? t('scanResults.noScansText')
               : loadError}
           </Text>
           <TouchableOpacity
             style={styles.emptyBtn}
             onPress={() => navigation?.navigate('ScanFace')}
             accessibilityRole="button"
-            accessibilityLabel="Take a face scan"
+            accessibilityLabel={t('scanResults.takeScanA11y')}
           >
-            <Text style={styles.emptyBtnText}>Take a Face Scan</Text>
+            <Text style={styles.emptyBtnText}>{t('scanResults.takeScan')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -391,7 +394,7 @@ export default function FullScanAnalysisScreen({ navigation, route }) {
 
           {/* Ancillary Zones section */}
           <View style={styles.ancSection}>
-            <Text style={styles.ancHeader}>Ancillary Zones</Text>
+            <Text style={styles.ancHeader}>{t('scanResults.ancillary')}</Text>
             <View style={styles.ancRow}>
               {(ancillary || []).map(z => (
                 <AncillaryCard

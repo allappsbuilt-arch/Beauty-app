@@ -3,6 +3,7 @@ import { View, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import LiveCamera from './LiveCamera';
+import { useI18n } from '../i18n';
 
 function RoundBtn({ icon, label, onPress }) {
   return (
@@ -16,6 +17,7 @@ function RoundBtn({ icon, label, onPress }) {
 // chosen — that photo with a Retake button. `children` render as overlays.
 export default function SelfieFrame({ cameraRef, photo, onRetake, onGallery, aspectRatio = 1.05, style, children }) {
   const [facing, setFacing] = useState('front');
+  const { t } = useI18n();
 
   return (
     <View style={[s.card, style]}>
@@ -26,13 +28,13 @@ export default function SelfieFrame({ cameraRef, photo, onRetake, onGallery, asp
       )}
       {children}
       <View style={s.actions}>
-        {onGallery && <RoundBtn icon="images-outline" label="Choose a photo from your library" onPress={onGallery} />}
+        {onGallery && <RoundBtn icon="images-outline" label={t('camera.chooseFromLibrary')} onPress={onGallery} />}
         {photo ? (
-          <RoundBtn icon="refresh" label="Retake photo" onPress={onRetake} />
+          <RoundBtn icon="refresh" label={t('camera.retake')} onPress={onRetake} />
         ) : (
           <RoundBtn
             icon="camera-reverse-outline"
-            label="Switch camera"
+            label={t('camera.switch')}
             onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))}
           />
         )}

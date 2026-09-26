@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
 // ─── Standardized screen navigation bar ────────────────────────────────────
 //
@@ -30,7 +31,9 @@ export default function ScreenHeader({
   progress, // optional 0–1 value; renders a thin progress bar under the header
   center, // optional element shown instead of the title (e.g. step dots)
   iconColor, // optional override for the back/close icons
+  left, // optional element shown instead of the back button
 }) {
+  const { t } = useI18n();
   const isDark = variant === 'dark';
   const iconTint = iconColor || (isDark ? colors.white : colors.textDark);
 
@@ -44,12 +47,14 @@ export default function ScreenHeader({
           absolute && styles.barAbsolutePadding,
         ]}
       >
-        {onBack ? (
+        {left ? (
+          <View style={styles.leftSlot}>{left}</View>
+        ) : onBack ? (
           <TouchableOpacity
             style={[styles.iconBtn, isDark && styles.iconBtnDark]}
             onPress={onBack}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('common.goBack')}
           >
             <Ionicons name="arrow-back" size={22} color={iconTint} />
           </TouchableOpacity>
@@ -79,7 +84,7 @@ export default function ScreenHeader({
             style={[styles.iconBtn, isDark && styles.iconBtnDark]}
             onPress={onClose}
             accessibilityRole="button"
-            accessibilityLabel="Close"
+            accessibilityLabel={t('common.close')}
           >
             <Ionicons name="close" size={22} color={iconTint} />
           </TouchableOpacity>
@@ -124,6 +129,7 @@ const styles = StyleSheet.create({
   },
 
   centerSlot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  leftSlot: { minWidth: 38, alignItems: 'flex-start', justifyContent: 'center' },
   iconBtn: {
     width: 38,
     height: 38,

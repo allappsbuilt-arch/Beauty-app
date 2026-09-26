@@ -19,6 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import InitialsAvatar from '../components/InitialsAvatar';
 import { notify } from '../utils/feedback';
 import { usePreferences } from '../api/usePreferences';
+import { useI18n } from '../i18n';
 
 function SettingsRow({ icon, label, value, onPress, isLast, right }) {
   return (
@@ -65,6 +66,7 @@ function ReminderRow({ icon, label, time, isLast }) {
 }
 
 function EditNameModal({ visible, initialName, onCancel, onSave }) {
+  const { t } = useI18n();
   const [name, setName] = useState(initialName);
   const [saving, setSaving] = useState(false);
 
@@ -85,8 +87,8 @@ function EditNameModal({ visible, initialName, onCancel, onSave }) {
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.modalBackdrop}>
         <View style={styles.modalSheet}>
-          <Text style={styles.modalTitle}>Edit Profile</Text>
-          <Text style={styles.modalLabel}>NAME</Text>
+          <Text style={styles.modalTitle}>{t('settings.editProfile')}</Text>
+          <Text style={styles.modalLabel}>{t('settings.nameLabel')}</Text>
           <TextInput
             style={styles.modalInput}
             value={name}
@@ -95,18 +97,18 @@ function EditNameModal({ visible, initialName, onCancel, onSave }) {
             autoFocus
             returnKeyType="done"
             onSubmitEditing={save}
-            placeholder="Your name"
+            placeholder={t('settings.namePlaceholder')}
             placeholderTextColor={colors.textPlaceholder}
-            accessibilityLabel="Name"
+            accessibilityLabel={t('settings.name')}
           />
           <View style={styles.modalActions}>
             <TouchableOpacity style={[styles.modalBtn, styles.modalBtnGhost]} onPress={onCancel}
-              accessibilityRole="button" accessibilityLabel="Cancel">
-              <Text style={[styles.modalBtnText, styles.modalBtnGhostText]}>Cancel</Text>
+              accessibilityRole="button" accessibilityLabel={t('common.cancel')}>
+              <Text style={[styles.modalBtnText, styles.modalBtnGhostText]}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.modalBtn, !name.trim() && { opacity: 0.5 }]} onPress={save}
-              disabled={!name.trim() || saving} accessibilityRole="button" accessibilityLabel="Save profile">
-              {saving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.modalBtnText}>Save</Text>}
+              disabled={!name.trim() || saving} accessibilityRole="button" accessibilityLabel={t('settings.saveProfile')}>
+              {saving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.modalBtnText}>{t('common.save')}</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -119,6 +121,7 @@ export default function SettingsScreen({ navigation }) {
   const { prefs } = usePreferences();
   const teenageMode = !!prefs?.teenControls.enabled;
   const { user, logout, updateProfile } = useAuth();
+  const { t, current: currentLanguage } = useI18n();
   const [editingName, setEditingName] = useState(false);
 
   const saveName = async (name) => {
@@ -126,7 +129,7 @@ export default function SettingsScreen({ navigation }) {
       await updateProfile({ name });
       setEditingName(false);
     } catch (err) {
-      notify('Could not update your profile', err.message);
+      notify(t('settings.updateFailed'), err.message);
     }
   };
 
@@ -135,7 +138,7 @@ export default function SettingsScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <ScreenHeader
-        title="Settings"
+        title={t('settings.title')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
@@ -151,7 +154,7 @@ export default function SettingsScreen({ navigation }) {
           <TouchableOpacity
             style={styles.editBtn}
             accessibilityRole="button"
-            accessibilityLabel="Edit profile"
+            accessibilityLabel={t('settings.editProfile')}
             onPress={() => setEditingName(true)}
           >
             <Ionicons name="pencil" size={15} color={colors.textMid} />
@@ -159,27 +162,27 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         {/* ── Account & privacy ── */}
-        <Text style={styles.sectionTitle}>ACCOUNT & PRIVACY</Text>
+        <Text style={styles.sectionTitle}>{t('settings.accountSection')}</Text>
         <View style={styles.card}>
           <SettingsRow
             icon="person-outline"
-            label="Account Details"
-            onPress={() => notify('Account details', `${user?.name ?? ''}\n${user?.email ?? ''}${user?.createdAt ? `\nMember since ${new Date(user.createdAt).toLocaleDateString()}` : ''}`)}
+            label={t('settings.accountDetails')}
+            onPress={() => notify(t('settings.accountDetails'), `${user?.name ?? ''}\n${user?.email ?? ''}${user?.createdAt ? `\n${t('settings.memberSince', { date: new Date(user.createdAt).toLocaleDateString() })}` : ''}`)}
           />
           <SettingsRow
             icon="lock-closed-outline"
-            label="Privacy Settings"
+            label={t('settings.privacySettings')}
             onPress={() => navigation?.navigate('Privacy')}
           />
           <SettingsRow
             icon="shield-checkmark-outline"
-            label="Teenage Mode"
+            label={t('settings.teenageMode')}
             isLast
             right={
               <View style={styles.teenRight}>
                 <View style={[styles.statusPill, teenageMode && styles.statusPillOn]}>
                   <Text style={[styles.statusPillText, teenageMode && styles.statusPillTextOn]}>
-                    {teenageMode ? 'ON' : 'OFF'}
+                    {teenageMode ? t('settings.on') : t('settings.off')}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textPlaceholder} />
@@ -191,32 +194,38 @@ export default function SettingsScreen({ navigation }) {
 
         {/* ── Routine reminders ── */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>ROUTINE REMINDERS</Text>
-          <TouchableOpacity onPress={() => navigation?.navigate('Notifications')} accessibilityRole="button" accessibilityLabel="Edit all reminders">
-            <Text style={styles.editAll}>Edit All</Text>
+          <Text style={styles.sectionTitle}>{t('settings.remindersSection')}</Text>
+          <TouchableOpacity onPress={() => navigation?.navigate('Notifications')} accessibilityRole="button" accessibilityLabel={t('settings.editAllReminders')}>
+            <Text style={styles.editAll}>{t('settings.editAll')}</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.card}>
-          <ReminderRow icon="sunny-outline" label="Morning Routine" time="07:30" />
-          <ReminderRow icon="moon-outline" label="Night Routine" time="22:15" isLast />
+          <ReminderRow icon="sunny-outline" label={t('settings.morningRoutine')} time="07:30" />
+          <ReminderRow icon="moon-outline" label={t('settings.nightRoutine')} time="22:15" isLast />
         </View>
 
         {/* ── Integrations ── */}
-        <Text style={styles.sectionTitle}>INTEGRATIONS</Text>
+        <Text style={styles.sectionTitle}>{t('settings.integrationsSection')}</Text>
         <View style={styles.card}>
           <SettingsRow
             icon="notifications-outline"
-            label="Notifications"
+            label={t('settings.notifications')}
             isLast
             onPress={() => navigation?.navigate('Notifications')}
           />
         </View>
 
         {/* ── System ── */}
-        <Text style={styles.sectionTitle}>SYSTEM</Text>
+        <Text style={styles.sectionTitle}>{t('settings.systemSection')}</Text>
         <View style={styles.card}>
-          <SettingsRow icon="server-outline" label="Data & Storage" onPress={() => navigation?.navigate('Privacy')} />
-          <SettingsRow icon="document-text-outline" label="Terms of Service" isLast onPress={() => navigation?.navigate('Terms')} />
+          <SettingsRow
+            icon="language-outline"
+            label={t('settings.language')}
+            value={currentLanguage?.nativeName}
+            onPress={() => navigation?.navigate('Language')}
+          />
+          <SettingsRow icon="server-outline" label={t('settings.dataStorage')} onPress={() => navigation?.navigate('Privacy')} />
+          <SettingsRow icon="document-text-outline" label={t('settings.terms')} isLast onPress={() => navigation?.navigate('Terms')} />
         </View>
 
         <TouchableOpacity
@@ -224,12 +233,12 @@ export default function SettingsScreen({ navigation }) {
           activeOpacity={0.8}
           onPress={() => logout()}
           accessibilityRole="button"
-          accessibilityLabel="Sign out"
+          accessibilityLabel={t('settings.signOut')}
         >
-          <Text style={styles.signOutText}>Sign Out</Text>
+          <Text style={styles.signOutText}>{t('settings.signOut')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>MYFACE AI VERSION 2.4.0</Text>
+        <Text style={styles.version}>{t('settings.version', { version: '2.4.0' })}</Text>
 
         <View style={{ height: 24 }} />
       </ScrollView>

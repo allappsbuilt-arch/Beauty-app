@@ -2,15 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
-const TIPS = [
-  '"Tapping your serum gently into the skin instead of rubbing can increase absorption by 20%! Have you tried it this morning?"',
-  '"Always apply SPF as the final step of your AM routine — even on cloudy days, UV rays penetrate clouds."',
-  '"Drinking 8 glasses of water daily helps maintain skin elasticity and reduces the appearance of fine lines."',
-];
+const TIPS = ['coachTip.tip1', 'coachTip.tip2', 'coachTip.tip3']; // translation keys
 
 export default function CoachTip({ onMicPress }) {
+  const { t } = useI18n();
   const [tipIndex, setTipIndex] = useState(0);
+  const tip = t(TIPS[tipIndex]);
 
   const nextTip = () => setTipIndex((i) => (i + 1) % TIPS.length);
 
@@ -20,15 +19,15 @@ export default function CoachTip({ onMicPress }) {
       <View style={styles.topRow}>
         <View style={styles.coachBadge}>
           <View style={styles.coachDot} />
-          <Text style={styles.coachLabel}>AI Coach</Text>
+          <Text style={styles.coachLabel}>{t('coachTip.label')}</Text>
         </View>
         <TouchableOpacity
           style={styles.nextBtn}
           onPress={nextTip}
           accessibilityRole="button"
-          accessibilityLabel="Next tip"
+          accessibilityLabel={t('coachTip.next')}
         >
-          <Text style={styles.nextBtnText}>Next tip</Text>
+          <Text style={styles.nextBtnText}>{t('coachTip.next')}</Text>
           <Ionicons name="chevron-forward" size={12} color={colors.primary} />
         </TouchableOpacity>
       </View>
@@ -50,7 +49,7 @@ export default function CoachTip({ onMicPress }) {
         <View style={styles.bubble}>
           {/* Left notch */}
           <View style={styles.bubbleNotch} />
-          <Text style={styles.tipText}>{TIPS[tipIndex]}</Text>
+          <Text style={styles.tipText}>{tip}</Text>
         </View>
       </View>
 
@@ -67,13 +66,13 @@ export default function CoachTip({ onMicPress }) {
 
         <TouchableOpacity
           style={styles.micBtn}
-          onPress={() => onMicPress?.(TIPS[tipIndex].replace(/^"|"$/g, ''))}
+          onPress={() => onMicPress?.(tip.replace(/^["“]|["”]$/g, ''))}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Voice reply to coach"
+          accessibilityLabel={t('coachTip.replyA11y')}
         >
           <Ionicons name="mic" size={16} color={colors.white} />
-          <Text style={styles.micLabel}>Reply</Text>
+          <Text style={styles.micLabel}>{t('coachTip.reply')}</Text>
         </TouchableOpacity>
       </View>
     </View>

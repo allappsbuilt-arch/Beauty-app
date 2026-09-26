@@ -6,36 +6,38 @@ import ScreenHeader from '../components/ScreenHeader';
 import ErrorBanner from '../components/ErrorBanner';
 import { usePreferences } from '../api/usePreferences';
 import { PillButton, FormError, OB_RED, TOTAL_STEPS, useOnboardingNav } from '../components/onboarding/OnboardingKit';
+import { useI18n, richText } from '../i18n';
 
 // Keys match the coach personalities the backend already understands.
 export const VOICES = [
   {
     key: 'motivational',
-    label: 'Motivational & Direct',
+    labelKey: 'coachVoices.motivational',
     avatar: require('../../assets/onboarding/coach-motivational.jpg'),
     icon: (c) => <Ionicons name="flash-outline" size={24} color={c} />,
     iconBg: '#C8405A', iconColor: colors.white,
-    preview: '"Zero excuses today. 5 minutes of sculpting is all you need to win the morning. Let\'s go!"',
+    previewKey: 'coachVoices.motivationalPreview',
   },
   {
     key: 'gentle',
-    label: 'Soft & Encouraging',
+    labelKey: 'coachVoices.gentle',
     avatar: require('../../assets/onboarding/coach-gentle.jpg'),
     icon: (c) => <Ionicons name="flower-outline" size={24} color={c} />,
     iconBg: '#F1DDF7', iconColor: '#8A5A9E',
-    preview: '"Take a deep breath. Your skin deserves this moment of care. Whenever you\'re ready..."',
+    previewKey: 'coachVoices.gentlePreview',
   },
   {
     key: 'clinical',
-    label: 'Science-Focused',
+    labelKey: 'coachVoices.clinical',
     avatar: require('../../assets/onboarding/coach-science.jpg'),
     icon: (c) => <MaterialCommunityIcons name="microscope" size={24} color={c} />,
     iconBg: '#2E7D5B', iconColor: colors.white,
-    preview: '"Consistent daily cleansing supports your skin barrier. Time for today\'s routine."',
+    previewKey: 'coachVoices.clinicalPreview',
   },
 ];
 
 function VoiceCard({ voice, selected, onPress }) {
+  const { t } = useI18n();
   return (
     <TouchableOpacity
       style={[styles.card, selected && styles.cardSelected]}
@@ -44,18 +46,18 @@ function VoiceCard({ voice, selected, onPress }) {
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
       aria-checked={selected}
-      accessibilityLabel={voice.label}
+      accessibilityLabel={t(voice.labelKey)}
     >
       <View style={styles.cardHead}>
         <View style={[styles.iconCircle, { backgroundColor: voice.iconBg }]}>{voice.icon(voice.iconColor)}</View>
-        <Text style={styles.cardTitle}>{voice.label}</Text>
+        <Text style={styles.cardTitle}>{t(voice.labelKey)}</Text>
         {selected ? <Ionicons name="checkmark-circle-outline" size={28} color={OB_RED} /> : null}
       </View>
       <View style={[styles.preview, selected && styles.previewSelected]}>
         <Image source={voice.avatar} style={styles.avatar} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.previewLabel, selected && { color: OB_RED }]}>PREVIEW NOTIFICATION</Text>
-          <Text style={[styles.previewText, !selected && { color: '#6E5A60' }]}>{voice.preview}</Text>
+          <Text style={[styles.previewLabel, selected && { color: OB_RED }]}>{t('onboarding.voice.previewLabel')}</Text>
+          <Text style={[styles.previewText, !selected && { color: '#6E5A60' }]}>{t(voice.previewKey)}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -68,6 +70,7 @@ export default function OnboardingVoiceScreen({ navigation }) {
   // Back rebuilds steps 1–2.
   const { back, skip, skipping } = useOnboardingNav(navigation, { fallback: ['OnboardingWelcome', 'OnboardingProfile'] });
   const { prefs, error, reload, save, saving } = usePreferences();
+  const { t } = useI18n();
   const [selected, setSelected] = useState(null);
   const [saveError, setSaveError] = useState(null);
 
@@ -79,13 +82,13 @@ export default function OnboardingVoiceScreen({ navigation }) {
   const current = VOICES.find((v) => v.key === selected);
 
   const handleSave = async () => {
-    if (!selected) { setSaveError('Please choose a voice to continue.'); return; }
+    if (!selected) { setSaveError(t('onboarding.voice.chooseVoice')); return; }
     setSaveError(null);
     try {
       await save({ coachStyle: { personality: selected } });
       navigation.navigate('OnboardingAllergies');
     } catch (err) {
-      setSaveError(err.message || 'Could not save your choice. Please try again.');
+      setSaveError(err.message || t('onboarding.voice.saveFailed'));
     }
   };
 
@@ -93,7 +96,7 @@ export default function OnboardingVoiceScreen({ navigation }) {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
       <ScreenHeader
-        title="Choose Your Coach's Voice"
+        title={t('onboarding.voice.title')}
         titleColor={OB_RED}
         onBack={back}
         onClose={skipping ? undefined : skip}
@@ -102,15 +105,13 @@ export default function OnboardingVoiceScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.inner}>
-          <View style={styles.stepRow} accessible accessibilityLabel={`Step 3 of ${TOTAL_STEPS}`}>
+          <View style={styles.stepRow} accessible accessibilityLabel={t('onboarding.stepOf', { step: 3, total: TOTAL_STEPS })}>
             <View style={styles.stepLine} />
-            <Text style={styles.stepText}>Step 3 of {TOTAL_STEPS}</Text>
+            <Text style={styles.stepText}>{t('onboarding.stepOf', { step: 3, total: TOTAL_STEPS })}</Text>
           </View>
 
-          <Text style={styles.heading} accessibilityRole="header">How should we talk to you?</Text>
-          <Text style={styles.sub}>
-            Select the personality that best fuels your facial care routine. You can change this at any time in settings.
-          </Text>
+          <Text style={styles.heading} accessibilityRole="header">{t('onboarding.voice.heading')}</Text>
+          <Text style={styles.sub}>{t('onboarding.voice.sub')}</Text>
 
           <ErrorBanner message={error} onRetry={reload} />
 
@@ -122,11 +123,11 @@ export default function OnboardingVoiceScreen({ navigation }) {
 
           <View style={styles.tip}>
             <Ionicons name="sparkles-outline" size={54} color="rgba(192,64,90,0.12)" style={styles.tipDecor} />
-            <Text style={styles.tipTitle}>Did you know?</Text>
+            <Text style={styles.tipTitle}>{t('onboarding.voice.tipTitle')}</Text>
             <Text style={styles.tipText}>
-              Your coach replies in the voice you pick here
-              {current ? <Text> — currently <Text style={styles.tipStrong}>{current.label}</Text></Text> : null}
-              . Switch any time from Settings → Coach Style.
+              {current
+                ? richText(t('onboarding.voice.tipWithVoice', { voice: t(current.labelKey) }), (tag, text, i) => <Text key={i} style={styles.tipStrong}>{text}</Text>)
+                : t('onboarding.voice.tipNoVoice')}
             </Text>
           </View>
         </View>
@@ -134,7 +135,7 @@ export default function OnboardingVoiceScreen({ navigation }) {
 
       <View style={styles.footer}>
         <FormError message={saveError} />
-        <PillButton label="Save Preference" onPress={handleSave} loading={saving} disabled={!prefs && !error} />
+        <PillButton label={t('onboarding.voice.save')} onPress={handleSave} loading={saving} disabled={!prefs && !error} />
       </View>
     </SafeAreaView>
   );

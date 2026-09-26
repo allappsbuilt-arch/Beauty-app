@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuthedRequest } from './useAuthedRequest';
+import { translate as tr } from '../i18n';
 
 // Loads `path` whenever the screen gains focus (so data is fresh after e.g.
 // taking a scan and coming back). `setData` lets screens apply the updated
@@ -20,7 +21,7 @@ export function useApiData(path) {
       const result = await request(path);
       if (latestPath.current === path) setData(result);
     } catch (err) {
-      if (latestPath.current === path) setError(err.message || 'Could not load data.');
+      if (latestPath.current === path) setError(err.message || tr('common.loadDataFailed'));
     } finally {
       if (latestPath.current === path) setLoading(false);
     }

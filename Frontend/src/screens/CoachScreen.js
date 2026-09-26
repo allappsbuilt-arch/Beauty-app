@@ -7,30 +7,27 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuthedRequest } from '../api/useAuthedRequest';
+import { useI18n, formatTimeOfDay } from '../i18n';
 
 const WELCOME = {
   id: 'welcome-1',
   from: 'coach',
-  text: "Hi! I'm your AI skin coach 💆‍♀️ Ask me anything about your skincare routine, ingredients, or skin concerns.",
+  textKey: 'coach.welcome', // app-side messages are translated when shown
   created_at: new Date().toISOString(),
 };
 
-const SUGGESTIONS = [
-  'Best routine for dry skin?',
-  'Can I mix Vitamin C + Retinol?',
-  'How to reduce pores?',
-  'What is niacinamide good for?',
-];
+const SUGGESTIONS = ['coach.suggestDry', 'coach.suggestMix', 'coach.suggestPores', 'coach.suggestNiacinamide'];
 
 function formatTime(iso) {
   try {
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatTimeOfDay(iso, { hour: '2-digit', minute: '2-digit' });
   } catch {
     return '';
   }
 }
 
 function ChatBubble({ msg }) {
+  const { t } = useI18n();
   const isCoach = msg.from === 'coach';
   return (
     <View style={[styles.bubbleRow, isCoach ? styles.bubbleRowLeft : styles.bubbleRowRight]}>
@@ -41,7 +38,7 @@ function ChatBubble({ msg }) {
       )}
       <View style={[styles.bubble, isCoach ? styles.coachBubble : styles.userBubble]}>
         <Text style={[styles.bubbleText, isCoach ? styles.coachText : styles.userText]}>
-          {msg.text}
+          {msg.textKey ? t(msg.textKey) : msg.text}
         </Text>
         <Text style={[styles.bubbleTime, isCoach ? styles.coachTime : styles.userTime]}>
           {formatTime(msg.created_at)}
@@ -52,6 +49,7 @@ function ChatBubble({ msg }) {
 }
 
 function TypingIndicator() {
+  const { t } = useI18n();
   return (
     <View style={[styles.bubbleRow, styles.bubbleRowLeft]}>
       <View style={styles.coachAvatar}>
@@ -59,7 +57,7 @@ function TypingIndicator() {
       </View>
       <View style={[styles.bubble, styles.coachBubble, styles.typingBubble]}>
         <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={styles.typingText}>Thinking…</Text>
+        <Text style={styles.typingText}>{t('coach.thinking')}</Text>
       </View>
     </View>
   );
@@ -67,13 +65,14 @@ function TypingIndicator() {
 
 export default function CoachScreen({ navigation, route }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [messages, setMessages] = useState([WELCOME]);
   const [input, setInput] = useState('');
 
   // Arriving from the Home "Reply" button: pre-fill a reply about that tip.
   const prefill = route?.params?.prefill;
   useEffect(() => {
-    if (prefill) setInput(`About your tip "${prefill}" — `);
+    if (prefill) setInput(t('coach.aboutTip', { tip: prefill }));
   }, [prefill]);
   const [isTyping, setIsTyping] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -132,7 +131,7 @@ export default function CoachScreen({ navigation, route }) {
         {
           id: `err-${Date.now()}`,
           from: 'coach',
-          text: "I couldn't connect right now. Please check your connection and try again.",
+          textKey: 'coach.connectFailed',
           created_at: new Date().toISOString(),
         },
       ]);
@@ -160,7 +159,7 @@ export default function CoachScreen({ navigation, route }) {
             style={styles.headerBtn}
             onPress={() => navigation?.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('common.goBack')}
           >
             <Ionicons name="chevron-back" size={20} color={colors.textMid} />
           </TouchableOpacity>
@@ -168,10 +167,10 @@ export default function CoachScreen({ navigation, route }) {
             <Ionicons name="sparkles" size={16} color={colors.white} />
           </View>
           <View>
-            <Text style={styles.headerTitle}>Skin Coach</Text>
+            <Text style={styles.headerTitle}>{t('coach.title')}</Text>
             <View style={styles.onlineRow}>
               <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>AI · Always available</Text>
+              <Text style={styles.onlineText}>{t('coach.status')}</Text>
             </View>
           </View>
         </View>
@@ -180,7 +179,7 @@ export default function CoachScreen({ navigation, route }) {
             style={styles.headerBtn}
             onPress={clearChat}
             accessibilityRole="button"
-            accessibilityLabel="Clear chat history"
+            accessibilityLabel={t('coach.clear')}
           >
             <Ionicons name="trash-outline" size={18} color={colors.textMid} />
           </TouchableOpacity>
@@ -188,7 +187,7 @@ export default function CoachScreen({ navigation, route }) {
             style={styles.headerBtn}
             onPress={() => navigation?.navigate('CoachStyle')}
             accessibilityRole="button"
-            accessibilityLabel="Coach style settings"
+            accessibilityLabel={t('coach.style')}
           >
             <Ionicons name="options-outline" size={18} color={colors.textMid} />
           </TouchableOpacity>
@@ -196,7 +195,7 @@ export default function CoachScreen({ navigation, route }) {
             style={styles.headerBtn}
             onPress={() => navigation?.navigate('WeeklyReport')}
             accessibilityRole="button"
-            accessibilityLabel="View weekly report"
+            accessibilityLabel={t('coach.report')}
           >
             <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMid} />
           </TouchableOpacity>
@@ -232,9 +231,9 @@ export default function CoachScreen({ navigation, route }) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.chips}
           >
-            {SUGGESTIONS.map((s) => (
-              <TouchableOpacity key={s} style={styles.chip} onPress={() => send(s)}>
-                <Text style={styles.chipText}>{s}</Text>
+            {SUGGESTIONS.map((key) => (
+              <TouchableOpacity key={key} style={styles.chip} onPress={() => send(t(key))}>
+                <Text style={styles.chipText}>{t(key)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -245,7 +244,7 @@ export default function CoachScreen({ navigation, route }) {
           <View style={styles.inputWrap}>
             <TextInput
               style={styles.input}
-              placeholder="Ask your skin coach..."
+              placeholder={t('coach.placeholder')}
               placeholderTextColor={colors.textPlaceholder}
               value={input}
               onChangeText={setInput}
@@ -253,7 +252,7 @@ export default function CoachScreen({ navigation, route }) {
               onSubmitEditing={() => send()}
               multiline
               maxLength={300}
-              accessibilityLabel="Message input"
+              accessibilityLabel={t('coach.input')}
             />
           </View>
           <TouchableOpacity
@@ -261,7 +260,7 @@ export default function CoachScreen({ navigation, route }) {
             onPress={() => send()}
             disabled={!input.trim() || isTyping}
             accessibilityRole="button"
-            accessibilityLabel="Send message"
+            accessibilityLabel={t('coach.send')}
           >
             <Ionicons name="arrow-up" size={18} color={colors.white} />
           </TouchableOpacity>

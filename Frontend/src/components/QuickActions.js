@@ -2,43 +2,46 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
 const ACTIONS = [
   {
     key: 'scan',
     icon: 'scan-outline',
-    label: 'Scan Face',
+    labelKey: 'quickActions.scan',
     accent: colors.primary,
     accentBg: colors.primaryPale,
-    desc: 'AI skin analysis',
+    descKey: 'quickActions.scanDesc',
   },
   {
     key: 'routine',
     icon: 'calendar-outline',
-    label: 'View Routine',
+    labelKey: 'quickActions.routine',
     accent: '#7C6FCD',
     accentBg: '#F0EEFF',
-    desc: 'AM · PM steps',
+    descKey: 'quickActions.routineDesc',
   },
   {
     key: 'makeup',
     icon: 'color-palette-outline',
-    label: 'Makeup Looks',
+    labelKey: 'quickActions.makeup',
     accent: '#E05080',
     accentBg: '#FFF0F5',
-    desc: 'Virtual try-on',
+    descKey: 'quickActions.makeupDesc',
   },
   {
     key: 'community',
     icon: 'chatbubbles-outline',
-    label: 'Community',
+    labelKey: 'quickActions.community',
     accent: '#E0920A',
     accentBg: '#FFF8EC',
-    desc: 'Friends · Tips',
+    descKey: 'quickActions.communityDesc',
   },
 ];
 
-function ActionTile({ icon, label, accent, accentBg, desc, onPress }) {
+function ActionTile({ icon, labelKey, accent, accentBg, descKey, onPress }) {
+  const { t } = useI18n();
+  const label = t(labelKey);
   return (
     <TouchableOpacity
       style={styles.tile}
@@ -55,7 +58,7 @@ function ActionTile({ icon, label, accent, accentBg, desc, onPress }) {
       {/* Text */}
       <View style={styles.tileText}>
         <Text style={styles.tileLabel}>{label}</Text>
-        <Text style={styles.tileDesc}>{desc}</Text>
+        <Text style={styles.tileDesc}>{t(descKey)}</Text>
       </View>
 
       {/* Arrow */}

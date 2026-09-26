@@ -3,37 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 
-const STATS = [
-  {
-    icon: 'calendar',
-    value: '12',
-    label: 'DAYS',
-    color: colors.statDays,
-    bg: '#FFF0F3',
-  },
-  {
-    icon: 'star',
-    value: '84',
-    label: 'SCORE',
-    color: colors.statScore,
-    bg: '#FFF0F3',
-  },
-  {
-    icon: 'water',
-    value: '4/8',
-    label: 'GLASS',
-    color: colors.statGlass,
-    bg: '#EDF8FE',
-  },
-  {
-    icon: 'moon',
-    value: '7.5h',
-    label: 'SLEEP',
-    color: colors.statSleep,
-    bg: '#F3F0FC',
-  },
-];
-
 function StatItem({ icon, value, label, color, bg, isLast, onPress }) {
   const Wrapper = onPress ? TouchableOpacity : View;
   const pressProps = onPress
@@ -53,7 +22,8 @@ function StatItem({ icon, value, label, color, bg, isLast, onPress }) {
   );
 }
 
-export default function StatsRow({ stats = STATS }) {
+// `stats`: [{ icon, value, label (already translated), color, bg, onPress }]
+export default function StatsRow({ stats = [] }) {
   return (
     <View style={styles.card}>
       {stats.map((s, i) => (

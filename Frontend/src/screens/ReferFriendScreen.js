@@ -8,6 +8,7 @@ import ErrorBanner from '../components/ErrorBanner';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { copyText, shareText } from '../utils/feedback';
 import { loadErrorMessage } from '../components/points/pointsUtils';
+import { useI18n, formatDate, formatNumber } from '../i18n';
 
 const PURPLE = '#8870C0';
 
@@ -23,6 +24,7 @@ function Step({ n, text }) {
 // Referral code + invite sharing + who joined with it.
 export default function ReferFriendScreen({ navigation }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,15 +36,12 @@ export default function ReferFriendScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const invite = () => shareText(
-    `Join me on MyFace AI — it builds your skincare routine from an AI face scan. `
-    + `Use my referral code ${data.code} when you sign up!`
-  );
+  const invite = () => shareText(t('refer.inviteMessage', { code: data.code }));
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-      <ScreenHeader title="Refer a Friend" onBack={() => navigation?.goBack()} />
+      <ScreenHeader title={t('refer.title')} onBack={() => navigation?.goBack()} />
 
       {!data ? (
         <View style={styles.center}>
@@ -50,8 +49,8 @@ export default function ReferFriendScreen({ navigation }) {
             <>
               <Ionicons name="cloud-offline-outline" size={36} color={colors.textPlaceholder} />
               <Text style={styles.centerText}>{error}</Text>
-              <TouchableOpacity style={styles.primaryBtn} onPress={load} accessibilityRole="button" accessibilityLabel="Retry">
-                <Text style={styles.primaryBtnText}>Try Again</Text>
+              <TouchableOpacity style={styles.primaryBtn} onPress={load} accessibilityRole="button" accessibilityLabel={t('common.retry')}>
+                <Text style={styles.primaryBtnText}>{t('common.tryAgain')}</Text>
               </TouchableOpacity>
             </>
           ) : <ActivityIndicator size="large" color={PURPLE} />}
@@ -63,48 +62,48 @@ export default function ReferFriendScreen({ navigation }) {
 
           <View style={styles.hero}>
             <View style={styles.heroIcon}><Ionicons name="gift" size={28} color={PURPLE} /></View>
-            <Text style={styles.heroTitle}>Earn {data.points} points per friend</Text>
-            <Text style={styles.heroText}>Invite friends to MyFace AI. You earn +{data.points} when they complete their first face scan or routine.</Text>
+            <Text style={styles.heroTitle}>{t('refer.heroTitle', { points: data.points })}</Text>
+            <Text style={styles.heroText}>{t('refer.heroText', { points: data.points })}</Text>
           </View>
 
-          <Text style={styles.label}>YOUR REFERRAL CODE</Text>
+          <Text style={styles.label}>{t('refer.yourCode')}</Text>
           <View style={styles.codeBox}>
-            <Text style={styles.code} selectable accessibilityLabel={`Referral code ${data.code.split('').join(' ')}`}>{data.code}</Text>
-            <TouchableOpacity style={styles.copyBtn} onPress={() => copyText(data.code, 'Referral code copied')}
-              accessibilityRole="button" accessibilityLabel="Copy referral code">
+            <Text style={styles.code} selectable accessibilityLabel={t('refer.codeA11y', { code: data.code.split('').join(' ') })}>{data.code}</Text>
+            <TouchableOpacity style={styles.copyBtn} onPress={() => copyText(data.code, t('refer.codeCopied'))}
+              accessibilityRole="button" accessibilityLabel={t('refer.copyA11y')}>
               <Ionicons name="copy-outline" size={16} color={PURPLE} />
-              <Text style={styles.copyText}>Copy</Text>
+              <Text style={styles.copyText}>{t('refer.copy')}</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.primaryBtn} onPress={invite} accessibilityRole="button" accessibilityLabel="Share invite">
+          <TouchableOpacity style={styles.primaryBtn} onPress={invite} accessibilityRole="button" accessibilityLabel={t('refer.shareA11y')}>
             <Ionicons name="share-social" size={18} color={colors.white} />
-            <Text style={styles.primaryBtnText}>Share Invite</Text>
+            <Text style={styles.primaryBtnText}>{t('refer.share')}</Text>
           </TouchableOpacity>
 
-          <Text style={styles.label}>HOW IT WORKS</Text>
+          <Text style={styles.label}>{t('refer.howItWorks')}</Text>
           <View style={styles.card}>
-            <Step n={1} text="Share your code with a friend." />
-            <Step n={2} text="They enter it when creating their MyFace AI account." />
-            <Step n={3} text={`When they finish their first face scan or routine, you get +${data.points} points.`} />
+            <Step n={1} text={t('refer.step1')} />
+            <Step n={2} text={t('refer.step2')} />
+            <Step n={3} text={t('refer.step3', { points: data.points })} />
           </View>
 
           <Text style={styles.label}>
-            FRIENDS WHO JOINED{data.friends.length ? ` · ${data.pointsEarned.toLocaleString()} PTS EARNED` : ''}
+            {t('refer.friendsJoined')}{data.friends.length ? t('refer.ptsEarned', { points: formatNumber(data.pointsEarned) }) : ''}
           </Text>
           <View style={styles.card}>
             {data.friends.length === 0 ? (
-              <Text style={styles.empty}>No friends have joined with your code yet.</Text>
+              <Text style={styles.empty}>{t('refer.noFriends')}</Text>
             ) : data.friends.map((f, i) => (
               <View key={`${f.name}-${f.joinedAt}`} style={[styles.friend, i < data.friends.length - 1 && styles.divider]}>
                 <View style={styles.friendAvatar}><Text style={styles.friendInitial}>{f.name[0]?.toUpperCase()}</Text></View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.friendName}>{f.name}</Text>
-                  <Text style={styles.friendDate}>Joined {new Date(f.joinedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+                  <Text style={styles.friendDate}>{t('refer.joined', { date: formatDate(f.joinedAt, { month: 'short', day: 'numeric', year: 'numeric' }) })}</Text>
                 </View>
                 <View style={[styles.status, f.rewarded ? styles.statusDone : styles.statusPending]}>
                   <Text style={[styles.statusText, { color: f.rewarded ? '#1EA868' : '#C47A00' }]}>
-                    {f.rewarded ? `+${data.points} earned` : 'Pending'}
+                    {f.rewarded ? t('refer.earnedPts', { points: data.points }) : t('refer.pending')}
                   </Text>
                 </View>
               </View>

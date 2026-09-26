@@ -1,4 +1,5 @@
 import { Alert, Linking, Platform, Share } from 'react-native';
+import { translate as tr } from '../i18n';
 
 // react-native-web's Alert.alert is a no-op, so fall back to the browser dialogs
 // there — otherwise buttons that only show an alert look dead on web.
@@ -11,13 +12,13 @@ export function notify(title, message) {
   }
 }
 
-export function confirm(title, message, confirmLabel = 'OK') {
+export function confirm(title, message, confirmLabel = tr('common.ok')) {
   if (Platform.OS === 'web') {
     return Promise.resolve(window.confirm(message ? `${title}\n\n${message}` : title));
   }
   return new Promise((resolve) => {
     Alert.alert(title, message, [
-      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+      { text: tr('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
       { text: confirmLabel, onPress: () => resolve(true) },
     ], { cancelable: true, onDismiss: () => resolve(false) });
   });
@@ -25,16 +26,16 @@ export function confirm(title, message, confirmLabel = 'OK') {
 
 // Opens a video tutorial search (YouTube) for a look or style.
 export async function openTutorial(query) {
-  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${query} tutorial`)}`;
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(tr('tutorials.search', { query }))}`;
   try {
     await Linking.openURL(url);
   } catch {
-    notify('Could not open tutorials', 'Please check your connection and try again.');
+    notify(tr('tutorials.openFailed'), tr('common.checkConnection'));
   }
 }
 
 // Copies text (web clipboard); on phones opens the share sheet, which has Copy.
-export async function copyText(text, label = 'Copied') {
+export async function copyText(text, label = tr('common.copied')) {
   try {
     if (Platform.OS === 'web' && navigator.clipboard) {
       await navigator.clipboard.writeText(text);
@@ -43,7 +44,7 @@ export async function copyText(text, label = 'Copied') {
     }
     await Share.share({ message: text });
   } catch {
-    notify('Could not copy', text);
+    notify(tr('common.copyFailed'), text);
   }
 }
 
@@ -51,7 +52,7 @@ export async function shareText(message) {
   try {
     if (Platform.OS === 'web' && !navigator.share) {
       await navigator.clipboard?.writeText(message);
-      notify('Copied to clipboard', message);
+      notify(tr('common.copiedToClipboard'), message);
       return;
     }
     await Share.share({ message });

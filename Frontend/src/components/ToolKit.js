@@ -3,25 +3,27 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Pla
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { goToTab } from '../utils/navigation';
+import { useI18n } from '../i18n';
 
 // Shared building blocks for the photo-based tools (Virtual Try-On, Aging
 // Simulator, Symmetry Check, Timelapse) — matches the AI Hairstylist screen.
 
 export function ToolNav({ navigation, right }) {
+  const { t } = useI18n();
   return (
     <View style={s.nav}>
       <TouchableOpacity
         style={s.navBtn}
         onPress={() => (navigation?.canGoBack() ? navigation.goBack() : goToTab(navigation, 'AllTools'))}
         accessibilityRole="button"
-        accessibilityLabel="Go back"
+        accessibilityLabel={t('common.goBack')}
       >
         <Ionicons name="arrow-back" size={22} color={colors.primary} />
       </TouchableOpacity>
-      <Text style={s.navTitle}>MyFace AI</Text>
+      <Text style={s.navTitle}>{t('common.appName')}</Text>
       {right ?? (
         <TouchableOpacity style={s.navBtn} onPress={() => navigation?.popToTop()}
-          accessibilityRole="button" accessibilityLabel="Close">
+          accessibilityRole="button" accessibilityLabel={t('common.close')}>
           <Ionicons name="close" size={22} color={colors.textDark} />
         </TouchableOpacity>
       )}
@@ -97,14 +99,15 @@ export function Pill({ label, active, onPress }) {
 }
 
 // Generated result with a Before / After toggle.
-export function BeforeAfter({ before, after, afterLabel = 'After' }) {
+export function BeforeAfter({ before, after, afterLabel }) {
+  const { t } = useI18n();
   const [showAfter, setShowAfter] = useState(true);
   return (
     <View style={s.baCard}>
       <Image source={{ uri: showAfter ? after : before }} style={s.baImage} resizeMode="cover" />
       <View style={s.baToggle}>
-        <Pill label="Before" active={!showAfter} onPress={() => setShowAfter(false)} />
-        <Pill label={afterLabel} active={showAfter} onPress={() => setShowAfter(true)} />
+        <Pill label={t('common.before')} active={!showAfter} onPress={() => setShowAfter(false)} />
+        <Pill label={afterLabel ?? t('common.after')} active={showAfter} onPress={() => setShowAfter(true)} />
       </View>
     </View>
   );

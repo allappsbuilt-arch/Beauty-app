@@ -22,13 +22,12 @@ import { useAuth } from '../context/AuthContext';
 import { notify } from '../utils/feedback';
 import { remindersSupported, reminderStatusMessage, syncRemindersFromServer } from '../utils/reminders';
 import { AM_STEPS, PM_STEPS, MINUTES_PER_STEP, stepsForPeriod } from '../data/routineSteps';
+import { useI18n, translate as tr, formatDate } from '../i18n';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function dateLabel(date = new Date()) {
-  return date
-    .toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
-    .toUpperCase();
+  return formatDate(date, { weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase();
 }
 
 // Date of the i-th day (Monday = 0) of the current week.
@@ -42,7 +41,7 @@ function weekDate(i) {
 // "07:30" → "07:30 AM"
 function formatTime(hhmm) {
   const [h, m] = String(hhmm || '00:00').split(':').map(Number);
-  const suffix = h >= 12 ? 'PM' : 'AM';
+  const suffix = h >= 12 ? tr('time.pm') : tr('time.am');
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${suffix}`;
 }
@@ -59,11 +58,11 @@ function pickOneThing({ amKeys, pmKeys, finishedToday }) {
   return finishedToday ? { kind: 'done' } : { kind: 'finish', period: primary };
 }
 
-function greetingWord() {
+function greetingKey() {
   const h = new Date().getHours();
-  if (h < 12) return 'Morning';
-  if (h < 17) return 'Afternoon';
-  return 'Evening';
+  if (h < 12) return 'routine.greetMorning';
+  if (h < 17) return 'routine.greetAfternoon';
+  return 'routine.greetEvening';
 }
 
 function mondayFirstIndexToday() {
@@ -120,6 +119,7 @@ function RingProgress({ percent = 0, size = 62, stroke = 6,
 
 // ─── Routine Block ────────────────────────────────────────────────────────────
 function RoutineBlock({ title, completed, total, timeLeft, isPrimary, onPress, actionLabel }) {
+  const { t } = useI18n();
   const pct   = total > 0 ? Math.round((completed / total) * 100) : 0;
   const tint  = isPrimary ? colors.primary  : colors.textPlaceholder;
   const track = isPrimary ? colors.roseDark : colors.borderLight;
@@ -141,7 +141,7 @@ function RoutineBlock({ title, completed, total, timeLeft, isPrimary, onPress, a
       <View style={styles.rInfo}>
         <Text style={[styles.rTitle, !isPrimary && styles.rTitleDim]}>{title}</Text>
         <Text style={styles.rMeta}>
-          {completed}/{total} steps{'\u00A0\u00B7\u00A0'}{timeLeft}
+          {t('routine.stepsMeta', { completed, total, time: timeLeft })}
         </Text>
 
         <TouchableOpacity
@@ -170,12 +170,14 @@ function RoutineBlock({ title, completed, total, timeLeft, isPrimary, onPress, a
 }
 
 // ─── Week Strip ───────────────────────────────────────────────────────────────
-const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const LETTERS = ['weekdays.monNarrow', 'weekdays.tueNarrow', 'weekdays.wedNarrow', 'weekdays.thuNarrow', 'weekdays.friNarrow', 'weekdays.satNarrow', 'weekdays.sunNarrow'];
 
 function WeekStrip({ done = [], todayIdx = 0, selectedIdx = todayIdx, onSelect }) {
+  const { t } = useI18n();
   return (
     <View style={styles.strip}>
-      {LETTERS.map((l, i) => {
+      {LETTERS.map((letterKey, i) => {
+        const l = t(letterKey);
         const num        = weekDate(i).getDate();
         const isDone     = done.includes(i);
         const isToday    = i === todayIdx;
@@ -190,7 +192,7 @@ function WeekStrip({ done = [], todayIdx = 0, selectedIdx = todayIdx, onSelect }
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
-            accessibilityLabel={`${l} ${num}${isDone ? ', done' : ''}${isToday ? ', today' : ''}`}
+            accessibilityLabel={`${t('routine.dayA11y', { day: formatDate(weekDate(i), { weekday: 'long' }), num })}${isDone ? t('routine.dayDoneA11y') : ''}${isToday ? t('routine.dayTodayA11y') : ''}`}
           >
             <Text style={[styles.dayLetter, isSelected && styles.dayLetterSelected]}>{l}</Text>
             <View
@@ -220,22 +222,23 @@ function WeekStrip({ done = [], todayIdx = 0, selectedIdx = todayIdx, onSelect }
 
 // ─── Focus Banner ─────────────────────────────────────────────────────────────
 function OneThingResult({ suggestion, busy, onOpen, onMarkDone, onDismiss }) {
+  const { t } = useI18n();
   const { kind } = suggestion;
   const label = kind === 'step'
-    ? `YOUR ONE THING · ${suggestion.period} · ${suggestion.step.category}`
-    : 'YOUR ONE THING';
-  const title = kind === 'step' ? suggestion.step.title
-    : kind === 'finish' ? 'Finish your routine'
-    : "You're all done today";
-  const text = kind === 'step' ? suggestion.step.instructions
-    : kind === 'finish' ? 'Every step is done. Log it to keep your streak going.'
-    : 'Both routines are complete and your streak is logged. Rest up!';
+    ? t('routine.oneThingStep', { period: t(suggestion.period === 'PM' ? 'time.pm' : 'time.am'), category: t(suggestion.step.categoryKey) })
+    : t('routine.oneThing');
+  const title = kind === 'step' ? t(suggestion.step.titleKey)
+    : kind === 'finish' ? t('routine.finishTitle')
+    : t('routine.allDoneTitle');
+  const text = kind === 'step' ? t(suggestion.step.instructionsKey)
+    : kind === 'finish' ? t('routine.finishText')
+    : t('routine.allDoneText');
 
   return (
     <View style={styles.oneThing}>
       <View style={styles.oneThingTop}>
         <Text style={styles.oneThingLabel} numberOfLines={1}>{label}</Text>
-        <TouchableOpacity onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss suggestion">
+        <TouchableOpacity onPress={onDismiss} accessibilityRole="button" accessibilityLabel={t('routine.dismissSuggestion')}>
           <Ionicons name="close" size={16} color={colors.textFaint} />
         </TouchableOpacity>
       </View>
@@ -251,11 +254,11 @@ function OneThingResult({ suggestion, busy, onOpen, onMarkDone, onDismiss }) {
               disabled={busy}
               activeOpacity={0.78}
               accessibilityRole="button"
-              accessibilityLabel="Mark this step done"
+              accessibilityLabel={t('routine.markStepDone')}
             >
               {busy
                 ? <ActivityIndicator size="small" color={colors.primary} />
-                : <Text style={styles.focusBtnText}>Mark done</Text>}
+                : <Text style={styles.focusBtnText}>{t('routine.markDone')}</Text>}
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -263,10 +266,10 @@ function OneThingResult({ suggestion, busy, onOpen, onMarkDone, onDismiss }) {
             onPress={onOpen}
             activeOpacity={0.78}
             accessibilityRole="button"
-            accessibilityLabel={kind === 'finish' ? 'Finish routine' : 'Open routine'}
+            accessibilityLabel={kind === 'finish' ? t('routine.finishRoutine') : t('routine.openRoutine')}
           >
             <Text style={[styles.focusBtnText, styles.oneThingBtnSolidText]}>
-              {kind === 'finish' ? 'Finish routine' : 'Open routine'}
+              {kind === 'finish' ? t('routine.finishRoutine') : t('routine.openRoutine')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -276,6 +279,7 @@ function OneThingResult({ suggestion, busy, onOpen, onMarkDone, onDismiss }) {
 }
 
 function FocusBanner({ onPress, suggestion, ...resultProps }) {
+  const { t } = useI18n();
   return (
     <View style={styles.focusCard}>
       <View style={styles.focusRow}>
@@ -284,8 +288,8 @@ function FocusBanner({ onPress, suggestion, ...resultProps }) {
           <Ionicons name="sparkles" size={18} color={colors.primary} />
         </View>
         <View style={styles.focusTextBox}>
-          <Text style={styles.focusTitle}>Feeling Overwhelmed?</Text>
-          <Text style={styles.focusDesc}>Focus on just the most impactful step.</Text>
+          <Text style={styles.focusTitle}>{t('routine.overwhelmedTitle')}</Text>
+          <Text style={styles.focusDesc}>{t('routine.overwhelmedDesc')}</Text>
         </View>
       </View>
 
@@ -297,9 +301,9 @@ function FocusBanner({ onPress, suggestion, ...resultProps }) {
           onPress={onPress}
           activeOpacity={0.78}
           accessibilityRole="button"
-          accessibilityLabel="Just give me one thing"
+          accessibilityLabel={t('routine.oneThingBtn')}
         >
-          <Text style={styles.focusBtnText}>Just give me one thing</Text>
+          <Text style={styles.focusBtnText}>{t('routine.oneThingBtn')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -308,13 +312,14 @@ function FocusBanner({ onPress, suggestion, ...resultProps }) {
 
 // ─── Reminder Tile ────────────────────────────────────────────────────────────
 function ReminderTile({ label, time, onPress }) {
+  const { t } = useI18n();
   return (
     <TouchableOpacity
       style={styles.rTile}
       onPress={onPress}
       activeOpacity={0.75}
       accessibilityRole="button"
-      accessibilityLabel={`${label} reminder at ${time}`}
+      accessibilityLabel={t('routine.reminderTileA11y', { label, time })}
     >
       <View style={styles.rTileTop}>
         <Text style={styles.rTileLabel}>{label}</Text>
@@ -328,15 +333,16 @@ function ReminderTile({ label, time, onPress }) {
 
 // ─── Reminder Editor ──────────────────────────────────────────────────────────
 function TimeStepper({ value, label, onStep }) {
+  const { t } = useI18n();
   return (
     <View style={styles.remStepper}>
       <TouchableOpacity onPress={() => onStep(1)} style={styles.remStepBtn}
-        accessibilityRole="button" accessibilityLabel={`Increase ${label}`}>
+        accessibilityRole="button" accessibilityLabel={t('routine.increase', { unit: label })}>
         <Ionicons name="chevron-up" size={18} color={colors.primary} />
       </TouchableOpacity>
       <Text style={styles.remStepValue}>{String(value).padStart(2, '0')}</Text>
       <TouchableOpacity onPress={() => onStep(-1)} style={styles.remStepBtn}
-        accessibilityRole="button" accessibilityLabel={`Decrease ${label}`}>
+        accessibilityRole="button" accessibilityLabel={t('routine.decrease', { unit: label })}>
         <Ionicons name="chevron-down" size={18} color={colors.primary} />
       </TouchableOpacity>
     </View>
@@ -344,6 +350,7 @@ function TimeStepper({ value, label, onStep }) {
 }
 
 function ReminderEditor({ slot, value, saving, onCancel, onSave, onOpenSettings }) {
+  const { t } = useI18n();
   const [h24, setH24] = useState(7);
   const [minute, setMinute] = useState(30);
   // Keep showing the last slot while the modal fades out after closing.
@@ -368,15 +375,15 @@ function ReminderEditor({ slot, value, saving, onCancel, onSave, onOpenSettings 
     <Modal visible={!!slot} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.remBackdrop}>
         <View style={styles.remSheet}>
-          <Text style={styles.rTileLabel}>{shownSlot === 'evening' ? 'EVENING' : 'MORNING'} REMINDER</Text>
+          <Text style={styles.rTileLabel}>{shownSlot === 'evening' ? t('routine.eveningReminder') : t('routine.morningReminder')}</Text>
           <Text style={styles.remTitle}>
-            {shownSlot === 'evening' ? 'Remind me to do my PM routine' : 'Remind me to do my AM routine'}
+            {shownSlot === 'evening' ? t('routine.remindPm') : t('routine.remindAm')}
           </Text>
 
           <View style={styles.remPicker}>
-            <TimeStepper value={h12} label="hour" onStep={stepHour} />
+            <TimeStepper value={h12} label={t('time.hour')} onStep={stepHour} />
             <Text style={styles.remColon}>:</Text>
-            <TimeStepper value={minute} label="minute" onStep={stepMinute} />
+            <TimeStepper value={minute} label={t('time.minute')} onStep={stepMinute} />
             <View style={styles.remAmPm}>
               {['AM', 'PM'].map((p) => {
                 const active = (p === 'PM') === isPM;
@@ -387,9 +394,9 @@ function ReminderEditor({ slot, value, saving, onCancel, onSave, onOpenSettings 
                     onPress={() => { if (!active) setH24((h) => (h + 12) % 24); }}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
-                    accessibilityLabel={p}
+                    accessibilityLabel={t(p === 'PM' ? 'time.pm' : 'time.am')}
                   >
-                    <Text style={[styles.remAmPmText, active && styles.remAmPmTextActive]}>{p}</Text>
+                    <Text style={[styles.remAmPmText, active && styles.remAmPmTextActive]}>{t(p === 'PM' ? 'time.pm' : 'time.am')}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -398,26 +405,26 @@ function ReminderEditor({ slot, value, saving, onCancel, onSave, onOpenSettings 
 
           {!remindersSupported && (
             <Text style={styles.remWebNote}>
-              Your time syncs to your account — reminders are delivered by the MyFace AI phone app.
+              {t('routine.webReminderNote')}
             </Text>
           )}
 
           <TouchableOpacity onPress={onOpenSettings} style={styles.remSettingsLink}
-            accessibilityRole="button" accessibilityLabel="Notification settings">
+            accessibilityRole="button" accessibilityLabel={t('routine.notificationSettings')}>
             <Ionicons name="notifications-outline" size={14} color={colors.primary} />
-            <Text style={styles.remSettingsText}>Notification settings</Text>
+            <Text style={styles.remSettingsText}>{t('routine.notificationSettings')}</Text>
           </TouchableOpacity>
 
           <View style={styles.remActions}>
             <TouchableOpacity style={[styles.rBtn, styles.rBtnOutline, styles.remActionBtn]} onPress={onCancel}
-              accessibilityRole="button" accessibilityLabel="Cancel">
-              <Text style={[styles.rBtnText, styles.rBtnTextDim]}>Cancel</Text>
+              accessibilityRole="button" accessibilityLabel={t('common.cancel')}>
+              <Text style={[styles.rBtnText, styles.rBtnTextDim]}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.rBtn, styles.remActionBtn]} onPress={() => onSave(hhmm)}
-              disabled={saving} accessibilityRole="button" accessibilityLabel="Save reminder">
+              disabled={saving} accessibilityRole="button" accessibilityLabel={t('routine.saveReminder')}>
               {saving
                 ? <ActivityIndicator size="small" color={colors.white} />
-                : <Text style={styles.rBtnText}>Save</Text>}
+                : <Text style={styles.rBtnText}>{t('common.save')}</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -428,13 +435,14 @@ function ReminderEditor({ slot, value, saving, onCancel, onSave, onOpenSettings 
 
 // ─── Audit Card ───────────────────────────────────────────────────────────────
 function AuditCard({ onPress }) {
+  const { t } = useI18n();
   return (
     <TouchableOpacity
       style={styles.auditCard}
       onPress={onPress}
       activeOpacity={0.78}
       accessibilityRole="button"
-      accessibilityLabel="View routine audit"
+      accessibilityLabel={t('routine.auditA11y')}
     >
       {/* trend-line icon matches reference */}
       <View style={styles.auditIcon}>
@@ -442,8 +450,8 @@ function AuditCard({ onPress }) {
       </View>
 
       <View style={styles.auditText}>
-        <Text style={styles.auditTitle}>Routine Audit</Text>
-        <Text style={styles.auditDesc}>Your weekly audit is ready to view.</Text>
+        <Text style={styles.auditTitle}>{t('routine.auditTitle')}</Text>
+        <Text style={styles.auditDesc}>{t('routine.auditDesc')}</Text>
       </View>
 
       <View style={styles.auditArrow}>
@@ -472,24 +480,23 @@ function SectionRow({ title, badge }) {
 const AM_ROUTINE_TOTAL = AM_STEPS.length;
 const PM_ROUTINE_TOTAL = PM_STEPS.length;
 
-function timeLeftLabel(completed, total, isToday, isFuture) {
-  if (isFuture) return 'Upcoming';
-  if (completed >= total) return 'Done';
-  if (!isToday) return 'Missed';
-  return `${(total - completed) * MINUTES_PER_STEP} mins left`;
+function timeLeftLabel(t, completed, total, isToday, isFuture) {
+  if (isFuture) return t('routine.upcoming');
+  if (completed >= total) return t('routine.done');
+  if (!isToday) return t('routine.missed');
+  return t('routine.minsLeft', { count: (total - completed) * MINUTES_PER_STEP });
 }
 
-function actionLabelFor(completed, total) {
-  if (completed >= total) return 'Review';
-  return completed > 0 ? 'Continue' : 'Start';
+function actionLabelFor(t, completed, total) {
+  if (completed >= total) return t('routine.review');
+  return completed > 0 ? t('routine.continue') : t('routine.start');
 }
-
-const LOAD_ERROR = 'Could not load your routine. Check your connection.';
 
 export default function RoutineScreen({ navigation }) {
   const request = useAuthedRequest();
   const { user } = useAuth();
-  const firstName = user?.name?.split(' ')[0] || 'there';
+  const { t } = useI18n();
+  const firstName = user?.name?.split(' ')[0] || t('home.there');
   const { prefs, save: savePrefs, saving: savingReminder } = usePreferences();
 
   const todayIdx = mondayFirstIndexToday();
@@ -527,7 +534,7 @@ export default function RoutineScreen({ navigation }) {
       applySummary(await request('/api/routines/summary'));
       hasLoaded.current = true;
     } catch {
-      setError(LOAD_ERROR);
+      setError(t('routine.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -553,7 +560,7 @@ export default function RoutineScreen({ navigation }) {
         if (!cancelled) {
           setDayData(null);
           setSelectedIdx(todayIdx);
-          setError('Could not load that day. Please try again.');
+          setError(t('routine.dayLoadFailed'));
         }
       })
       .finally(() => { if (!cancelled) setDayLoading(false); });
@@ -596,7 +603,7 @@ export default function RoutineScreen({ navigation }) {
       // Immediately offer the next most impactful thing.
       setSuggestion(pickOneThing({ amKeys: nextAm, pmKeys: nextPm, finishedToday: weekDone.includes(todayIdx) }));
     } catch (err) {
-      notify('Could not save this step', err?.message || 'Please check your connection and try again.');
+      notify(t('routine.stepSaveFailed'), err?.message || t('routine.checkConnection'));
     } finally {
       setMarkingDone(false);
     }
@@ -609,15 +616,15 @@ export default function RoutineScreen({ navigation }) {
       await savePrefs({ reminders: { [editingSlot]: hhmm } });
       setEditingSlot(null);
     } catch (err) {
-      notify('Could not save reminder', err?.message || 'Please check your connection and try again.');
+      notify(t('routine.reminderSaveFailed'), err?.message || t('routine.checkConnection'));
       return;
     }
     // Reschedule the phone's daily notifications (asks for permission once).
     try {
       const message = reminderStatusMessage(await syncRemindersFromServer(request, { ask: true }));
-      if (message) notify('Reminder saved', message);
+      if (message) notify(t('routine.reminderSaved'), message);
     } catch (err) {
-      notify('Reminder saved', 'Your time is saved, but the notification could not be scheduled. Please try again.');
+      notify(t('routine.reminderSaved'), t('routine.reminderNotScheduled'));
     }
   };
 
@@ -633,15 +640,15 @@ export default function RoutineScreen({ navigation }) {
         <TouchableOpacity
           onPress={leave}
           style={styles.navIconBtn}
-          accessibilityRole="button" accessibilityLabel="Back"
+          accessibilityRole="button" accessibilityLabel={t('routine.back')}
         >
           <Ionicons name="chevron-back" size={22} color={colors.textDark} />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>MyFace AI</Text>
+        <Text style={styles.navTitle}>{t('common.appName')}</Text>
         <TouchableOpacity
           onPress={() => navigation?.navigate('Home')}
           style={styles.navIconBtn}
-          accessibilityRole="button" accessibilityLabel="Close"
+          accessibilityRole="button" accessibilityLabel={t('common.close')}
         >
           <Ionicons name="close" size={22} color={colors.textDark} />
         </TouchableOpacity>
@@ -650,7 +657,7 @@ export default function RoutineScreen({ navigation }) {
       {loading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ fontSize: 14, color: colors.textLight, fontWeight: '500' }}>Loading your routine…</Text>
+          <Text style={{ fontSize: 14, color: colors.textLight, fontWeight: '500' }}>{t('routine.loading')}</Text>
         </View>
       ) : (
         <ScrollView
@@ -669,7 +676,7 @@ export default function RoutineScreen({ navigation }) {
           <View style={styles.greeting}>
             <Text style={styles.greetDate}>{dateLabel(weekDate(selectedIdx))}</Text>
             <Text style={styles.greetTitle}>
-              {isToday ? `Good ${greetingWord()}, ${firstName}` : isFuture ? 'Coming up' : 'Looking back'}
+              {isToday ? t(greetingKey(), { name: firstName }) : isFuture ? t('routine.comingUp') : t('routine.lookingBack')}
             </Text>
           </View>
 
@@ -680,19 +687,19 @@ export default function RoutineScreen({ navigation }) {
             </View>
           ) : (
             <>
-              <RoutineBlock title="AM Routine" completed={amDone} total={AM_ROUTINE_TOTAL}
-                timeLeft={timeLeftLabel(amDone, AM_ROUTINE_TOTAL, isToday, isFuture)} isPrimary
-                actionLabel={isToday ? actionLabelFor(amDone, AM_ROUTINE_TOTAL) : 'Go to today'}
-                onPress={() => openRoutine('AM Routine')} />
-              <RoutineBlock title="PM Routine" completed={pmDone} total={PM_ROUTINE_TOTAL}
-                timeLeft={timeLeftLabel(pmDone, PM_ROUTINE_TOTAL, isToday, isFuture)} isPrimary={false}
-                actionLabel={isToday ? actionLabelFor(pmDone, PM_ROUTINE_TOTAL) : 'Go to today'}
-                onPress={() => openRoutine('PM Routine')} />
+              <RoutineBlock title={t('routines.am')} completed={amDone} total={AM_ROUTINE_TOTAL}
+                timeLeft={timeLeftLabel(t, amDone, AM_ROUTINE_TOTAL, isToday, isFuture)} isPrimary
+                actionLabel={isToday ? actionLabelFor(t, amDone, AM_ROUTINE_TOTAL) : t('routine.goToToday')}
+                onPress={() => openRoutine('AM Routine')} /* i18n-ignore: routine id */ />
+              <RoutineBlock title={t('routines.pm')} completed={pmDone} total={PM_ROUTINE_TOTAL}
+                timeLeft={timeLeftLabel(t, pmDone, PM_ROUTINE_TOTAL, isToday, isFuture)} isPrimary={false}
+                actionLabel={isToday ? actionLabelFor(t, pmDone, PM_ROUTINE_TOTAL) : t('routine.goToToday')}
+                onPress={() => openRoutine('PM Routine')} /* i18n-ignore: routine id */ />
             </>
           )}
 
           {/* Stats */}
-          <SectionRow title="Routine Stats" badge={`${streak} DAY STREAK`} />
+          <SectionRow title={t('routine.stats')} badge={t('routine.dayStreak', { count: streak })} />
           <View style={styles.weekCard}>
             <WeekStrip
               done={weekDone}
@@ -715,10 +722,10 @@ export default function RoutineScreen({ navigation }) {
           />
 
           {/* Reminders */}
-          <SectionRow title="Upcoming Reminders" />
+          <SectionRow title={t('routine.upcomingReminders')} />
           <View style={styles.tileRow}>
-            <ReminderTile label="MORNING" time={formatTime(reminders.morning)} onPress={() => setEditingSlot('morning')} />
-            <ReminderTile label="EVENING" time={formatTime(reminders.evening)} onPress={() => setEditingSlot('evening')} />
+            <ReminderTile label={t('routine.morning')} time={formatTime(reminders.morning)} onPress={() => setEditingSlot('morning')} />
+            <ReminderTile label={t('routine.evening')} time={formatTime(reminders.evening)} onPress={() => setEditingSlot('evening')} />
           </View>
 
           {/* Audit */}

@@ -18,17 +18,19 @@ import ErrorBanner from '../components/ErrorBanner';
 import { useTracker } from '../api/useTracker';
 import { usePreferences } from '../api/usePreferences';
 import { notify } from '../utils/feedback';
+import { useI18n, formatDate } from '../i18n';
+import { trackerItemLabel } from '../utils/serverText';
 
 // Scan metric status → how visible the dark circles are.
 const DARK_CIRCLE_LABEL = {
-  OPTIMAL: 'MINIMAL', EXCELLENT: 'MINIMAL', FAIR: 'MILD', LOW: 'MILD', MODERATE: 'MODERATE', HIGH: 'VISIBLE',
+  OPTIMAL: 'undereye.minimal', EXCELLENT: 'undereye.minimal', FAIR: 'undereye.mild', LOW: 'undereye.mild', MODERATE: 'undereye.moderate', HIGH: 'undereye.visible',
 };
 
 const ROUTINE = [
-  { key: 'cold',  icon: 'snow',           label: 'Cold Compress', meta: '5 MINS',  color: '#1EA868', bg: '#E6F9F0' },
-  { key: 'gua',   icon: 'leaf',           label: 'Gua Sha',        meta: '3 MINS',  color: '#7A5CD0', bg: '#F1ECFB' },
-  { key: 'jade',  icon: 'radio-button-on',label: 'Jade Roller',    meta: 'DAILY',   color: '#1EA868', bg: '#E6F9F0' },
-  { key: 'patch', icon: 'bandage',        label: 'Eye Patches',    meta: 'PM ONLY', color: colors.primary, bg: colors.primaryPale },
+  { key: 'cold',  icon: 'snow',           metaKey: 'undereye.mins5',  color: '#1EA868', bg: '#E6F9F0' },
+  { key: 'gua',   icon: 'leaf',           metaKey: 'undereye.mins3',  color: '#7A5CD0', bg: '#F1ECFB' },
+  { key: 'jade',  icon: 'radio-button-on', metaKey: 'undereye.daily',  color: '#1EA868', bg: '#E6F9F0' },
+  { key: 'patch', icon: 'bandage',        metaKey: 'undereye.pmOnly', color: colors.primary, bg: colors.primaryPale },
 ];
 
 function RingScore({ score }) {
@@ -54,6 +56,8 @@ function RingScore({ score }) {
 }
 
 function RoutineTile({ item, done, onToggle }) {
+  const { t } = useI18n();
+  const label = trackerItemLabel('undereye', item);
   return (
     <TouchableOpacity
       style={[tile.card, { backgroundColor: item.bg }, done && { borderColor: item.color }]}
@@ -61,7 +65,7 @@ function RoutineTile({ item, done, onToggle }) {
       activeOpacity={0.8}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: done }}
-      accessibilityLabel={item.label}
+      accessibilityLabel={label}
     >
       <View style={tile.topRow}>
         <View style={[tile.iconWrap, { backgroundColor: item.color }]}>
@@ -69,8 +73,8 @@ function RoutineTile({ item, done, onToggle }) {
         </View>
         <Ionicons name={done ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={done ? item.color : colors.borderLight} />
       </View>
-      <Text style={tile.label}>{item.label}</Text>
-      <Text style={[tile.meta, { color: item.color }]}>{done ? 'DONE TODAY' : item.meta}</Text>
+      <Text style={tile.label}>{label}</Text>
+      <Text style={[tile.meta, { color: item.color }]}>{done ? t('undereye.doneToday') : t(item.metaKey)}</Text>
     </TouchableOpacity>
   );
 }
@@ -119,13 +123,14 @@ const toggle = StyleSheet.create({
 export default function UndereyeTrackerScreen({ navigation }) {
   const { tracker, error, reload, toggle, item } = useTracker('undereye');
   const { prefs, save } = usePreferences();
+  const { t } = useI18n();
   const darkCircles = tracker?.metrics?.darkCircles;
 
   const setReminders = async (value) => {
     try {
       await save({ undereye: { screenBreakReminders: value } });
     } catch (err) {
-      notify('Could not save', err.message);
+      notify(t('common.saveFailed'), err.message);
     }
   };
 
@@ -135,12 +140,12 @@ export default function UndereyeTrackerScreen({ navigation }) {
 
       <View style={styles.nav}>
         <TouchableOpacity style={styles.navBtn} onPress={() => navigation?.goBack()}
-          accessibilityRole="button" accessibilityLabel="Go back">
+          accessibilityRole="button" accessibilityLabel={t('common.goBack')}>
           <Ionicons name="arrow-back" size={22} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Undereye Tracker</Text>
+        <Text style={styles.navTitle}>{t('undereye.title')}</Text>
         <TouchableOpacity style={styles.navBtn} onPress={() => navigation?.popToTop()}
-          accessibilityRole="button" accessibilityLabel="Close">
+          accessibilityRole="button" accessibilityLabel={t('common.close')}>
           <Ionicons name="close" size={22} color={colors.textDark} />
         </TouchableOpacity>
       </View>
@@ -150,22 +155,22 @@ export default function UndereyeTrackerScreen({ navigation }) {
 
         {/* Score */}
         <View style={styles.scoreCard}>
-          <Text style={styles.scoreLabel}>UNDEREYE SCORE</Text>
+          <Text style={styles.scoreLabel}>{t('undereye.score')}</Text>
           <RingScore score={tracker?.score ?? null} />
           <View style={styles.circlesPill}>
             <Ionicons name="eye-outline" size={13} color={colors.primary} />
             <Text style={styles.circlesPillText}>
-              {darkCircles ? `${DARK_CIRCLE_LABEL[darkCircles] ?? darkCircles} DARK CIRCLES` : 'SCAN TO MEASURE'}
+              {darkCircles ? t('undereye.darkCircles', { level: DARK_CIRCLE_LABEL[darkCircles] ? t(DARK_CIRCLE_LABEL[darkCircles]) : darkCircles }) : t('undereye.scanToMeasure')}
             </Text>
           </View>
         </View>
 
         {/* Weekly progress */}
-        <Text style={styles.sectionTitle}>Weekly Progress</Text>
+        <Text style={styles.sectionTitle}>{t('undereye.weeklyProgress')}</Text>
         <FlatList
           data={(tracker?.history ?? []).slice(-5)}
           keyExtractor={(p) => p.id}
-          ListEmptyComponent={<Text style={styles.photoLabel}>Take a face scan to start tracking.</Text>}
+          ListEmptyComponent={<Text style={styles.photoLabel}>{t('undereye.startTracking')}</Text>}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.photoRow}
@@ -177,7 +182,7 @@ export default function UndereyeTrackerScreen({ navigation }) {
                   <Text style={styles.scoreTileValue}>{h.score}</Text>
                 </View>
                 <Text style={[styles.photoLabel, active && styles.photoLabelActive]}>
-                  {active ? 'LATEST' : new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
+                  {active ? t('undereye.latest') : formatDate(h.date, { month: 'short', day: 'numeric' }).toUpperCase()}
                 </Text>
               </View>
             );
@@ -185,7 +190,7 @@ export default function UndereyeTrackerScreen({ navigation }) {
         />
 
         {/* Depuffing routine */}
-        <Text style={styles.sectionTitle}>Depuffing Routine</Text>
+        <Text style={styles.sectionTitle}>{t('undereye.depuffing')}</Text>
         <FlatList
           data={ROUTINE}
           keyExtractor={(r) => r.key}
@@ -201,8 +206,8 @@ export default function UndereyeTrackerScreen({ navigation }) {
 
         <ToggleRow
           icon="water-outline"
-          title="Eye Drops Applied"
-          subtitle="Lubricating Formula"
+          title={t('serverText.trackerItems.undereyeEyedrops')}
+          subtitle={t('undereye.lubricating')}
           value={!!item('eyedrops')?.doneToday}
           onValueChange={() => toggle('eyedrops')}
         />
@@ -211,17 +216,15 @@ export default function UndereyeTrackerScreen({ navigation }) {
         <View style={styles.alertCard}>
           <Ionicons name="warning" size={17} color="#C47800" />
           <View style={{ flex: 1 }}>
-            <Text style={styles.alertTitle}>Screen Time & Eye Strain</Text>
-            <Text style={styles.alertText}>
-              Long screen sessions worsen dark circles and puffiness. Turn on 20-20-20 reminders to rest your eyes.
-            </Text>
+            <Text style={styles.alertTitle}>{t('undereye.strainTitle')}</Text>
+            <Text style={styles.alertText}>{t('undereye.strainText')}</Text>
           </View>
         </View>
 
         <ToggleRow
           icon="timer-outline"
-          title="20-20-20 Reminders"
-          subtitle="Every 20 mins, look 20ft away"
+          title={t('undereye.reminders')}
+          subtitle={t('undereye.remindersSub')}
           value={!!prefs?.undereye.screenBreakReminders}
           onValueChange={setReminders}
         />
@@ -231,7 +234,7 @@ export default function UndereyeTrackerScreen({ navigation }) {
           style={styles.promoCard}
           activeOpacity={0.9}
           accessibilityRole="button"
-          accessibilityLabel="Read the eye cream guide"
+          accessibilityLabel={t('undereye.guideA11y')}
           onPress={() => navigation?.navigate('IngredientGuide')}
         >
           <Image
@@ -240,12 +243,10 @@ export default function UndereyeTrackerScreen({ navigation }) {
             resizeMode="cover"
           />
           <View style={styles.promoBody}>
-            <Text style={styles.promoTitle}>The Eye Cream Guide</Text>
-            <Text style={styles.promoDesc}>
-              Learn how to correctly apply active ingredients like Retinol and Vitamin C to the delicate eye area without irritation.
-            </Text>
+            <Text style={styles.promoTitle}>{t('undereye.guideTitle')}</Text>
+            <Text style={styles.promoDesc}>{t('undereye.guideDesc')}</Text>
             <View style={styles.promoBtn}>
-              <Text style={styles.promoBtnText}>Read Full Guide</Text>
+              <Text style={styles.promoBtnText}>{t('undereye.readGuide')}</Text>
             </View>
           </View>
         </TouchableOpacity>

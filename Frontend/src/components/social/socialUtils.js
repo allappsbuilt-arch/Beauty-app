@@ -1,4 +1,5 @@
 import { colors } from '../../theme/colors';
+import { translate as tr, formatDate } from '../../i18n';
 
 // Avatar colours (same palette the Socials screen was designed with). Each
 // user always gets the same pair, derived from their id.
@@ -24,28 +25,40 @@ export function initialsOf(name = '') {
 }
 
 export function firstName(name = '') {
-  return String(name).trim().split(/\s+/)[0] || 'User';
+  return String(name).trim().split(/\s+/)[0] || tr('post.user');
 }
 
 export function timeAgo(iso) {
   const secs = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-  if (secs < 60) return 'just now';
+  if (secs < 60) return tr('time.justNow');
   const mins = Math.round(secs / 60);
-  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  if (mins < 60) return tr('time.minutesAgo', { count: mins });
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  if (hours < 24) return tr('time.hoursAgo', { count: hours });
   const days = Math.round(hours / 24);
-  if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
-  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  if (days < 7) return tr('time.daysAgo', { count: days });
+  return formatDate(iso, { month: 'short', day: 'numeric' });
 }
 
 export function formatCount(n) {
-  if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k';
+  if (n >= 1000) return tr('time.thousandShort', { n: (n / 1000).toFixed(1).replace('.0', '') });
   return String(n);
 }
 
 // Tags a post can carry (must match the backend list) and their pill colours.
-export const POST_TAGS = ['Morning Flow', 'Night Routine', 'Skincare', 'Progress', 'Makeup', 'Mindfulness', 'Wellness', 'Question'];
+// The stored values stay English; `tagLabel` gives the display name.
+export const POST_TAGS = ['Morning Flow', 'Night Routine', 'Skincare', 'Progress', 'Makeup', 'Mindfulness', 'Wellness', 'Question']; // i18n-ignore: stored values
+const TAG_KEYS = {
+  'Morning Flow': 'socialTags.morningFlow',
+  'Night Routine': 'socialTags.nightRoutine',
+  Skincare: 'socialTags.skincare',
+  Progress: 'socialTags.progress',
+  Makeup: 'socialTags.makeup',
+  Mindfulness: 'socialTags.mindfulness',
+  Wellness: 'socialTags.wellness',
+  Question: 'socialTags.question',
+};
+export const tagLabel = (tag) => (TAG_KEYS[tag] ? tr(TAG_KEYS[tag]) : tag);
 const TAG_COLORS = {
   'Morning Flow': { color: '#28A090', bg: '#E6F8F5' },
   'Night Routine': { color: '#7C6FCD', bg: '#F0EEFF' },

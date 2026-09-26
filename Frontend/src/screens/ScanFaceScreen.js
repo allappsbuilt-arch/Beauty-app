@@ -16,6 +16,7 @@ import ScreenHeader from '../components/ScreenHeader';
 import { notify } from '../utils/feedback';
 import { pickPhoto } from '../utils/photo';
 import LiveCamera from '../components/LiveCamera';
+import { useI18n } from '../i18n';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -153,6 +154,7 @@ const tip = StyleSheet.create({
 // ─── Shutter Button ───────────────────────────────────────────────────────────
 
 function ShutterButton({ onPress, scanning }) {
+  const { t } = useI18n();
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -179,7 +181,7 @@ function ShutterButton({ onPress, scanning }) {
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel={scanning ? 'Stop scanning' : 'Start face scan'}
+      accessibilityLabel={scanning ? t('scanFace.stopScanning') : t('scanFace.start')}
     >
       <Animated.View style={[shutter.outer, { transform: [{ scale: pulseAnim }] }]}>
         {/* Progress ring — dashed outer ring */}
@@ -225,6 +227,7 @@ const shutter = StyleSheet.create({
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function ScanFaceScreen({ navigation }) {
+  const { t } = useI18n();
   const [scanning, setScanning]   = useState(false);
   const [analysing, setAnalysing] = useState(false);
   const [flash, setFlash] = useState(false);
@@ -261,7 +264,7 @@ export default function ScanFaceScreen({ navigation }) {
     try {
       startAnalysis(await cameraRef.current.capture());
     } catch (err) {
-      notify('Could not take photo', err.message);
+      notify(t('camera.takeFailed'), err.message);
     } finally {
       setScanning(false);
       setAnalysing(false);
@@ -295,7 +298,7 @@ export default function ScanFaceScreen({ navigation }) {
             style={styles.navBtn}
             onPress={() => navigation?.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('common.goBack')}
           >
             <Ionicons name="arrow-back" size={22} color={colors.white} />
           </TouchableOpacity>
@@ -305,7 +308,7 @@ export default function ScanFaceScreen({ navigation }) {
             <TouchableOpacity
               style={styles.navBtn}
               accessibilityRole="button"
-              accessibilityLabel={flash ? 'Turn flash off' : 'Turn flash on'}
+              accessibilityLabel={flash ? t('scanFace.flashOff') : t('scanFace.flashOn')}
               accessibilityState={{ selected: flash }}
               onPress={() => setFlash((f) => !f)}
             >
@@ -315,7 +318,7 @@ export default function ScanFaceScreen({ navigation }) {
             <TouchableOpacity
               style={styles.navBtn}
               accessibilityRole="button"
-              accessibilityLabel="Open gallery"
+              accessibilityLabel={t('scanFace.openGallery')}
               onPress={handleGallery}
             >
               <Ionicons name="image-outline" size={21} color={colors.white} />
@@ -338,14 +341,14 @@ export default function ScanFaceScreen({ navigation }) {
         {/* Tip 1 — right side, upper third */}
         <TipCallout
           number={1}
-          text={'Center your face\nin the oval'}
+          text={t('scanFace.tip1')}
           side="right"
           style={{ top: OVAL_TOP + OVAL_H * 0.22 }}
         />
         {/* Tip 2 — left side, middle */}
         <TipCallout
           number={2}
-          text={'Ensure even,\nbright lighting'}
+          text={t('scanFace.tip2')}
           side="left"
           style={{ top: OVAL_TOP + OVAL_H * 0.52 }}
         />
@@ -356,12 +359,12 @@ export default function ScanFaceScreen({ navigation }) {
       <View style={styles.bottomPanel}>
         {/* Status text */}
         <Text style={styles.holdText}>
-          {cameraStatus === 'ready' ? 'Hold still' : cameraStatus === 'starting' ? 'Starting camera…' : 'No live camera'}
+          {cameraStatus === 'ready' ? t('scanFace.holdStill') : cameraStatus === 'starting' ? t('camera.starting') : t('scanFace.noCamera')}
         </Text>
         <Text style={styles.analysingText}>
           {cameraStatus === 'ready'
-            ? (analysing ? 'Capturing…' : 'Position your face in the oval')
-            : cameraStatus === 'starting' ? 'Allow camera access if asked' : 'Tap the button to upload a photo instead'}
+            ? (analysing ? t('scanFace.capturing') : t('scanFace.position'))
+            : cameraStatus === 'starting' ? t('scanFace.allowAccess') : t('scanFace.uploadInstead')}
         </Text>
 
         {/* Shutter */}

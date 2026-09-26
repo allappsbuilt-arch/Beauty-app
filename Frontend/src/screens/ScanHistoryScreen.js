@@ -8,20 +8,23 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import { useAuthedRequest } from '../api/useAuthedRequest';
+import { useI18n, formatDate as formatLocalDate, formatTimeOfDay } from '../i18n';
+import { zoneName } from '../utils/scanText';
 
 function formatDate(iso) {
   try {
-    return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    return formatLocalDate(iso, { month: 'short', day: 'numeric', year: 'numeric' });
   } catch { return ''; }
 }
 
 function formatTime(iso) {
   try {
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatTimeOfDay(iso, { hour: '2-digit', minute: '2-digit' });
   } catch { return ''; }
 }
 
 function ScanCard({ scan, onPress }) {
+  const { t } = useI18n();
   const zones = scan.zones || [];
   const avgScore = zones.length > 0
     ? Math.round(zones.reduce((s, z) => s + (z.score || 0), 0) / zones.length)
@@ -34,7 +37,7 @@ function ScanCard({ scan, onPress }) {
       onPress={() => onPress(scan)}
       activeOpacity={0.82}
       accessibilityRole="button"
-      accessibilityLabel={`Scan from ${formatDate(scan.createdAt)}`}
+      accessibilityLabel={t('scanHistory.scanFrom', { date: formatDate(scan.createdAt) })}
     >
       <View style={styles.cardLeft}>
         <View style={styles.scanIconWrap}>
@@ -46,7 +49,7 @@ function ScanCard({ scan, onPress }) {
           <View style={styles.zonesRow}>
             {zones.map((z) => (
               <View key={z.key} style={styles.zoneTag}>
-                <Text style={styles.zoneTagText}>{z.title}</Text>
+                <Text style={styles.zoneTagText}>{zoneName(z)}</Text>
               </View>
             ))}
           </View>
@@ -54,39 +57,41 @@ function ScanCard({ scan, onPress }) {
       </View>
       <View style={[styles.scorePill, { backgroundColor: good ? '#E6F9F0' : '#FFF0E6', borderColor: good ? '#A8E8C0' : '#F5C4A0' }]}>
         <Text style={[styles.scoreText, { color: good ? '#1EA868' : '#D06030' }]}>{avgScore}</Text>
-        <Text style={[styles.scoreLabel, { color: good ? '#1EA868' : '#D06030' }]}>AVG</Text>
+        <Text style={[styles.scoreLabel, { color: good ? '#1EA868' : '#D06030' }]}>{t('scanHistory.avg')}</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 function EmptyState({ onScan }) {
+  const { t } = useI18n();
   return (
     <View style={styles.emptyBody}>
       <View style={styles.illustration}>
         <View style={styles.corner} />
         <Ionicons name="scan-outline" size={40} color={colors.primary} style={styles.scanIcon} />
       </View>
-      <Text style={styles.emptyTitle}>Your Journey Starts Here</Text>
+      <Text style={styles.emptyTitle}>{t('scanHistory.emptyTitle')}</Text>
       <Text style={styles.emptyDesc}>
-        Take your first face scan to start tracking your skin, hair, and brow progress over time.
+        {t('scanHistory.emptyDesc')}
       </Text>
       <TouchableOpacity
         style={styles.cta}
         activeOpacity={0.85}
         onPress={onScan}
         accessibilityRole="button"
-        accessibilityLabel="Start your first scan"
+        accessibilityLabel={t('scanHistory.startA11y')}
       >
-        <Text style={styles.ctaText}>Start Your First Scan</Text>
+        <Text style={styles.ctaText}>{t('scanHistory.start')}</Text>
       </TouchableOpacity>
-      <Text style={styles.ctaHint}>TAKES LESS THAN 30 SECONDS</Text>
+      <Text style={styles.ctaHint}>{t('scanHistory.hint')}</Text>
     </View>
   );
 }
 
 export default function ScanHistoryScreen({ navigation }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -112,7 +117,7 @@ export default function ScanHistoryScreen({ navigation }) {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
       <ScreenHeader
-        title="Scan History"
+        title={t('scanHistory.title')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
@@ -131,7 +136,7 @@ export default function ScanHistoryScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => <ScanCard scan={item} onPress={openScan} />}
           ListHeaderComponent={
-            <Text style={styles.listHeader}>{scans.length} scan{scans.length !== 1 ? 's' : ''} recorded</Text>
+            <Text style={styles.listHeader}>{t('scanHistory.count', { count: scans.length })}</Text>
           }
         />
       )}

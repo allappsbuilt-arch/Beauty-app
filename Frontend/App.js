@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './src/navigation/AppNavigator';
 import ResponsiveShell from './src/components/ResponsiveShell';
 import { AuthProvider } from './src/context/AuthContext';
+import { I18nProvider } from './src/i18n';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 // One-time global CSS polish for the web target: smoother font rendering,
 // a slim on-brand scrollbar, and no jarring blue tap-highlight on touch —
@@ -36,9 +38,13 @@ export default function App() {
   return (
     <ResponsiveShell>
       <StatusBar style="dark" backgroundColor="#FFFFFF" />
-      <AuthProvider>
-        <AppNavigator />
-      </AuthProvider>
+      <I18nProvider>
+        <AuthProvider>
+          <ErrorBoundary>
+            <AppNavigator />
+          </ErrorBoundary>
+        </AuthProvider>
+      </I18nProvider>
     </ResponsiveShell>
   );
 }

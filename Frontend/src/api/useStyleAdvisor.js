@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useAuthedRequest } from './useAuthedRequest';
 import { choosePhoto } from '../utils/photo';
 import { notify } from '../utils/feedback';
+import { translate as tr } from '../i18n';
 
 // AI style recommendations ('hair' | 'brow') from a selfie. The photo stays
 // on the device between runs so the user can tweak their request without
@@ -22,7 +23,7 @@ export function useStyleAdvisor(kind) {
     try {
       setResult(await request('/api/styles/recommend', { method: 'POST', body: { kind, image, request: userRequest } }));
     } catch (err) {
-      notify('Could not analyse your photo', err.message);
+      notify(tr('photo.analyseFailed'), err.message);
     } finally {
       setLoading(false);
     }

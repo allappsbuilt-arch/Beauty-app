@@ -16,9 +16,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
+import { useI18n } from '../i18n';
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,7 +29,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleSubmit = async () => {
     if (!email || !password) {
-      setFormError('Please enter your email and password.');
+      setFormError(t('login.errMissing'));
       return;
     }
     setFormError(null);
@@ -35,7 +37,7 @@ export default function LoginScreen({ navigation }) {
     try {
       await login(email.trim(), password);
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : 'Unable to sign in. Please try again.');
+      setFormError(err instanceof ApiError ? err.message : t('login.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -53,11 +55,11 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.logoBadge}>
               <Ionicons name="sparkles" size={26} color={colors.white} />
             </View>
-            <Text style={styles.brand}>MyFace AI</Text>
+            <Text style={styles.brand}>{t('common.appName')}</Text>
           </View>
 
-          <Text style={styles.heading}>Welcome back</Text>
-          <Text style={styles.subheading}>Sign in to continue your beauty journey.</Text>
+          <Text style={styles.heading}>{t('login.heading')}</Text>
+          <Text style={styles.subheading}>{t('login.subheading')}</Text>
 
           {formError && (
             <View style={styles.errorBox}>
@@ -67,10 +69,10 @@ export default function LoginScreen({ navigation }) {
           )}
 
           <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{t('login.email')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="you@example.com"
+              placeholder={t('login.emailPlaceholder')}
               placeholderTextColor={colors.textPlaceholder}
               autoCapitalize="none"
               autoCorrect={false}
@@ -81,7 +83,7 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>{t('login.password')}</Text>
             <View style={styles.passwordRow}>
               <TextInput
                 style={styles.passwordInput}
@@ -94,7 +96,7 @@ export default function LoginScreen({ navigation }) {
               <TouchableOpacity
                 onPress={() => setShowPassword((v) => !v)}
                 accessibilityRole="button"
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                accessibilityLabel={showPassword ? t('onboarding.profile.hidePassword') : t('onboarding.profile.showPassword')}
               >
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -111,23 +113,23 @@ export default function LoginScreen({ navigation }) {
             onPress={handleSubmit}
             disabled={submitting}
             accessibilityRole="button"
-            accessibilityLabel="Sign in"
+            accessibilityLabel={t('login.signIn')}
           >
             {submitting ? (
               <ActivityIndicator color={colors.white} />
             ) : (
-              <Text style={styles.primaryBtnText}>Sign In</Text>
+              <Text style={styles.primaryBtnText}>{t('login.signIn')}</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Don't have an account?</Text>
+            <Text style={styles.footerText}>{t('login.noAccount')}</Text>
             <TouchableOpacity
               onPress={() => navigation?.replace('OnboardingWelcome')}
               accessibilityRole="button"
-              accessibilityLabel="Create account"
+              accessibilityLabel={t('login.createAccount')}
             >
-              <Text style={styles.footerLink}>Sign Up</Text>
+              <Text style={styles.footerLink}>{t('login.signUp')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

@@ -7,6 +7,7 @@ import ScreenHeader from '../components/ScreenHeader';
 import ErrorBanner from '../components/ErrorBanner';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { loadErrorMessage } from '../components/points/pointsUtils';
+import { useI18n } from '../i18n';
 
 const GREEN = '#1EA868';
 
@@ -14,6 +15,7 @@ const GREEN = '#1EA868';
 // reaching the goal awards the Log Water points once per day.
 export default function WaterLogScreen({ navigation }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [water, setWater] = useState(null);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -53,14 +55,14 @@ export default function WaterLogScreen({ navigation }) {
     return (
       <SafeAreaView style={styles.safe}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-        <ScreenHeader title="Log Water" onBack={() => navigation?.goBack()} />
+        <ScreenHeader title={t('water.title')} onBack={() => navigation?.goBack()} />
         <View style={styles.center}>
           {error ? (
             <>
               <Ionicons name="cloud-offline-outline" size={36} color={colors.textPlaceholder} />
               <Text style={styles.centerText}>{error}</Text>
-              <TouchableOpacity style={styles.primaryBtn} onPress={load} accessibilityRole="button" accessibilityLabel="Retry">
-                <Text style={styles.primaryBtnText}>Try Again</Text>
+              <TouchableOpacity style={styles.primaryBtn} onPress={load} accessibilityRole="button" accessibilityLabel={t('common.retry')}>
+                <Text style={styles.primaryBtnText}>{t('common.tryAgain')}</Text>
               </TouchableOpacity>
             </>
           ) : <ActivityIndicator size="large" color={GREEN} />}
@@ -76,25 +78,25 @@ export default function WaterLogScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-      <ScreenHeader title="Log Water" onBack={() => navigation?.goBack()} />
+      <ScreenHeader title={t('water.title')} onBack={() => navigation?.goBack()} />
       <ScrollView contentContainerStyle={styles.content}>
         <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
         <View style={styles.hero}>
           <Text style={styles.count}>{water.glasses}<Text style={styles.countGoal}> / {water.goal}</Text></Text>
-          <Text style={styles.countLabel}>glasses today</Text>
+          <Text style={styles.countLabel}>{t('water.glassesToday')}</Text>
           <View style={styles.track}><View style={[styles.fill, { width: `${progress * 100}%` }]} /></View>
           <Text style={styles.hint}>
             {water.rewarded
-              ? 'Daily goal reached — nice work staying hydrated!'
-              : `${left} more glass${left === 1 ? '' : 'es'} to earn +${water.points} points`}
+              ? t('water.goalReached')
+              : t('water.moreToEarn', { count: left, points: water.points })}
           </Text>
         </View>
 
         {justEarned > 0 && (
           <View style={styles.earned} accessibilityLiveRegion="polite">
             <Ionicons name="trophy" size={18} color={GREEN} />
-            <Text style={styles.earnedText}>+{justEarned} points earned for today’s water goal!</Text>
+            <Text style={styles.earnedText}>{t('water.earned', { count: justEarned })}</Text>
           </View>
         )}
 
@@ -109,7 +111,7 @@ export default function WaterLogScreen({ navigation }) {
                 onPress={() => (isNext ? change(1) : filled && i === water.glasses - 1 ? change(-1) : null)}
                 disabled={!(isNext || (filled && i === water.glasses - 1)) || saving}
                 accessibilityRole="button"
-                accessibilityLabel={filled ? `Glass ${i + 1}, logged` : `Glass ${i + 1}`}
+                accessibilityLabel={filled ? t('water.glassLogged', { n: i + 1 }) : t('water.glass', { n: i + 1 })}
               >
                 <Ionicons name={filled ? 'water' : 'water-outline'} size={26} color={filled ? GREEN : colors.textPlaceholder} />
               </TouchableOpacity>
@@ -119,23 +121,23 @@ export default function WaterLogScreen({ navigation }) {
 
         <View style={styles.row}>
           <TouchableOpacity style={[styles.secondaryBtn, (water.glasses === 0 || saving) && styles.disabled]} onPress={() => change(-1)}
-            disabled={water.glasses === 0 || saving} accessibilityRole="button" accessibilityLabel="Remove a glass">
+            disabled={water.glasses === 0 || saving} accessibilityRole="button" accessibilityLabel={t('water.remove')}>
             <Ionicons name="remove" size={20} color={GREEN} />
           </TouchableOpacity>
           <TouchableOpacity style={[styles.primaryBtn, styles.addBtn, (water.glasses >= water.max || saving) && styles.disabled]} onPress={() => change(1)}
-            disabled={water.glasses >= water.max || saving} accessibilityRole="button" accessibilityLabel="Add a glass of water">
+            disabled={water.glasses >= water.max || saving} accessibilityRole="button" accessibilityLabel={t('water.addA11y')}>
             {saving ? <ActivityIndicator color={colors.white} /> : (
               <>
                 <Ionicons name="add" size={20} color={colors.white} />
-                <Text style={styles.primaryBtnText}>Add a Glass</Text>
+                <Text style={styles.primaryBtnText}>{t('water.add')}</Text>
               </>
             )}
           </TouchableOpacity>
         </View>
-        {water.glasses >= water.max && <Text style={styles.maxNote}>That’s the most you can log for today.</Text>}
+        {water.glasses >= water.max && <Text style={styles.maxNote}>{t('water.max')}</Text>}
 
-        <TouchableOpacity style={styles.link} onPress={() => navigation?.navigate('PointsStatement')} accessibilityRole="button" accessibilityLabel="View points history">
-          <Text style={styles.linkText}>View points history</Text>
+        <TouchableOpacity style={styles.link} onPress={() => navigation?.navigate('PointsStatement')} accessibilityRole="button" accessibilityLabel={t('water.history')}>
+          <Text style={styles.linkText}>{t('water.history')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

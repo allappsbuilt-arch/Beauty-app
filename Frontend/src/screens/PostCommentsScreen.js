@@ -12,12 +12,14 @@ import UserAvatar from '../components/social/UserAvatar';
 import { timeAgo } from '../components/social/socialUtils';
 import { emitPostChange } from '../components/social/socialEvents';
 import { confirm, notify } from '../utils/feedback';
+import { useI18n } from '../i18n';
 
 const MAX_COMMENT = 300;
 
 export default function PostCommentsScreen({ navigation, route }) {
   const postId = route?.params?.postId;
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [comments, setComments] = useState(null);
   const [error, setError] = useState(null);
   const [text, setText] = useState('');
@@ -29,7 +31,7 @@ export default function PostCommentsScreen({ navigation, route }) {
       const data = await request(`/api/social/posts/${postId}/comments`);
       setComments(data.comments);
     } catch (err) {
-      setError(err.message || 'Could not load comments.');
+      setError(err.message || t('comments.loadFailed'));
       setComments((c) => c ?? []);
     }
   }, [postId, request]);
@@ -46,28 +48,28 @@ export default function PostCommentsScreen({ navigation, route }) {
       setText('');
       emitPostChange(postId, { commentCount });
     } catch (err) {
-      notify('Could not post comment', err.message);
+      notify(t('comments.postFailed'), err.message);
     } finally {
       setSending(false);
     }
   };
 
   const remove = async (comment) => {
-    const ok = await confirm('Delete comment?', comment.text, 'Delete');
+    const ok = await confirm(t('comments.deleteTitle'), comment.text, t('common.delete'));
     if (!ok) return;
     try {
       const { commentCount } = await request(`/api/social/comments/${comment.id}`, { method: 'DELETE' });
       setComments((list) => list.filter((c) => c.id !== comment.id));
       emitPostChange(postId, { commentCount });
     } catch (err) {
-      notify('Could not delete comment', err.message);
+      notify(t('comments.deleteFailed'), err.message);
     }
   };
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-      <ScreenHeader title="Comments" onBack={() => navigation?.goBack()} />
+      <ScreenHeader title={t('comments.title')} onBack={() => navigation?.goBack()} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ErrorBanner message={error} onRetry={load} onDismiss={() => setError(null)} />
@@ -82,15 +84,15 @@ export default function PostCommentsScreen({ navigation, route }) {
               error ? null : (
                 <View style={styles.empty}>
                   <Ionicons name="chatbubbles-outline" size={32} color={colors.primary} />
-                  <Text style={styles.emptyTitle}>No comments yet</Text>
-                  <Text style={styles.emptyText}>Start the conversation.</Text>
+                  <Text style={styles.emptyTitle}>{t('comments.none')}</Text>
+                  <Text style={styles.emptyText}>{t('comments.start')}</Text>
                 </View>
               )
             }
             renderItem={({ item }) => (
               <View style={styles.comment}>
                 <TouchableOpacity onPress={() => item.author.id && navigation?.navigate('UserProfile', { userId: item.author.id })}
-                  accessibilityRole="button" accessibilityLabel={`Open ${item.author.name}'s profile`}>
+                  accessibilityRole="button" accessibilityLabel={t('comments.openProfile', { name: item.author.name })}>
                   <UserAvatar user={item.author} size={36} />
                 </TouchableOpacity>
                 <View style={styles.bubble}>
@@ -101,7 +103,7 @@ export default function PostCommentsScreen({ navigation, route }) {
                   <Text style={styles.text}>{item.text}</Text>
                 </View>
                 {item.isMine && (
-                  <TouchableOpacity style={styles.deleteBtn} onPress={() => remove(item)} accessibilityRole="button" accessibilityLabel="Delete comment">
+                  <TouchableOpacity style={styles.deleteBtn} onPress={() => remove(item)} accessibilityRole="button" accessibilityLabel={t('comments.delete')}>
                     <Ionicons name="trash-outline" size={16} color={colors.textFaint} />
                   </TouchableOpacity>
                 )}
@@ -113,16 +115,16 @@ export default function PostCommentsScreen({ navigation, route }) {
         <View style={styles.composer}>
           <TextInput
             style={styles.input}
-            placeholder="Add a comment…"
+            placeholder={t('comments.placeholder')}
             placeholderTextColor={colors.textPlaceholder}
             value={text}
             onChangeText={setText}
             maxLength={MAX_COMMENT}
             multiline
-            accessibilityLabel="Add a comment"
+            accessibilityLabel={t('comments.a11y')}
           />
           <TouchableOpacity style={[styles.sendBtn, (!text.trim() || sending) && { opacity: 0.45 }]} onPress={send}
-            disabled={!text.trim() || sending} accessibilityRole="button" accessibilityLabel="Post comment">
+            disabled={!text.trim() || sending} accessibilityRole="button" accessibilityLabel={t('comments.post')}>
             {sending ? <ActivityIndicator size="small" color={colors.white} /> : <Ionicons name="send" size={16} color={colors.white} />}
           </TouchableOpacity>
         </View>

@@ -8,7 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import { usePreferences } from '../api/usePreferences';
 import { PillButton, FormError, OB_RED, TOTAL_STEPS, useOnboardingNav } from '../components/onboarding/OnboardingKit';
 import { VOICES } from './OnboardingVoiceScreen';
-import { COMMON_SENSITIVITIES } from './OnboardingAllergiesScreen';
+import { sensitivityLabel } from './OnboardingAllergiesScreen';
+import { useI18n, richText } from '../i18n';
 
 const FACE = require('../../assets/onboarding/allset-face.jpg');
 
@@ -43,6 +44,7 @@ function SummaryCard({ icon, iconBg, iconColor, label, value, wide, check }) {
 // Onboarding step 5 — summary of what was saved, then into the app.
 export default function OnboardingAllSetScreen({ navigation }) {
   const { user, completeOnboarding } = useAuth();
+  const { t } = useI18n();
   const { back } = useOnboardingNav(navigation);
   const { prefs, loading, error, reload } = usePreferences();
   const [finishing, setFinishing] = useState(false);
@@ -52,8 +54,9 @@ export default function OnboardingAllSetScreen({ navigation }) {
   const voice = VOICES.find((v) => v.key === prefs?.coachStyle?.personality);
   const allergies = prefs?.allergies?.ingredients || [];
   const allergyText = allergies.length === 0
-    ? 'None'
-    : allergies.map((k) => COMMON_SENSITIVITIES.find((s) => s.key === k)?.label || k.charAt(0).toUpperCase() + k.slice(1)).join(', ');
+    ? t('onboarding.allSet.none')
+    : allergies.map((k) => sensitivityLabel(k, t)).join(', ');
+  const voiceLabel = voice ? t(voice.labelKey) : null;
   const times = [to12h(prefs?.reminders?.morning), to12h(prefs?.reminders?.evening)].filter(Boolean);
 
   // Finishing flips the navigator over to the main app (Home tab).
@@ -63,7 +66,7 @@ export default function OnboardingAllSetScreen({ navigation }) {
     try {
       await completeOnboarding();
     } catch (err) {
-      setFinishError(err.message || 'Could not finish setup. Please try again.');
+      setFinishError(err.message || t('onboarding.allSet.finishFailed'));
       setFinishing(false);
     }
   };
@@ -71,7 +74,7 @@ export default function OnboardingAllSetScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-      <ScreenHeader title="MyFace AI" titleColor={OB_RED} onBack={back} onClose={finishing ? undefined : finish} iconColor={OB_RED} />
+      <ScreenHeader title={t('common.appName')} titleColor={OB_RED} onBack={back} onClose={finishing ? undefined : finish} iconColor={OB_RED} />
 
       <View style={styles.bokehLayer} pointerEvents="none">
         {BOKEH.map((b, i) => (
@@ -81,20 +84,20 @@ export default function OnboardingAllSetScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.inner}>
-          <View style={styles.stepRow} accessible accessibilityLabel={`Step ${TOTAL_STEPS} of ${TOTAL_STEPS}`}>
+          <View style={styles.stepRow} accessible accessibilityLabel={t('onboarding.stepOf', { step: TOTAL_STEPS, total: TOTAL_STEPS })}>
             {Array.from({ length: TOTAL_STEPS - 1 }, (_, i) => <View key={i} style={styles.stepDot} />)}
-            <View style={styles.stepPill}><Text style={styles.stepPillText}>Step {TOTAL_STEPS}</Text></View>
+            <View style={styles.stepPill}><Text style={styles.stepPillText}>{t('onboarding.stepShort', { step: TOTAL_STEPS })}</Text></View>
           </View>
 
           <View style={styles.avatarOuter}>
-            <Image source={FACE} style={styles.avatar} accessibilityLabel="Your glow profile" />
+            <Image source={FACE} style={styles.avatar} accessibilityLabel={t('onboarding.allSet.faceAlt')} />
             <Ionicons name="sparkles" size={34} color="#E8A93C" style={styles.sparkle} />
           </View>
 
           <Text style={styles.title} accessibilityRole="header">
-            {firstName ? `You're All Set, ${firstName}!` : "You're All Set!"}
+            {firstName ? t('onboarding.allSet.titleNamed', { name: firstName }) : t('onboarding.allSet.title')}
           </Text>
-          <Text style={styles.sub}>Your personalized skincare and hair routine is ready to launch.</Text>
+          <Text style={styles.sub}>{t('onboarding.allSet.sub')}</Text>
 
           <ErrorBanner message={error} onRetry={reload} />
 
@@ -105,20 +108,21 @@ export default function OnboardingAllSetScreen({ navigation }) {
               <SummaryCard
                 wide check
                 icon="happy-outline" iconBg="#FCE4E8" iconColor={OB_RED}
-                label="Coach Voice" value={voice?.label || 'Not chosen yet'}
+                label={t('onboarding.allSet.coachVoice')} value={voiceLabel || t('onboarding.allSet.notChosen')}
               />
               <View style={styles.row}>
-                <SummaryCard icon="shield-checkmark-outline" iconBg="#F6E3E6" iconColor="#7A4A56" label="Sensitivities" value={allergyText} />
-                <SummaryCard icon="alarm-outline" iconBg="#E6F2EA" iconColor="#2E7D5B" label="Daily Reminders" value={times.join(' · ') || 'Off'} />
+                <SummaryCard icon="shield-checkmark-outline" iconBg="#F6E3E6" iconColor="#7A4A56" label={t('onboarding.allSet.sensitivities')} value={allergyText} />
+                <SummaryCard icon="alarm-outline" iconBg="#E6F2EA" iconColor="#2E7D5B" label={t('onboarding.allSet.reminders')} value={times.join(' · ') || t('onboarding.allSet.off')} />
               </View>
 
               <View style={styles.banner}>
                 <Ionicons name="information-circle-outline" size={30} color={colors.white} />
                 <Text style={styles.bannerText}>
-                  {allergies.length > 0 ? (
-                    <>Based on your selections, we'll flag <Text style={styles.bannerStrong}>{allergies.length} {allergies.length === 1 ? 'ingredient' : 'ingredients'}</Text> in every product you scan.</>
-                  ) : (
-                    <>Your coach will guide you in a <Text style={styles.bannerStrong}>{voice?.label || 'personal'}</Text> voice — start with today's face scan.</>
+                  {richText(
+                    allergies.length > 0
+                      ? t('onboarding.allSet.bannerAllergies', { count: allergies.length })
+                      : t('onboarding.allSet.bannerVoice', { voice: voiceLabel || t('onboarding.allSet.personal') }),
+                    (tag, text, i) => <Text key={i} style={styles.bannerStrong}>{text}</Text>
                   )}
                 </Text>
               </View>
@@ -129,17 +133,19 @@ export default function OnboardingAllSetScreen({ navigation }) {
 
       <View style={styles.footer}>
         <FormError message={finishError} />
-        <PillButton label="Enter MyFace Dashboard" onPress={finish} loading={finishing} />
+        <PillButton label={t('onboarding.allSet.enter')} onPress={finish} loading={finishing} />
         <Text style={styles.terms}>
-          By continuing, you agree to our{' '}
-          <Text
-            style={styles.termsLink}
-            onPress={() => navigation.navigate('Terms')}
-            accessibilityRole="link"
-            accessibilityLabel="Read the Terms of Service"
-          >
-            terms of service
-          </Text>.
+          {richText(t('onboarding.allSet.agreeTerms'), (tag, text, i) => (
+            <Text
+              key={i}
+              style={styles.termsLink}
+              onPress={() => navigation.navigate('Terms')}
+              accessibilityRole="link"
+              accessibilityLabel={t('onboarding.profile.readTerms')}
+            >
+              {text}
+            </Text>
+          ))}
         </Text>
       </View>
     </SafeAreaView>

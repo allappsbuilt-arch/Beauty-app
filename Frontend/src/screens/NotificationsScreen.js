@@ -15,16 +15,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { syncRemindersFromServer } from '../utils/reminders';
+import { useI18n } from '../i18n';
 
 const BANNER_URI = 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&q=60';
 
 const CATEGORIES = [
-  { key: 'routine', icon: 'checkbox-outline', label: 'Routine', initial: true },
-  { key: 'progress', icon: 'trending-up-outline', label: 'Progress', initial: true },
-  { key: 'social', icon: 'share-social-outline', label: 'Social', initial: false },
-  { key: 'community', icon: 'people-outline', label: 'Community', initial: true },
-  { key: 'coach', icon: 'chatbubble-outline', label: 'Coach', initial: true },
-  { key: 'wellness', icon: 'body-outline', label: 'Wellness', initial: false },
+  { key: 'routine', icon: 'checkbox-outline', labelKey: 'notifications.routine', initial: true },
+  { key: 'progress', icon: 'trending-up-outline', labelKey: 'notifications.progress', initial: true },
+  { key: 'social', icon: 'share-social-outline', labelKey: 'notifications.social', initial: false },
+  { key: 'community', icon: 'people-outline', labelKey: 'notifications.community', initial: true },
+  { key: 'coach', icon: 'chatbubble-outline', labelKey: 'notifications.coach', initial: true },
+  { key: 'wellness', icon: 'body-outline', labelKey: 'notifications.wellness', initial: false },
 ];
 
 function CategoryRow({ icon, label, value, onChange, isLast }) {
@@ -47,6 +48,7 @@ function CategoryRow({ icon, label, value, onChange, isLast }) {
 
 export default function NotificationsScreen({ navigation }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [muteAll, setMuteAll] = useState(false);
   const [values, setValues] = useState(
     Object.fromEntries(CATEGORIES.map((c) => [c.key, c.initial]))
@@ -92,16 +94,16 @@ export default function NotificationsScreen({ navigation }) {
           style={styles.navBtn}
           onPress={() => navigation?.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.goBack')}
         >
           <Ionicons name="arrow-back" size={22} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Notifications</Text>
+        <Text style={styles.navTitle}>{t('notifications.title')}</Text>
         <TouchableOpacity
           style={styles.navBtn}
           onPress={() => navigation?.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t('common.close')}
         >
           <Ionicons name="close" size={22} color={colors.primary} />
         </TouchableOpacity>
@@ -113,8 +115,8 @@ export default function NotificationsScreen({ navigation }) {
           <Image source={{ uri: BANNER_URI }} style={styles.bannerImage} resizeMode="cover" />
           <View style={styles.bannerOverlay} />
           <View style={styles.bannerText}>
-            <Text style={styles.bannerTitle}>Manage Alerts</Text>
-            <Text style={styles.bannerSub}>Customize how you interact with MyFace AI</Text>
+            <Text style={styles.bannerTitle}>{t('notifications.bannerTitle')}</Text>
+            <Text style={styles.bannerSub}>{t('notifications.bannerSub')}</Text>
           </View>
         </View>
 
@@ -124,8 +126,8 @@ export default function NotificationsScreen({ navigation }) {
             <Ionicons name="notifications-off-outline" size={19} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.muteTitle}>Mute All</Text>
-            <Text style={styles.muteSub}>Silence all app notifications</Text>
+            <Text style={styles.muteTitle}>{t('notifications.muteAll')}</Text>
+            <Text style={styles.muteSub}>{t('notifications.muteAllSub')}</Text>
           </View>
           <Switch
             value={muteAll}
@@ -136,13 +138,13 @@ export default function NotificationsScreen({ navigation }) {
         </View>
 
         {/* ── Categories ── */}
-        <Text style={styles.sectionTitle}>APP CATEGORIES</Text>
+        <Text style={styles.sectionTitle}>{t('notifications.categories')}</Text>
         <View style={[styles.card, muteAll && styles.cardDisabled]} pointerEvents={muteAll ? 'none' : 'auto'}>
           {CATEGORIES.map((c, i) => (
             <CategoryRow
               key={c.key}
               icon={c.icon}
-              label={c.label}
+              label={t(c.labelKey)}
               value={values[c.key]}
               onChange={() => toggle(c.key)}
               isLast={i === CATEGORIES.length - 1}
@@ -153,9 +155,7 @@ export default function NotificationsScreen({ navigation }) {
         {/* ── Info ── */}
         <View style={styles.infoCard}>
           <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
-          <Text style={styles.infoText}>
-            Notifications help you stay on track with your routines and wellness goals. Disabling them may affect your streak progress.
-          </Text>
+          <Text style={styles.infoText}>{t('notifications.info')}</Text>
         </View>
 
         <View style={{ height: 24 }} />

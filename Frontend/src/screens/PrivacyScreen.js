@@ -18,6 +18,7 @@ import Constants from 'expo-constants';
 import { confirm, notify, shareText } from '../utils/feedback';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { useAuth } from '../context/AuthContext';
+import { useI18n, translate as tr } from '../i18n';
 
 // Web: save as a .json file. Native: hand the JSON to the share sheet so the
 // user can save it to Files, email it, etc.
@@ -38,30 +39,27 @@ function deliverExport(data) {
 const HERO_URI = 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&q=60';
 
 // What the app actually does with data — keep in sync with the backend.
-const PROCESSING_SUMMARY = [
-  'Stored in your account: name, email, routine progress, check-ins, scan scores, points, coach chats, saved looks, product shelf, reviews and settings.',
-  'Photos (face scans, label scans, try-ons, style advice) are sent to our AI provider (OpenAI) for that one analysis and are never stored — only the resulting scores are saved.',
-  'Your password is stored only as a secure hash.',
-  'Use "Download Data" to export everything, or "Delete Account" to erase it.',
-].join('\n\n');
+const processingSummary = () => ['privacy.summary1', 'privacy.summary2', 'privacy.summary3', 'privacy.summary4']
+  .map((key) => tr(key)).join('\n\n');
 
 function showProcessingInsights() {
-  notify('How your data is processed', PROCESSING_SUMMARY);
+  notify(tr('privacy.processingTitle'), processingSummary());
 }
 
 // Set "privacyPolicyUrl" under "extra" in app.json once the policy is published.
 function openPrivacyPolicy() {
   const url = Constants.expoConfig?.extra?.privacyPolicyUrl;
   if (url) {
-    Linking.openURL(url).catch(() => notify('Could not open the privacy policy', url));
+    Linking.openURL(url).catch(() => notify(tr('privacy.policyOpenFailed'), url));
   } else {
-    notify('Privacy summary', PROCESSING_SUMMARY);
+    notify(tr('privacy.summaryTitle'), processingSummary());
   }
 }
 
 export default function PrivacyScreen({ navigation }) {
   const request = useAuthedRequest();
   const { logout } = useAuth();
+  const { t } = useI18n();
   const [downloading, setDownloading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -70,7 +68,7 @@ export default function PrivacyScreen({ navigation }) {
     try {
       deliverExport(await request('/api/account/export'));
     } catch (err) {
-      notify('Could not export your data', err.message);
+      notify(t('privacy.exportFailed'), err.message);
     } finally {
       setDownloading(false);
     }
@@ -78,12 +76,12 @@ export default function PrivacyScreen({ navigation }) {
 
   const handleDelete = async () => {
     const first = await confirm(
-      'Delete your account?',
-      'This permanently deletes your account, scans, routines, reviews and all other data.',
-      'Continue'
+      t('privacy.deleteTitle'),
+      t('privacy.deleteText'),
+      t('common.continue')
     );
     if (!first) return;
-    const second = await confirm('Are you absolutely sure?', 'This cannot be undone.', 'Delete Forever');
+    const second = await confirm(t('privacy.sureTitle'), t('privacy.sureText'), t('privacy.deleteForever'));
     if (!second) return;
     setDeleting(true);
     try {
@@ -91,7 +89,7 @@ export default function PrivacyScreen({ navigation }) {
       await logout();
     } catch (err) {
       setDeleting(false);
-      notify('Could not delete account', err.message);
+      notify(t('privacy.deleteFailed'), err.message);
     }
   };
 
@@ -100,16 +98,14 @@ export default function PrivacyScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <ScreenHeader
-        title="MyFace AI"
+        title={t('common.appName')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.heading}>Privacy & Transparency</Text>
-        <Text style={styles.subheading}>
-          Manage your data and understand how we protect your biometric information.
-        </Text>
+        <Text style={styles.heading}>{t('privacy.heading')}</Text>
+        <Text style={styles.subheading}>{t('privacy.subheading')}</Text>
 
         <View style={styles.heroWrap}>
           <Image source={{ uri: HERO_URI }} style={styles.heroImage} resizeMode="cover" />
@@ -118,14 +114,12 @@ export default function PrivacyScreen({ navigation }) {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="shield-checkmark" size={19} color={colors.primary} />
-            <Text style={styles.cardTitle}>Secure Biometrics</Text>
+            <Text style={styles.cardTitle}>{t('privacy.secureTitle')}</Text>
           </View>
-          <Text style={styles.cardBody}>
-            Your face scan data is processed locally on your device before being converted into a unique mathematical representation. This data is encrypted with AES-256 standards and is never accessible to employees or third parties.
-          </Text>
+          <Text style={styles.cardBody}>{t('privacy.secureBody')}</Text>
           <View style={styles.encryptPill}>
             <Ionicons name="lock-closed" size={13} color={colors.primary} />
-            <Text style={styles.encryptText}>End-to-End Encryption Enabled</Text>
+            <Text style={styles.encryptText}>{t('privacy.encryption')}</Text>
           </View>
         </View>
 
@@ -135,36 +129,34 @@ export default function PrivacyScreen({ navigation }) {
           activeOpacity={0.85}
           disabled={downloading}
           accessibilityRole="button"
-          accessibilityLabel="Download your data"
+          accessibilityLabel={t('privacy.downloadA11y')}
         >
           <Ionicons name={downloading ? 'hourglass-outline' : 'download-outline'} size={17} color={colors.white} />
-          <Text style={styles.downloadBtnText}>{downloading ? 'Preparing…' : 'Download Data'}</Text>
+          <Text style={styles.downloadBtnText}>{downloading ? t('privacy.preparing') : t('privacy.download')}</Text>
         </TouchableOpacity>
-        <Text style={styles.downloadHint}>
-          Download a JSON file with all your account data, scans and activity.
-        </Text>
+        <Text style={styles.downloadHint}>{t('privacy.downloadHint')}</Text>
 
         <View style={styles.rowCard}>
           <TouchableOpacity
             style={styles.row}
             onPress={() => navigation?.navigate('ScanHistory')}
             accessibilityRole="button"
-            accessibilityLabel="Data history"
+            accessibilityLabel={t('privacy.historyA11y')}
           >
             <Ionicons name="time-outline" size={18} color={colors.primary} style={styles.rowIcon} />
-            <Text style={styles.rowLabel}>Data History</Text>
+            <Text style={styles.rowLabel}>{t('privacy.history')}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textPlaceholder} />
           </TouchableOpacity>
           <View style={styles.rowDivider} />
-          <TouchableOpacity style={styles.row} onPress={showProcessingInsights} accessibilityRole="button" accessibilityLabel="Processing insights">
+          <TouchableOpacity style={styles.row} onPress={showProcessingInsights} accessibilityRole="button" accessibilityLabel={t('privacy.insightsA11y')}>
             <Ionicons name="bar-chart-outline" size={18} color={colors.primary} style={styles.rowIcon} />
-            <Text style={styles.rowLabel}>Processing Insights</Text>
+            <Text style={styles.rowLabel}>{t('privacy.insights')}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textPlaceholder} />
           </TouchableOpacity>
           <View style={styles.rowDivider} />
-          <TouchableOpacity style={styles.row} onPress={openPrivacyPolicy} accessibilityRole="button" accessibilityLabel="Privacy policy">
+          <TouchableOpacity style={styles.row} onPress={openPrivacyPolicy} accessibilityRole="button" accessibilityLabel={t('privacy.policyA11y')}>
             <Ionicons name="document-text-outline" size={18} color={colors.primary} style={styles.rowIcon} />
-            <Text style={styles.rowLabel}>Privacy Policy</Text>
+            <Text style={styles.rowLabel}>{t('privacy.policy')}</Text>
             <Ionicons name="open-outline" size={16} color={colors.textPlaceholder} />
           </TouchableOpacity>
         </View>
@@ -174,11 +166,11 @@ export default function PrivacyScreen({ navigation }) {
             onPress={handleDelete}
             disabled={deleting}
             accessibilityRole="button"
-            accessibilityLabel="Delete account"
+            accessibilityLabel={t('privacy.deleteA11y')}
           >
-            <Text style={styles.deleteText}>{deleting ? 'Deleting…' : 'Delete Account'}</Text>
+            <Text style={styles.deleteText}>{deleting ? t('privacy.deleting') : t('privacy.delete')}</Text>
           </TouchableOpacity>
-          <Text style={styles.deleteHint}>This action is permanent and cannot be undone.</Text>
+          <Text style={styles.deleteHint}>{t('privacy.deleteHint')}</Text>
         </View>
 
         <View style={{ height: 24 }} />

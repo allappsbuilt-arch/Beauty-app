@@ -14,50 +14,57 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { useI18n } from '../i18n';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
-const CATEGORIES = ['All', 'Skin', 'Brows', 'Makeup', 'Glow-up'];
+// Category / sort ids stay English (they're also route params); labels are translated.
+const CATEGORIES = ['All', 'Skin', 'Brows', 'Makeup', 'Glow-up']; // i18n-ignore: ids
+const CATEGORY_KEYS = { All: 'communities.catAll', Skin: 'communities.catSkin', Brows: 'communities.catBrows', Makeup: 'communities.catMakeup', 'Glow-up': 'communities.catGlowUp' };
 
 export const OFFICIAL = [
-  { key: 'skin-tech', name: 'Advanced Skin Tech', members: '24.5k', online: 82, category: 'Skin', uri: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=500&q=60' },
-  { key: 'pro-makeup', name: 'Pro Makeup Artists', members: '18.2k', online: 54, category: 'Makeup', uri: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=500&q=60' },
+  { key: 'skin-tech', nameKey: 'communities.skinTechName', members: '24.5k', online: 82, category: 'Skin', uri: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=500&q=60' },
+  { key: 'pro-makeup', nameKey: 'communities.proMakeupName', members: '18.2k', online: 54, category: 'Makeup', uri: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=500&q=60' },
 ];
 
 export const GROUPS = [
   {
     key: 'glow-up',
-    name: 'Glow-up Challengers',
+    nameKey: 'communities.glowUpName',
     members: '12.4k',
     category: 'Glow-up',
     joined: true,
-    description: 'Sharing insights on the future of personal growth through AI.',
+    descriptionKey: 'communities.glowUpDesc',
     banner: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&q=60',
     thumb: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=200&q=60',
   },
   {
     key: 'brow-mastery',
-    name: 'Brow Mastery Group',
+    nameKey: 'communities.browMasteryName',
     members: '8.9k',
     category: 'Brows',
     joined: false,
-    description: 'Techniques, product reviews and before/afters from brow enthusiasts.',
+    descriptionKey: 'communities.browMasteryDesc',
     banner: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=800&q=60',
     thumb: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&q=60',
   },
   {
     key: 'morning-rituals',
-    name: 'Morning Rituals',
+    nameKey: 'communities.morningRitualsName',
     members: '5.2k',
     category: 'Skin',
     joined: false,
-    description: 'A calm corner for AM skincare routines and accountability.',
+    descriptionKey: 'communities.morningRitualsDesc',
     banner: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&q=60',
     thumb: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=200&q=60',
   },
 ];
 
-const SORTS = ['Trending', 'Newest', 'Most Active'];
+const SORTS = [
+  { id: 'trending', labelKey: 'communities.sortTrending' },
+  { id: 'newest', labelKey: 'communities.sortNewest' },
+  { id: 'active', labelKey: 'communities.sortMostActive' },
+];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -75,32 +82,34 @@ function CategoryChip({ label, active, onPress }) {
 }
 
 function OfficialCard({ item }) {
+  const { t } = useI18n();
   return (
     <View style={styles.officialCard}>
       <Image source={{ uri: item.uri }} style={styles.officialImage} resizeMode="cover" />
       <View style={styles.officialBody}>
         <View style={styles.verifiedPill}>
           <Ionicons name="checkmark-circle" size={11} color={colors.primary} />
-          <Text style={styles.verifiedText}>VERIFIED</Text>
+          <Text style={styles.verifiedText}>{t('communities.verified')}</Text>
         </View>
-        <Text style={styles.officialName}>{item.name}</Text>
-        <Text style={styles.officialMeta}>{item.members} members · {item.online} online</Text>
+        <Text style={styles.officialName}>{t(item.nameKey)}</Text>
+        <Text style={styles.officialMeta}>{t('communities.membersOnline', { members: item.members, online: item.online })}</Text>
       </View>
     </View>
   );
 }
 
 function GroupRow({ item, onPress }) {
+  const { t } = useI18n();
   return (
     <TouchableOpacity style={styles.groupRow} onPress={onPress} activeOpacity={0.85}>
       <Image source={{ uri: item.thumb }} style={styles.groupThumb} resizeMode="cover" />
       <View style={styles.groupMeta}>
-        <Text style={styles.groupName}>{item.name}</Text>
-        <Text style={styles.groupMembers}>{item.members} members</Text>
+        <Text style={styles.groupName}>{t(item.nameKey)}</Text>
+        <Text style={styles.groupMembers}>{t('communities.members', { members: item.members })}</Text>
       </View>
       <View style={[styles.joinBtn, item.joined && styles.joinBtnActive]}>
         <Text style={[styles.joinBtnText, item.joined && styles.joinBtnTextActive]}>
-          {item.joined ? 'Joined' : 'Join'}
+          {item.joined ? t('communities.joined') : t('communities.join')}
         </Text>
       </View>
     </TouchableOpacity>
@@ -110,14 +119,15 @@ function GroupRow({ item, onPress }) {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function CommunitiesScreen({ navigation, route }) {
+  const { t } = useI18n();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState(route?.params?.initialCategory ?? 'All');
-  const [sort, setSort] = useState('Trending');
+  const [sort, setSort] = useState('trending');
 
   const filteredGroups = GROUPS.filter(
     (g) =>
       (category === 'All' || g.category === category) &&
-      (search === '' || g.name.toLowerCase().includes(search.toLowerCase()))
+      (search === '' || t(g.nameKey).toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -125,7 +135,7 @@ export default function CommunitiesScreen({ navigation, route }) {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <ScreenHeader
-        title="MyFace AI"
+        title={t('common.appName')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
@@ -136,12 +146,12 @@ export default function CommunitiesScreen({ navigation, route }) {
           <Ionicons name="search" size={18} color={colors.textPlaceholder} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search communities..."
+            placeholder={t('communities.searchPlaceholder')}
             placeholderTextColor={colors.textPlaceholder}
             value={search}
             onChangeText={setSearch}
             returnKeyType="search"
-            accessibilityLabel="Search communities"
+            accessibilityLabel={t('communities.searchA11y')}
           />
         </View>
 
@@ -152,15 +162,15 @@ export default function CommunitiesScreen({ navigation, route }) {
           contentContainerStyle={styles.catRow}
         >
           {CATEGORIES.map((c) => (
-            <CategoryChip key={c} label={c} active={category === c} onPress={() => setCategory(c)} />
+            <CategoryChip key={c} label={t(CATEGORY_KEYS[c])} active={category === c} onPress={() => setCategory(c)} />
           ))}
         </ScrollView>
 
         {/* ── Official communities ── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Official Communities</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="See all official communities">
-            <Text style={styles.seeAll}>See all</Text>
+          <Text style={styles.sectionTitle}>{t('communities.official')}</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('communities.seeAllOfficial')}>
+            <Text style={styles.seeAll}>{t('communities.seeAll')}</Text>
           </TouchableOpacity>
         </View>
         <ScrollView
@@ -175,19 +185,19 @@ export default function CommunitiesScreen({ navigation, route }) {
         <View style={styles.sortRow}>
           {SORTS.map((s) => (
             <TouchableOpacity
-              key={s}
-              onPress={() => setSort(s)}
+              key={s.id}
+              onPress={() => setSort(s.id)}
               accessibilityRole="tab"
-              accessibilityState={{ selected: sort === s }}
+              accessibilityState={{ selected: sort === s.id }}
             >
-              <Text style={[styles.sortText, sort === s && styles.sortTextActive]}>{s}</Text>
-              {sort === s && <View style={styles.sortIndicator} />}
+              <Text style={[styles.sortText, sort === s.id && styles.sortTextActive]}>{t(s.labelKey)}</Text>
+              {sort === s.id && <View style={styles.sortIndicator} />}
             </TouchableOpacity>
           ))}
         </View>
 
         {/* ── Community hub list ── */}
-        <Text style={styles.sectionTitle}>Community Hub</Text>
+        <Text style={styles.sectionTitle}>{t('communities.hub')}</Text>
         <View style={styles.groupList}>
           {filteredGroups.map((item) => (
             <GroupRow
@@ -197,7 +207,7 @@ export default function CommunitiesScreen({ navigation, route }) {
             />
           ))}
           {filteredGroups.length === 0 && (
-            <Text style={styles.emptyText}>No communities match this filter yet.</Text>
+            <Text style={styles.emptyText}>{t('communities.noMatch')}</Text>
           )}
         </View>
 

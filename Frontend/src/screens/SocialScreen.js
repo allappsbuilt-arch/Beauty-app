@@ -22,10 +22,11 @@ import UserAvatar from '../components/social/UserAvatar';
 import { usePostList } from '../components/social/usePostList';
 import { avatarColors, firstName, initialsOf } from '../components/social/socialUtils';
 import { goToTab } from '../utils/navigation';
+import { useI18n } from '../i18n';
 
 const TABS = [
-  { key: 'following', label: 'Following' },
-  { key: 'discover', label: 'Discover' },
+  { key: 'following', labelKey: 'social.following' },
+  { key: 'discover', labelKey: 'social.discover' },
 ];
 
 // ─── Live Banner ──────────────────────────────────────────────────────────────
@@ -33,17 +34,20 @@ const TABS = [
 // members are actually in the session; otherwise it shows today's count.
 
 function LiveBanner({ live, onPress }) {
+  const { t } = useI18n();
   const isLive = live?.liveCount > 0;
   const pill = isLive
-    ? `LIVE NOW · ${live.liveCount} IN SESSION`
-    : live?.completedToday ? 'DONE TODAY ✓' : live?.todayCount ? `${live.todayCount} JOINED TODAY` : 'DAILY SESSION';
+    ? t('social.liveNow', { count: live.liveCount })
+    : live?.completedToday ? t('social.doneToday') : live?.todayCount ? t('social.joinedToday', { count: live.todayCount }) : t('social.dailySession');
+  // The backend has one fixed session, so its title is translated here.
+  const title = t('social.sessionTitle');
   return (
     <TouchableOpacity
       style={styles.liveBanner}
       activeOpacity={0.88}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${isLive ? 'Join live' : 'Start'}: ${live?.title ?? 'Daily Mindfulness Routine'}`}
+      accessibilityLabel={isLive ? t('social.joinLive', { title }) : t('social.startSession', { title })}
     >
       <View style={styles.liveAvatarWrap}>
         <View style={styles.liveAvatar}>
@@ -62,7 +66,7 @@ function LiveBanner({ live, onPress }) {
             <Text style={styles.livePillText}>{pill}</Text>
           </View>
         </View>
-        <Text style={styles.liveTitle} numberOfLines={1}>{live?.title ?? 'Daily Mindfulness Routine'}</Text>
+        <Text style={styles.liveTitle} numberOfLines={1}>{title}</Text>
       </View>
 
       <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.8)" />
@@ -73,6 +77,7 @@ function LiveBanner({ live, onPress }) {
 // ─── Stories ─────────────────────────────────────────────────────────────────
 
 function StoryBubble({ label, user, isAdd, onPress }) {
+  const { t } = useI18n();
   const { color, bg } = avatarColors(user?.id || '');
   return (
     <TouchableOpacity
@@ -80,7 +85,7 @@ function StoryBubble({ label, user, isAdd, onPress }) {
       activeOpacity={0.80}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={isAdd ? 'Create new story' : `${label}'s story`}
+      accessibilityLabel={isAdd ? t('social.createStory') : t('social.storyOf', { name: label })}
     >
       <View style={[styles.storyRing, isAdd ? styles.storyRingAdd : styles.storyRingActive]}>
         <View style={[styles.storyCircle, { backgroundColor: isAdd ? colors.primaryPale : bg }]}>
@@ -102,19 +107,20 @@ function StoryBubble({ label, user, isAdd, onPress }) {
 // ─── Tab Bar ──────────────────────────────────────────────────────────────────
 
 function TabBar({ active, onToggle }) {
+  const { t } = useI18n();
   return (
     <View style={styles.tabBar}>
-      {TABS.map((t) => (
+      {TABS.map((tab) => (
         <TouchableOpacity
-          key={t.key}
+          key={tab.key}
           style={styles.tabItem}
-          onPress={() => onToggle(t.key)}
+          onPress={() => onToggle(tab.key)}
           accessibilityRole="tab"
-          accessibilityState={{ selected: active === t.key }}
-          accessibilityLabel={t.label}
+          accessibilityState={{ selected: active === tab.key }}
+          accessibilityLabel={t(tab.labelKey)}
         >
-          <Text style={[styles.tabText, active === t.key && styles.tabTextActive]}>{t.label}</Text>
-          {active === t.key && <View style={styles.tabIndicator} />}
+          <Text style={[styles.tabText, active === tab.key && styles.tabTextActive]}>{t(tab.labelKey)}</Text>
+          {active === tab.key && <View style={styles.tabIndicator} />}
         </TouchableOpacity>
       ))}
     </View>
@@ -124,18 +130,19 @@ function TabBar({ active, onToggle }) {
 // ─── People to follow ────────────────────────────────────────────────────────
 
 function Suggestions({ users, navigation }) {
+  const { t } = useI18n();
   if (!users.length) return null;
   return (
     <View style={styles.suggestWrap}>
-      <Text style={styles.suggestTitle}>PEOPLE TO FOLLOW</Text>
+      <Text style={styles.suggestTitle}>{t('social.peopleToFollow')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestRow}>
         {users.map((u) => (
           <TouchableOpacity key={u.id} style={styles.suggestCard}
             onPress={() => navigation?.navigate('UserProfile', { userId: u.id })}
-            accessibilityRole="button" accessibilityLabel={`Open ${u.name}'s profile`}>
+            accessibilityRole="button" accessibilityLabel={t('social.openProfile', { name: u.name })}>
             <UserAvatar user={u} size={46} />
             <Text style={styles.suggestName} numberOfLines={1}>{firstName(u.name)}</Text>
-            <Text style={styles.suggestAction}>View</Text>
+            <Text style={styles.suggestAction}>{t('social.view')}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -149,6 +156,7 @@ const emptyTab = { loaded: false, loading: false, error: null, cursor: null, loa
 
 export default function SocialScreen({ navigation }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState('following');
   const [tabState, setTabState] = useState({ following: emptyTab, discover: emptyTab });
   const [live, setLive] = useState(null);
@@ -178,7 +186,7 @@ export default function SocialScreen({ navigation }) {
       setters[key]((list) => (more ? [...list, ...data.posts.filter((p) => !list.some((x) => x.id === p.id))] : data.posts));
       patchTab(key, { loaded: true, loading: false, loadingMore: false, cursor: data.nextCursor, error: null });
     } catch (err) {
-      patchTab(key, { loading: false, loadingMore: false, error: err.message || 'Could not load posts.' });
+      patchTab(key, { loading: false, loadingMore: false, error: err.message || t('social.postsLoadFailed') });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request, tabState]);
@@ -195,7 +203,7 @@ export default function SocialScreen({ navigation }) {
       setStories(s.stories);
       setSuggestions(sug.users);
     } catch (err) {
-      setHeaderError(err.message || 'Could not load stories.');
+      setHeaderError(err.message || t('social.storiesLoadFailed'));
     }
   }, [request]);
 
@@ -233,8 +241,8 @@ export default function SocialScreen({ navigation }) {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.storiesRow} style={styles.storiesScroll}>
-        <StoryBubble isAdd label="New Story" onPress={() => navigation?.navigate('CreatePost', { mode: 'story' })} />
-        {myStories && <StoryBubble label="Your story" user={myStories.user} onPress={() => openStories(myStories)} />}
+        <StoryBubble isAdd label={t('social.newStory')} onPress={() => navigation?.navigate('CreatePost', { mode: 'story' })} />
+        {myStories && <StoryBubble label={t('social.yourStory')} user={myStories.user} onPress={() => openStories(myStories)} />}
         {otherStories.map((g) => (
           <StoryBubble key={g.user.id} label={firstName(g.user.name)} user={g.user} onPress={() => openStories(g)} />
         ))}
@@ -251,31 +259,31 @@ export default function SocialScreen({ navigation }) {
     // The error banner (with Retry) is shown in the list header.
     <View style={styles.stateWrap}>
       <Ionicons name="cloud-offline-outline" size={34} color={colors.textPlaceholder} />
-      <Text style={styles.stateText}>Posts couldn’t be loaded.</Text>
+      <Text style={styles.stateText}>{t('social.postsCouldntLoad')}</Text>
     </View>
   ) : tab.loading || !tab.loaded ? (
     <View style={styles.stateWrap}>
       <ActivityIndicator color={colors.primary} />
-      <Text style={styles.stateText}>Loading posts…</Text>
+      <Text style={styles.stateText}>{t('social.loadingPosts')}</Text>
     </View>
   ) : (
     <View style={styles.stateWrap}>
       <Ionicons name={activeTab === 'following' ? 'people-outline' : 'sparkles-outline'} size={34} color={colors.primary} />
-      <Text style={styles.stateTitle}>{activeTab === 'following' ? 'Your feed is empty' : 'No posts yet'}</Text>
+      <Text style={styles.stateTitle}>{activeTab === 'following' ? t('social.feedEmpty') : t('social.noPosts')}</Text>
       <Text style={styles.stateText}>
         {activeTab === 'following'
-          ? 'Share your first post, or follow people from Discover to see their updates here.'
-          : 'Be the first to share your routine with the community.'}
+          ? t('social.feedEmptyText')
+          : t('social.noPostsText')}
       </Text>
       <View style={styles.stateActions}>
         <TouchableOpacity style={styles.stateBtn} onPress={() => navigation?.navigate('CreatePost', { mode: 'post' })}
-          accessibilityRole="button" accessibilityLabel="Create a post">
-          <Text style={styles.stateBtnText}>Create a Post</Text>
+          accessibilityRole="button" accessibilityLabel={t('social.createPostA11y')}>
+          <Text style={styles.stateBtnText}>{t('social.createPost')}</Text>
         </TouchableOpacity>
         {activeTab === 'following' && (
           <TouchableOpacity style={[styles.stateBtn, styles.stateBtnGhost]} onPress={() => setActiveTab('discover')}
-            accessibilityRole="button" accessibilityLabel="Go to Discover">
-            <Text style={[styles.stateBtnText, styles.stateBtnGhostText]}>Discover</Text>
+            accessibilityRole="button" accessibilityLabel={t('social.goDiscover')}>
+            <Text style={[styles.stateBtnText, styles.stateBtnGhostText]}>{t('social.discover')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -288,21 +296,21 @@ export default function SocialScreen({ navigation }) {
 
       {/* ── Nav bar ── */}
       <ScreenHeader
-        title="MyFace AI"
+        title={t('common.appName')}
         onBack={() => (navigation?.canGoBack() ? navigation.goBack() : goToTab(navigation, 'Home'))}
         bordered={false}
         right={
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation?.navigate('Leaderboard')}
-              accessibilityRole="button" accessibilityLabel="Leaderboard">
+              accessibilityRole="button" accessibilityLabel={t('social.leaderboard')}>
               <Ionicons name="podium-outline" size={20} color={colors.textDark} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerIconBtn} onPress={() => navigation?.navigate('MyCommunities')}
-              accessibilityRole="button" accessibilityLabel="Communities">
+              accessibilityRole="button" accessibilityLabel={t('social.communities')}>
               <Ionicons name="people-outline" size={20} color={colors.textDark} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerIconBtn} onPress={() => goToTab(navigation, 'Home')}
-              accessibilityRole="button" accessibilityLabel="Close">
+              accessibilityRole="button" accessibilityLabel={t('common.close')}>
               <Ionicons name="close" size={22} color={colors.textDark} />
             </TouchableOpacity>
           </View>
@@ -337,7 +345,7 @@ export default function SocialScreen({ navigation }) {
         activeOpacity={0.85}
         onPress={() => navigation?.navigate('CreatePost', { mode: 'post' })}
         accessibilityRole="button"
-        accessibilityLabel="Create new post"
+        accessibilityLabel={t('social.createNewPost')}
       >
         <Ionicons name="add" size={26} color={colors.white} />
       </TouchableOpacity>

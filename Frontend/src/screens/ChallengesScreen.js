@@ -12,13 +12,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { useI18n } from '../i18n';
 
-const TABS = ['Active', 'Available', 'Completed'];
+const TABS = [
+  { id: 'active', labelKey: 'challenges.tabActive' },
+  { id: 'available', labelKey: 'challenges.tabAvailable' },
+  { id: 'completed', labelKey: 'challenges.tabCompleted' },
+];
 
 const ACTIVE_MAIN = {
   key: 'glow-routine',
-  title: 'Glow Routine',
-  desc: 'Consistent facial massage',
+  titleKey: 'challenges.glowTitle',
+  descKey: 'challenges.glowDesc',
   streak: 12,
   day: 12,
   total: 21,
@@ -27,24 +32,25 @@ const ACTIVE_MAIN = {
     { key: 'ak', initials: 'AK', color: colors.primary, bg: colors.primaryPale },
     { key: 'ml', initials: 'ML', color: '#1EA868', bg: '#E7F7EE' },
   ],
-  friendCompare: { name: 'Sarah', score: 84, uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=200&q=60' },
+  friendCompare: { name: 'Sarah', /* i18n-ignore: name */ score: 84, uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=200&q=60' },
 };
 
-const ACTIVE_MINI = { key: 'hydration', title: 'Hydration Hero', desc: '5 days remaining', rank: 4 };
+const ACTIVE_MINI = { key: 'hydration', titleKey: 'challenges.hydrationTitle', descKey: 'challenges.hydrationDesc', rank: 4 };
 
 const AVAILABLE = [
-  { key: 'jawline', title: 'Jawline Sculpt 2024', meta: '30 Day program · Beginner', uri: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=300&q=60', featured: true },
-  { key: 'eye-revival', title: 'Eye Revival Series', meta: '14 Day program · Advanced', uri: 'https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?w=300&q=60', featured: false },
+  { key: 'jawline', titleKey: 'challenges.jawlineTitle', metaKey: 'challenges.jawlineMeta', uri: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=300&q=60', featured: true },
+  { key: 'eye-revival', titleKey: 'challenges.eyeTitle', metaKey: 'challenges.eyeMeta', uri: 'https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?w=300&q=60', featured: false },
 ];
 
 const BADGES = [
-  { key: 'reset', icon: 'ribbon', label: '7 Day Reset', color: '#8870C0', bg: '#F0EEFF' },
-  { key: 'early', icon: 'checkmark-circle', label: 'Early Bird', color: '#1EA868', bg: '#E7F7EE' },
-  { key: 'summer', icon: 'medal', label: 'Summer Glow', color: colors.primary, bg: colors.primaryPale },
+  { key: 'reset', icon: 'ribbon', labelKey: 'challenges.badgeReset', color: '#8870C0', bg: '#F0EEFF' },
+  { key: 'early', icon: 'checkmark-circle', labelKey: 'challenges.badgeEarly', color: '#1EA868', bg: '#E7F7EE' },
+  { key: 'summer', icon: 'medal', labelKey: 'challenges.badgeSummer', color: colors.primary, bg: colors.primaryPale },
 ];
 
 export default function ChallengesScreen({ navigation }) {
-  const [activeTab, setActiveTab] = useState('Active');
+  const { t } = useI18n();
+  const [activeTab, setActiveTab] = useState('active');
   const [joined, setJoined] = useState({});
 
   return (
@@ -52,33 +58,33 @@ export default function ChallengesScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <ScreenHeader
-        title="MyFace AI"
+        title={t('common.appName')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
 
       {/* ── Tabs ── */}
       <View style={styles.tabBar}>
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <TouchableOpacity
-            key={t}
+            key={tab.id}
             style={styles.tabItem}
-            onPress={() => setActiveTab(t)}
+            onPress={() => setActiveTab(tab.id)}
             accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === t }}
+            accessibilityState={{ selected: activeTab === tab.id }}
           >
-            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>{t}</Text>
-            {activeTab === t && <View style={styles.tabIndicator} />}
+            <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>{t(tab.labelKey)}</Text>
+            {activeTab === tab.id && <View style={styles.tabIndicator} />}
           </TouchableOpacity>
         ))}
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {activeTab === 'Active' && (
+        {activeTab === 'active' && (
           <>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Your Challenges</Text>
-              <Text style={styles.activeCount}>2 ACTIVE</Text>
+              <Text style={styles.sectionTitle}>{t('challenges.yours')}</Text>
+              <Text style={styles.activeCount}>{t('challenges.activeCount', { count: 2 })}</Text>
             </View>
 
             <TouchableOpacity
@@ -92,21 +98,21 @@ export default function ChallengesScreen({ navigation }) {
                 })
               }
               accessibilityRole="button"
-              accessibilityLabel={`Open ${ACTIVE_MAIN.title} challenge`}
+              accessibilityLabel={t('challenges.open', { title: t(ACTIVE_MAIN.titleKey) })}
             >
               <View style={styles.mainHeader}>
                 <View>
-                  <Text style={styles.mainTitle}>{ACTIVE_MAIN.title}</Text>
-                  <Text style={styles.mainDesc}>{ACTIVE_MAIN.desc}</Text>
+                  <Text style={styles.mainTitle}>{t(ACTIVE_MAIN.titleKey)}</Text>
+                  <Text style={styles.mainDesc}>{t(ACTIVE_MAIN.descKey)}</Text>
                 </View>
                 <View style={styles.streakPill}>
                   <Ionicons name="flame" size={12} color={colors.primary} />
-                  <Text style={styles.streakPillText}>{ACTIVE_MAIN.streak} Day Streak</Text>
+                  <Text style={styles.streakPillText}>{t('challenges.dayStreak', { count: ACTIVE_MAIN.streak })}</Text>
                 </View>
               </View>
 
               <View style={styles.progressRow}>
-                <Text style={styles.progressLabel}>Day {ACTIVE_MAIN.day} of {ACTIVE_MAIN.total}</Text>
+                <Text style={styles.progressLabel}>{t('challenges.dayOf', { day: ACTIVE_MAIN.day, total: ACTIVE_MAIN.total })}</Text>
                 <Text style={styles.progressPct}>{Math.round((ACTIVE_MAIN.day / ACTIVE_MAIN.total) * 100)}%</Text>
               </View>
               <View style={styles.progressTrack}>
@@ -115,14 +121,14 @@ export default function ChallengesScreen({ navigation }) {
 
               <View style={styles.divider} />
 
-              <Text style={styles.friendsLabel}>FRIENDS IN CHALLENGE</Text>
+              <Text style={styles.friendsLabel}>{t('challenges.friendsIn')}</Text>
               <View style={styles.friendsRow}>
                 {ACTIVE_MAIN.friends.map((f) => (
                   <View key={f.key} style={[styles.friendAvatar, { backgroundColor: f.bg }]}>
                     <Text style={[styles.friendInitials, { color: f.color }]}>{f.initials}</Text>
                   </View>
                 ))}
-                <Text style={styles.friendsMore}>+8 others</Text>
+                <Text style={styles.friendsMore}>{t('challenges.others', { count: 8 })}</Text>
               </View>
             </TouchableOpacity>
 
@@ -131,49 +137,49 @@ export default function ChallengesScreen({ navigation }) {
                 <Ionicons name="water" size={18} color="#1EA868" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.miniTitle}>{ACTIVE_MINI.title}</Text>
-                <Text style={styles.miniDesc}>{ACTIVE_MINI.desc}</Text>
+                <Text style={styles.miniTitle}>{t(ACTIVE_MINI.titleKey)}</Text>
+                <Text style={styles.miniDesc}>{t(ACTIVE_MINI.descKey)}</Text>
               </View>
               <View style={styles.miniRankCol}>
                 <Text style={styles.miniRank}>#{ACTIVE_MINI.rank}</Text>
-                <Text style={styles.miniRankLabel}>RANK</Text>
+                <Text style={styles.miniRankLabel}>{t('challenges.rank')}</Text>
               </View>
             </View>
           </>
         )}
 
-        {activeTab !== 'Active' && (
+        {activeTab !== 'active' && (
           <View style={styles.emptyTab}>
             <Ionicons name="hourglass-outline" size={28} color={colors.textFaint} />
             <Text style={styles.emptyTabText}>
-              {activeTab === 'Available' ? 'Browse new challenges below.' : 'No completed challenges yet.'}
+              {activeTab === 'available' ? t('challenges.browse') : t('challenges.noneCompleted')}
             </Text>
           </View>
         )}
 
         {/* ── Available for you ── */}
-        <Text style={styles.sectionTitle}>Available for You</Text>
+        <Text style={styles.sectionTitle}>{t('challenges.availableForYou')}</Text>
         <View style={styles.availableList}>
           {AVAILABLE.map((item) => (
             <View key={item.key} style={styles.availableCard}>
               <Image source={{ uri: item.uri }} style={styles.availableImage} resizeMode="cover" />
               <View style={styles.availableBody}>
-                <Text style={styles.availableTitle}>{item.title}</Text>
-                <Text style={styles.availableMeta}>{item.meta}</Text>
+                <Text style={styles.availableTitle}>{t(item.titleKey)}</Text>
+                <Text style={styles.availableMeta}>{t(item.metaKey)}</Text>
                 <TouchableOpacity
                   style={[styles.joinBtn, item.featured && !joined[item.key] && styles.joinBtnFilled, joined[item.key] && styles.joinBtnDone]}
                   onPress={() => setJoined((v) => ({ ...v, [item.key]: true }))}
                   disabled={!!joined[item.key]}
                   activeOpacity={0.85}
                   accessibilityRole="button"
-                  accessibilityLabel={`Join ${item.title}`}
+                  accessibilityLabel={t('challenges.joinA11y', { title: t(item.titleKey) })}
                 >
                   <Text style={[
                     styles.joinBtnText,
                     item.featured && !joined[item.key] && styles.joinBtnTextFilled,
                     joined[item.key] && styles.joinBtnTextDone,
                   ]}>
-                    {joined[item.key] ? 'Joined' : 'Join Now'}
+                    {joined[item.key] ? t('challenges.joined') : t('challenges.joinNow')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -183,8 +189,8 @@ export default function ChallengesScreen({ navigation }) {
 
         {/* ── Past triumphs ── */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Past Triumphs</Text>
-          <Text style={styles.viewAll}>VIEW ALL</Text>
+          <Text style={styles.sectionTitle}>{t('challenges.past')}</Text>
+          <Text style={styles.viewAll}>{t('challenges.viewAll')}</Text>
         </View>
         <View style={styles.badgeRow}>
           {BADGES.map((b) => (
@@ -192,7 +198,7 @@ export default function ChallengesScreen({ navigation }) {
               <View style={[styles.badgeCircle, { backgroundColor: b.bg, borderColor: b.color + '55' }]}>
                 <Ionicons name={b.icon} size={24} color={b.color} />
               </View>
-              <Text style={styles.badgeLabel}>{b.label}</Text>
+              <Text style={styles.badgeLabel}>{t(b.labelKey)}</Text>
             </View>
           ))}
         </View>

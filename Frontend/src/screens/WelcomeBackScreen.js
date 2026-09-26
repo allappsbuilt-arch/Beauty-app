@@ -9,12 +9,14 @@ import { goToTab } from '../utils/navigation';
 import ScreenHeader from '../components/ScreenHeader';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../i18n';
 
 const QUOTE_URI = 'https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?w=700&q=60';
 
 export default function WelcomeBackScreen({ navigation }) {
   const request = useAuthedRequest();
   const { user } = useAuth();
+  const { t } = useI18n();
   const [frozen, setFrozen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [streak, setStreak] = useState(0);
@@ -35,13 +37,13 @@ export default function WelcomeBackScreen({ navigation }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const firstName = user?.name?.split(' ')[0] || 'there';
+  const firstName = user?.name?.split(' ')[0] || t('home.there');
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
       <ScreenHeader
-        title="MyFace AI"
+        title={t('common.appName')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
@@ -52,16 +54,14 @@ export default function WelcomeBackScreen({ navigation }) {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.heading}>Welcome Back, {firstName}!</Text>
-          <Text style={styles.subheading}>
-            Consistency is a journey, not a destination. Let's pick up where we left off.
-          </Text>
+          <Text style={styles.heading}>{t('welcomeBack.heading', { name: firstName })}</Text>
+          <Text style={styles.subheading}>{t('welcomeBack.sub')}</Text>
 
           {/* ── Last active streak ── */}
           <View style={styles.streakCard}>
             <View>
-              <Text style={styles.streakLabel}>CURRENT STREAK</Text>
-              <Text style={styles.streakValue}>{streak} Day{streak !== 1 ? 's' : ''}</Text>
+              <Text style={styles.streakLabel}>{t('welcomeBack.currentStreak')}</Text>
+              <Text style={styles.streakValue}>{t('welcomeBack.days', { count: streak })}</Text>
             </View>
             <View style={styles.streakIcon}>
               <Ionicons name="flame" size={22} color={colors.white} />
@@ -73,12 +73,12 @@ export default function WelcomeBackScreen({ navigation }) {
             <View style={styles.statCard}>
               <Ionicons name="barbell-outline" size={20} color="#1EA868" />
               <Text style={styles.statValue}>{totalSessions}</Text>
-              <Text style={styles.statLabel}>Sessions Completed</Text>
+              <Text style={styles.statLabel}>{t('welcomeBack.sessions')}</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="star-outline" size={20} color={colors.primary} />
               <Text style={styles.statValue}>{weekPoints}</Text>
-              <Text style={styles.statLabel}>Points This Week</Text>
+              <Text style={styles.statLabel}>{t('welcomeBack.weekPoints')}</Text>
             </View>
           </View>
 
@@ -86,15 +86,13 @@ export default function WelcomeBackScreen({ navigation }) {
           <View style={styles.quoteCard}>
             <Image source={{ uri: QUOTE_URI }} style={styles.quoteImage} resizeMode="cover" />
             <View style={styles.quoteOverlay} />
-            <Text style={styles.quoteText}>"Every morning is a new opportunity to grow."</Text>
+            <Text style={styles.quoteText}>{t('welcomeBack.quote')}</Text>
           </View>
 
           {/* ── Reassurance tip ── */}
           <View style={styles.tipCard}>
             <Ionicons name="heart-outline" size={20} color="#8870C0" />
-            <Text style={styles.tipText}>
-              Life happens, and that's okay. Your progress is still here waiting for you. No pressure, just progress.
-            </Text>
+            <Text style={styles.tipText}>{t('welcomeBack.tip')}</Text>
           </View>
 
           {/* ── Actions ── */}
@@ -103,9 +101,9 @@ export default function WelcomeBackScreen({ navigation }) {
             activeOpacity={0.85}
             onPress={() => goToTab(navigation, 'Routine')}
             accessibilityRole="button"
-            accessibilityLabel="Fresh start"
+            accessibilityLabel={t('welcomeBack.freshStartA11y')}
           >
-            <Text style={styles.primaryBtnText}>Fresh Start</Text>
+            <Text style={styles.primaryBtnText}>{t('welcomeBack.freshStart')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -114,7 +112,7 @@ export default function WelcomeBackScreen({ navigation }) {
             onPress={() => setFrozen(true)}
             disabled={frozen}
             accessibilityRole="button"
-            accessibilityLabel="Use streak freeze"
+            accessibilityLabel={t('welcomeBack.freezeA11y')}
           >
             <Ionicons
               name={frozen ? 'checkmark-circle' : 'snow-outline'}
@@ -122,7 +120,7 @@ export default function WelcomeBackScreen({ navigation }) {
               color={frozen ? '#1EA868' : colors.primary}
             />
             <Text style={[styles.secondaryBtnText, frozen && styles.secondaryBtnTextDone]}>
-              {frozen ? 'Streak Freeze Applied' : 'Use Streak Freeze'}
+              {frozen ? t('welcomeBack.freezeApplied') : t('welcomeBack.freeze')}
             </Text>
           </TouchableOpacity>
 

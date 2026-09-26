@@ -5,6 +5,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { toUploadable } from '../utils/photo';
+import { useI18n } from '../i18n';
 
 // Live camera preview used wherever the app shows the user's own face.
 // - asks for permission as soon as it mounts
@@ -20,6 +21,7 @@ const LiveCamera = forwardRef(function LiveCamera(
 ) {
   const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
+  const { t } = useI18n();
   const [ready, setReady] = useState(false);
   const [mountError, setMountError] = useState(null);
   const cameraRef = useRef(null);
@@ -42,7 +44,7 @@ const LiveCamera = forwardRef(function LiveCamera(
   useImperativeHandle(ref, () => ({
     isReady: () => ready,
     async capture() {
-      if (!ready || !cameraRef.current) throw new Error('The camera is not ready yet.');
+      if (!ready || !cameraRef.current) throw new Error(t('camera.notReady'));
       const shot = await cameraRef.current.takePictureAsync({ quality: 0.9 });
       return toUploadable(shot.uri, shot.width, shot.height);
     },
@@ -61,7 +63,7 @@ const LiveCamera = forwardRef(function LiveCamera(
           flash={flash ? 'on' : 'off'}
           mirror={facing === 'front'}
           onCameraReady={() => setReady(true)}
-          onMountError={(e) => setMountError(e?.message || 'Camera unavailable')}
+          onMountError={(e) => setMountError(e?.message || t('camera.unavailable'))}
         />
       ) : (
         <View style={s.fallback}>
@@ -71,24 +73,24 @@ const LiveCamera = forwardRef(function LiveCamera(
             color="rgba(255,255,255,0.8)"
           />
           <Text style={s.fallbackTitle}>
-            {status === 'unavailable' ? 'No camera available'
-              : status === 'denied' ? 'Camera access is off'
-              : 'Starting camera…'}
+            {status === 'unavailable' ? t('camera.noCamera')
+              : status === 'denied' ? t('camera.accessOff')
+              : t('camera.starting')}
           </Text>
           {status === 'denied' && (
             permission?.canAskAgain ? (
               <TouchableOpacity style={s.btn} onPress={requestPermission} accessibilityRole="button">
-                <Text style={s.btnText}>Allow Camera</Text>
+                <Text style={s.btnText}>{t('camera.allow')}</Text>
               </TouchableOpacity>
             ) : Platform.OS !== 'web' ? (
               <TouchableOpacity style={s.btn} onPress={() => Linking.openSettings()} accessibilityRole="button">
-                <Text style={s.btnText}>Open Settings</Text>
+                <Text style={s.btnText}>{t('camera.openSettings')}</Text>
               </TouchableOpacity>
             ) : (
-              <Text style={s.hint}>Allow camera access in your browser's address bar.</Text>
+              <Text style={s.hint}>{t('camera.browserHint')}</Text>
             )
           )}
-          {status === 'unavailable' && <Text style={s.hint}>You can upload a photo instead.</Text>}
+          {status === 'unavailable' && <Text style={s.hint}>{t('camera.uploadInstead')}</Text>}
         </View>
       )}
       {children}

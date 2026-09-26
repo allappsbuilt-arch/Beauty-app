@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenHeader from '../components/ScreenHeader';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { notify } from '../utils/feedback';
+import { useI18n } from '../i18n';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -31,8 +32,8 @@ const ANALYZING_TXT= '#E87090';        // pinkish title colour in reference
 const CALLOUTS = [
   {
     key:   'tone',
-    label: 'TONE ANALYSIS',
-    value: 'Tone detected',
+    labelKey: 'scanAnalyzing.toneLabel',
+    valueKey: 'scanAnalyzing.toneValue',
     icon:  'color-palette-outline',
     topFrac:  0.295,
     leftFrac: 0,          // anchored to left edge
@@ -40,8 +41,8 @@ const CALLOUTS = [
   },
   {
     key:   'micro',
-    label: 'MICRO-SURFACE',
-    value: 'Texture analyzed',
+    labelKey: 'scanAnalyzing.microLabel',
+    valueKey: 'scanAnalyzing.microValue',
     icon:  'grid-outline',
     topFrac:  0.390,
     leftFrac: null,
@@ -49,8 +50,8 @@ const CALLOUTS = [
   },
   {
     key:   'periorbital',
-    label: 'PERIORBITAL',
-    value: 'Dark circles: mild',
+    labelKey: 'scanAnalyzing.periorbitalLabel',
+    valueKey: 'scanAnalyzing.periorbitalValue',
     icon:  'eye-outline',
     topFrac:  0.500,
     leftFrac: 0,
@@ -58,8 +59,8 @@ const CALLOUTS = [
   },
   {
     key:   'brow',
-    label: 'BROW VOLUME',
-    value: 'Brow fullness: moderate',
+    labelKey: 'scanAnalyzing.browLabel',
+    valueKey: 'scanAnalyzing.browValue',
     icon:  'scan-circle-outline',
     topFrac:  0.600,
     leftFrac: 0.06,       // slightly indented from left
@@ -189,6 +190,7 @@ const scanStyles = StyleSheet.create({
 
 // ─── Callout card ─────────────────────────────────────────────────────────────
 function CalloutCard({ callout, entryAnim }) {
+  const { t } = useI18n();
   const fromLeft = callout.leftFrac !== null;
   const posStyle = {
     top:   callout.topFrac  * SH,
@@ -217,8 +219,8 @@ function CalloutCard({ callout, entryAnim }) {
 
         {/* Labels */}
         <View style={cardStyles.textCol}>
-          <Text style={cardStyles.label}>{callout.label}</Text>
-          <Text style={cardStyles.value}>{callout.value}</Text>
+          <Text style={cardStyles.label}>{t(callout.labelKey)}</Text>
+          <Text style={cardStyles.value}>{t(callout.valueKey)}</Text>
         </View>
       </View>
 
@@ -283,6 +285,7 @@ const cardStyles = StyleSheet.create({
 
 // ─── Processing pill ──────────────────────────────────────────────────────────
 function ProcessingPill() {
+  const { t } = useI18n();
   const dotAnim = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     Animated.loop(
@@ -304,7 +307,7 @@ function ProcessingPill() {
   return (
     <View style={pillStyles.wrap}>
       <Animated.View style={[pillStyles.dot, { opacity: dotAnim }]} />
-      <Text style={pillStyles.text}>Processing neural landmarks...</Text>
+      <Text style={pillStyles.text}>{t('scanAnalyzing.processing')}</Text>
     </View>
   );
 }
@@ -385,6 +388,7 @@ export default function ScanAnalyzingScreen({ navigation, route }) {
   // One Animated.Value per callout for staggered entry
   const entryAnims = useRef(CALLOUTS.map(() => new Animated.Value(0))).current;
   const request = useAuthedRequest();
+  const { t } = useI18n();
 
   useEffect(() => {
     if (!image) {
@@ -420,7 +424,7 @@ export default function ScanAnalyzingScreen({ navigation, route }) {
       })
       .catch((err) => {
         if (cancelled) return;
-        notify('Scan failed', err?.message || 'Could not analyse your scan. Please try again.');
+        notify(t('scanAnalyzing.failed'), err?.message || t('scanAnalyzing.failedMessage'));
         navigation?.goBack();
       });
 
@@ -444,18 +448,18 @@ export default function ScanAnalyzingScreen({ navigation, route }) {
           style={styles.navBtn}
           onPress={() => navigation?.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.goBack')}
         >
           <Ionicons name="arrow-back" size={20} color={WHITE} />
         </TouchableOpacity>
 
-        <Text style={styles.navTitle}>MyFace AI</Text>
+        <Text style={styles.navTitle}>{t('common.appName')}</Text>
 
         <TouchableOpacity
           style={styles.navBtn}
           onPress={() => navigation?.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t('common.close')}
         >
           <Ionicons name="close" size={20} color={WHITE} />
         </TouchableOpacity>
@@ -464,7 +468,7 @@ export default function ScanAnalyzingScreen({ navigation, route }) {
       {/* ── Progress ring + ANALYZING label (top-right) ── */}
       <View style={[styles.ringContainer, { pointerEvents: 'none' }]}>
         <ProgressRing progress={0.85} />
-        <Text style={styles.analyzingLabel}>ANALYZING</Text>
+        <Text style={styles.analyzingLabel}>{t('scanAnalyzing.analyzing')}</Text>
       </View>
 
       {/* ── Staggered callout cards ── */}
@@ -476,7 +480,7 @@ export default function ScanAnalyzingScreen({ navigation, route }) {
       <View style={styles.bottomPanel}>
         <ProcessingPill />
         <Text style={styles.holdText}>
-          Hold still while our AI constructs{'\n'}your personal skin profile.
+          {t('scanAnalyzing.hold')}
         </Text>
       </View>
     </View>

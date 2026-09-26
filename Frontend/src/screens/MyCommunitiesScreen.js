@@ -11,19 +11,21 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { useI18n } from '../i18n';
 
 const PREVIEWS = [
-  { key: 'skincare', icon: 'leaf', label: 'Skincare', name: 'Daily Glow', color: '#1EA868', bg: '#E7F7EE', category: 'Skin' },
-  { key: 'haircare', icon: 'sunny', label: 'Haircare', name: 'Curl Love', color: '#8870C0', bg: '#F0EEFF', category: null },
+  { key: 'skincare', icon: 'leaf', labelKey: 'communities.previewSkincare', nameKey: 'communities.previewDailyGlow', color: '#1EA868', bg: '#E7F7EE', category: 'Skin' },
+  { key: 'haircare', icon: 'sunny', labelKey: 'communities.previewHaircare', nameKey: 'communities.previewCurlLove', color: '#8870C0', bg: '#F0EEFF', category: null },
 ];
 
 export default function MyCommunitiesScreen({ navigation }) {
+  const { t } = useI18n();
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <ScreenHeader
-        title="My Communities"
+        title={t('communities.myTitle')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
@@ -34,19 +36,17 @@ export default function MyCommunitiesScreen({ navigation }) {
             <Ionicons name="people-outline" size={64} color={colors.primary} />
           </View>
 
-          <Text style={styles.title}>Find Your Community</Text>
-          <Text style={styles.desc}>
-            Join a group of users with similar skin or hair goals to share tips, streaks, and progress.
-          </Text>
+          <Text style={styles.title}>{t('communities.findTitle')}</Text>
+          <Text style={styles.desc}>{t('communities.findDesc')}</Text>
 
           <TouchableOpacity
             style={styles.cta}
             activeOpacity={0.85}
             onPress={() => navigation?.navigate('Communities')}
             accessibilityRole="button"
-            accessibilityLabel="Discover communities"
+            accessibilityLabel={t('communities.discoverA11y')}
           >
-            <Text style={styles.ctaText}>Discover Communities</Text>
+            <Text style={styles.ctaText}>{t('communities.discover')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -60,13 +60,13 @@ export default function MyCommunitiesScreen({ navigation }) {
                 navigation?.navigate('Communities', p.category ? { initialCategory: p.category } : undefined)
               }
               accessibilityRole="button"
-              accessibilityLabel={`${p.label}: ${p.name}`}
+              accessibilityLabel={t('communities.previewA11y', { label: t(p.labelKey), name: t(p.nameKey) })}
             >
               <View style={[styles.previewIcon, { backgroundColor: p.bg }]}>
                 <Ionicons name={p.icon} size={20} color={p.color} />
               </View>
-              <Text style={styles.previewLabel}>{p.label}</Text>
-              <Text style={styles.previewName}>{p.name}</Text>
+              <Text style={styles.previewLabel}>{t(p.labelKey)}</Text>
+              <Text style={styles.previewName}>{t(p.nameKey)}</Text>
             </TouchableOpacity>
           ))}
         </View>

@@ -24,6 +24,7 @@ import FaceOfTheDay from '../components/FaceOfTheDay';
 import ErrorBanner from '../components/ErrorBanner';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { AM_STEPS } from '../data/routineSteps';
+import { useI18n } from '../i18n';
 
 const AM_STEP_COUNT = AM_STEPS.length;
 
@@ -46,6 +47,7 @@ function Divider() {
 
 export default function HomeScreen({ navigation }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
 
   // Data state
   const [amCompleted, setAmCompleted] = useState(0);
@@ -75,10 +77,10 @@ export default function HomeScreen({ navigation }) {
       setStreak(summary.streak ?? 0);
       setFeeling(checkin.feeling ?? null);
       setBalance(pointsSummary.balance ?? 0);
-      setLevelLabel(pointsSummary.levelLabel ?? 'Level 1');
+      setLevelLabel(pointsSummary.levelLabel ?? 'Level 1'); // i18n-ignore: parsed for its number
       hasLoaded.current = true;
     } catch (err) {
-      setError('Could not load your data. Check your connection and try again.');
+      setError(t('home.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -93,17 +95,17 @@ export default function HomeScreen({ navigation }) {
       await request('/api/checkins', { method: 'POST', body: { feeling: key } });
     } catch {
       setFeeling(previous);
-      setError('Could not save check-in. Please try again.');
+      setError(t('home.checkinFailed'));
     }
   };
 
-  const startRoutine = () => navigation?.navigate('RoutineStep', { routineTitle: 'AM Routine' });
+  const startRoutine = () => navigation?.navigate('RoutineStep', { routineTitle: 'AM Routine' }); // i18n-ignore: routine id
 
   const stats = [
-    { icon: 'calendar',  value: String(streak),  label: 'STREAK',  color: colors.statDays,  bg: '#FFF0F3', onPress: () => navigation?.navigate('WeeklyReport') },
-    { icon: 'star',      value: String(balance),  label: 'POINTS',  color: colors.statScore, bg: '#FFF0F3', onPress: () => navigation?.navigate('Rewards') },
-    { icon: 'ribbon',    value: levelLabel.split(':')[0].replace('Level', 'Lv').trim() || 'Lv 1', label: 'LEVEL', color: colors.statGlass, bg: '#EDF8FE', onPress: () => navigation?.navigate('Rewards') },
-    { icon: 'checkmark-circle', value: `${amCompleted}/${AM_STEP_COUNT}`, label: 'STEPS', color: colors.statSleep, bg: '#F3F0FC', onPress: startRoutine },
+    { icon: 'calendar',  value: String(streak),  label: t('home.statStreak'),  color: colors.statDays,  bg: '#FFF0F3', onPress: () => navigation?.navigate('WeeklyReport') },
+    { icon: 'star',      value: String(balance),  label: t('home.statPoints'),  color: colors.statScore, bg: '#FFF0F3', onPress: () => navigation?.navigate('Rewards') },
+    { icon: 'ribbon',    value: t('home.levelShort', { level: (levelLabel.match(/\d+/) || ['1'])[0] }), label: t('home.statLevel'), color: colors.statGlass, bg: '#EDF8FE', onPress: () => navigation?.navigate('Rewards') },
+    { icon: 'checkmark-circle', value: `${amCompleted}/${AM_STEP_COUNT}`, label: t('home.statSteps'), color: colors.statSleep, bg: '#F3F0FC', onPress: startRoutine },
   ];
 
   return (
@@ -115,7 +117,7 @@ export default function HomeScreen({ navigation }) {
       {loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading your dashboard…</Text>
+          <Text style={styles.loadingText}>{t('home.loading')}</Text>
         </View>
       ) : (
         <ScrollView
@@ -132,17 +134,17 @@ export default function HomeScreen({ navigation }) {
           />
 
           {/* UV Alert */}
-          <UVAlertBanner level="High" message="Apply SPF 50+ before heading out." />
+          <UVAlertBanner level={t('home.uvHigh')} message={t('home.uvMessage')} />
           <View style={styles.gap6} />
 
           {/* Today's Routine */}
           <SectionLabel
-            title="TODAY'S ROUTINE"
-            actionLabel="See steps"
+            title={t('home.todaysRoutine')}
+            actionLabel={t('home.seeSteps')}
             onAction={() => navigation?.navigate('Routine')}
           />
           <RoutineCard
-            title="AM Routine"
+            title={t('routines.am')}
             completed={amCompleted}
             total={AM_STEP_COUNT}
             onPress={startRoutine}
@@ -150,7 +152,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.gap4} />
 
           {/* Daily Stats — real data */}
-          <SectionLabel title="DAILY STATS" />
+          <SectionLabel title={t('home.dailyStats')} />
           <StatsRow stats={stats} />
           <View style={styles.gap4} />
           <Divider />
@@ -168,8 +170,8 @@ export default function HomeScreen({ navigation }) {
 
           {/* AI Coach */}
           <SectionLabel
-            title="AI COACH TIP"
-            actionLabel="Chat now"
+            title={t('home.coachTip')}
+            actionLabel={t('home.chatNow')}
             onAction={() => navigation?.navigate('Coach')}
           />
           <CoachTip onMicPress={(tip) => navigation?.navigate('Coach', { prefill: tip })} />
@@ -178,7 +180,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.gap4} />
 
           {/* Quick Actions */}
-          <SectionLabel title="QUICK ACTIONS" />
+          <SectionLabel title={t('home.quickActions')} />
           <QuickActions
             onAction={(key) => {
               if (key === 'scan')      navigation?.navigate('ScanFace');

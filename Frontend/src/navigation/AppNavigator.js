@@ -15,6 +15,9 @@ import OnboardingVoiceScreen     from '../screens/OnboardingVoiceScreen';
 import OnboardingAllergiesScreen from '../screens/OnboardingAllergiesScreen';
 import OnboardingAllSetScreen    from '../screens/OnboardingAllSetScreen';
 import TermsScreen               from '../screens/TermsScreen';
+import LanguageScreen            from '../screens/LanguageScreen';
+import { useI18n } from '../i18n';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 import HomeScreen     from '../screens/HomeScreen';
 import RoutineScreen  from '../screens/RoutineScreen';
@@ -78,11 +81,11 @@ import { colors } from '../theme/colors';
 // Coach moved off the tab bar onto the root stack (still reachable — see
 // the "Coach" Stack.Screen below and the "Chat now" link on HomeScreen).
 const TABS = [
-  { name: 'Home',     label: 'Home',     component: HomeScreen,     iconOutline: 'home-outline',     iconFilled: 'home'     },
-  { name: 'Routine',  label: 'Routine',  component: RoutineScreen,  iconOutline: 'checkbox-outline', iconFilled: 'checkbox' },
-  { name: 'AllTools', label: 'All Tools',component: AllToolsScreen, iconOutline: 'grid-outline',     iconFilled: 'grid'     },
-  { name: 'Social',   label: 'Socials',  component: SocialScreen,   iconOutline: 'chatbubble-outline',iconFilled: 'chatbubble'},
-  { name: 'Rewards',  label: 'Earn',     component: RewardsScreen,  iconOutline: 'diamond-outline',  iconFilled: 'diamond'  },
+  { name: 'Home',     labelKey: 'tabs.home',     component: HomeScreen,     iconOutline: 'home-outline',     iconFilled: 'home'     },
+  { name: 'Routine',  labelKey: 'tabs.routine',  component: RoutineScreen,  iconOutline: 'checkbox-outline', iconFilled: 'checkbox' },
+  { name: 'AllTools', labelKey: 'tabs.allTools', component: AllToolsScreen, iconOutline: 'grid-outline',     iconFilled: 'grid'     },
+  { name: 'Social',   labelKey: 'tabs.socials',  component: SocialScreen,   iconOutline: 'chatbubble-outline',iconFilled: 'chatbubble'},
+  { name: 'Rewards',  labelKey: 'tabs.earn',     component: RewardsScreen,  iconOutline: 'diamond-outline',  iconFilled: 'diamond'  },
 ];
 
 const Tab   = createBottomTabNavigator();
@@ -102,13 +105,15 @@ function TabIcon({ iconOutline, iconFilled, focused }) {
   );
 }
 
+// `label` is a translation key.
 function TabLabel({ label, focused }) {
+  const { t } = useI18n();
   return (
     <Text
       style={[styles.tabLabel, focused ? styles.tabLabelActive : styles.tabLabelInactive]}
       numberOfLines={1}
     >
-      {label}
+      {t(label)}
     </Text>
   );
 }
@@ -131,14 +136,19 @@ function TabNavigator() {
         <Tab.Screen
           key={tab.name}
           name={tab.name}
-          component={tab.component}
           options={{
-            tabBarLabel: ({ focused }) => <TabLabel label={tab.label} focused={focused} />,
+            tabBarLabel: ({ focused }) => <TabLabel label={tab.labelKey} focused={focused} />,
             tabBarIcon: ({ focused }) => (
               <TabIcon iconOutline={tab.iconOutline} iconFilled={tab.iconFilled} focused={focused} />
             ),
           }}
-        />
+        >
+          {(props) => (
+            <ErrorBoundary>
+              <tab.component {...props} />
+            </ErrorBoundary>
+          )}
+        </Tab.Screen>
       ))}
     </Tab.Navigator>
   );
@@ -160,6 +170,8 @@ const navigationRef = createNavigationContainerRef();
 // and opens the right routine when a reminder is tapped.
 function useRoutineReminders({ isAuthenticated }) {
   const request = useAuthedRequest();
+  // Reminder text is in the app's language, so reschedule when it changes.
+  const { language } = useI18n();
   // A tapped reminder waits here until the user is signed in and navigation
   // is ready (e.g. the app was launched by tapping it).
   const pendingRoutine = useRef(null);
@@ -179,7 +191,7 @@ function useRoutineReminders({ isAuthenticated }) {
     // No permission prompt here — that happens when the user saves a reminder.
     syncRemindersFromServer(request).catch(() => {});
     flushPending();
-  }, [isAuthenticated, request, flushPending]);
+  }, [isAuthenticated, request, flushPending, language]);
 
   useEffect(() => {
     if (!remindersSupported) return undefined;
@@ -229,6 +241,7 @@ export default function AppNavigator() {
             <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} options={ONBOARDING_ANIMATION} />
             <Stack.Screen name="Login" component={LoginScreen} options={{ animation: 'fade' }} />
             <Stack.Screen name="Terms" component={TermsScreen} options={ONBOARDING_ANIMATION} />
+            <Stack.Screen name="Language" component={LanguageScreen} options={ONBOARDING_ANIMATION} />
           </>
         ) : phase === 'onboarding' ? (
           <>
@@ -239,6 +252,7 @@ export default function AppNavigator() {
             <Stack.Screen name="OnboardingWelcome" component={OnboardingWelcomeScreen} options={ONBOARDING_ANIMATION} />
             <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} options={ONBOARDING_ANIMATION} />
             <Stack.Screen name="Terms" component={TermsScreen} options={ONBOARDING_ANIMATION} />
+            <Stack.Screen name="Language" component={LanguageScreen} options={ONBOARDING_ANIMATION} />
           </>
         ) : (
         <>
@@ -411,6 +425,11 @@ export default function AppNavigator() {
         <Stack.Screen
           name="Terms"
           component={TermsScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="Language"
+          component={LanguageScreen}
           options={{ animation: 'slide_from_right' }}
         />
         <Stack.Screen

@@ -10,10 +10,11 @@ import ErrorBanner from '../components/ErrorBanner';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from '../components/social/UserAvatar';
-import { POST_TAGS, STORY_COLORS, tagColors } from '../components/social/socialUtils';
+import { POST_TAGS, STORY_COLORS, tagColors, tagLabel } from '../components/social/socialUtils';
 import { emitFeedStale } from '../components/social/socialEvents';
 import { choosePhoto } from '../utils/photo';
 import { confirm } from '../utils/feedback';
+import { useI18n } from '../i18n';
 
 const MAX_CAPTION = 500;
 const MAX_STORY = 200;
@@ -21,6 +22,7 @@ const MAX_STORY = 200;
 export default function CreatePostScreen({ navigation, route }) {
   const request = useAuthedRequest();
   const { user } = useAuth();
+  const { t } = useI18n();
   const [mode, setMode] = useState(route?.params?.mode === 'story' ? 'story' : 'post');
   const [text, setText] = useState('');
   const [tag, setTag] = useState(null);
@@ -35,13 +37,13 @@ export default function CreatePostScreen({ navigation, route }) {
   const canPost = (trimmed.length > 0 || !!photo) && text.length <= max && !posting;
 
   const addPhoto = async () => {
-    const image = await choosePhoto(isStory ? 'Add a photo to your story' : 'Add a photo to your post');
+    const image = await choosePhoto(isStory ? t('createPost.addPhotoStory') : t('createPost.addPhotoPost'));
     if (image) setPhoto(image);
   };
 
   const leave = async () => {
     if ((trimmed || photo) && !posting) {
-      const ok = await confirm('Discard?', `Your ${isStory ? 'story' : 'post'} hasn't been shared yet.`, 'Discard');
+      const ok = await confirm(t('createPost.discardTitle'), isStory ? t('createPost.discardStory') : t('createPost.discardPost'), t('createPost.discard'));
       if (!ok) return;
     }
     navigation?.goBack();
@@ -60,7 +62,7 @@ export default function CreatePostScreen({ navigation, route }) {
       }
       navigation?.goBack();
     } catch (err) {
-      setError(err.message || 'Could not share. Please try again.');
+      setError(err.message || t('createPost.shareFailed'));
     } finally {
       setPosting(false);
     }
@@ -70,12 +72,12 @@ export default function CreatePostScreen({ navigation, route }) {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
       <ScreenHeader
-        title={isStory ? 'New Story' : 'New Post'}
+        title={isStory ? t('createPost.newStory') : t('createPost.newPost')}
         onBack={leave}
         right={
           <TouchableOpacity style={[styles.shareBtn, !canPost && { opacity: 0.45 }]} onPress={submit} disabled={!canPost}
-            accessibilityRole="button" accessibilityLabel={isStory ? 'Share story' : 'Share post'}>
-            {posting ? <ActivityIndicator size="small" color={colors.white} /> : <Text style={styles.shareBtnText}>Share</Text>}
+            accessibilityRole="button" accessibilityLabel={isStory ? t('createPost.shareStory') : t('createPost.sharePost')}>
+            {posting ? <ActivityIndicator size="small" color={colors.white} /> : <Text style={styles.shareBtnText}>{t('createPost.share')}</Text>}
           </TouchableOpacity>
         }
       />
@@ -86,9 +88,9 @@ export default function CreatePostScreen({ navigation, route }) {
           <View style={styles.segment}>
             {['post', 'story'].map((m) => (
               <TouchableOpacity key={m} style={[styles.segmentBtn, mode === m && styles.segmentBtnActive]} onPress={() => setMode(m)}
-                accessibilityRole="tab" accessibilityState={{ selected: mode === m }} accessibilityLabel={m === 'post' ? 'Post' : 'Story'}>
+                accessibilityRole="tab" accessibilityState={{ selected: mode === m }} accessibilityLabel={m === 'post' ? t('createPost.post') : t('createPost.story')}>
                 <Ionicons name={m === 'post' ? 'images-outline' : 'aperture-outline'} size={15} color={mode === m ? colors.white : colors.textMid} />
-                <Text style={[styles.segmentText, mode === m && styles.segmentTextActive]}>{m === 'post' ? 'Post' : 'Story'}</Text>
+                <Text style={[styles.segmentText, mode === m && styles.segmentTextActive]}>{m === 'post' ? t('createPost.post') : t('createPost.story')}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -101,14 +103,14 @@ export default function CreatePostScreen({ navigation, route }) {
               {photo ? <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
               <TextInput
                 style={[styles.storyInput, photo && styles.storyInputOnPhoto]}
-                placeholder="Share a moment…"
+                placeholder={t('createPost.storyPlaceholder')}
                 placeholderTextColor="rgba(255,255,255,0.75)"
                 value={text}
                 onChangeText={setText}
                 maxLength={MAX_STORY}
                 multiline
                 textAlign="center"
-                accessibilityLabel="Story text"
+                accessibilityLabel={t('createPost.storyText')}
               />
             </View>
           ) : (
@@ -116,13 +118,13 @@ export default function CreatePostScreen({ navigation, route }) {
               <UserAvatar user={user} size={42} />
               <TextInput
                 style={styles.captionInput}
-                placeholder="Share your routine, progress or a question…"
+                placeholder={t('createPost.postPlaceholder')}
                 placeholderTextColor={colors.textPlaceholder}
                 value={text}
                 onChangeText={setText}
                 maxLength={MAX_CAPTION}
                 multiline
-                accessibilityLabel="Post text"
+                accessibilityLabel={t('createPost.postText')}
               />
             </View>
           )}
@@ -132,20 +134,20 @@ export default function CreatePostScreen({ navigation, route }) {
           {photo && !isStory ? (
             <View style={styles.photoWrap}>
               <Image source={{ uri: photo }} style={styles.photo} resizeMode="cover" />
-              <TouchableOpacity style={styles.removePhoto} onPress={() => setPhoto(null)} accessibilityRole="button" accessibilityLabel="Remove photo">
+              <TouchableOpacity style={styles.removePhoto} onPress={() => setPhoto(null)} accessibilityRole="button" accessibilityLabel={t('createPost.removePhoto')}>
                 <Ionicons name="close" size={16} color={colors.white} />
               </TouchableOpacity>
             </View>
           ) : null}
           <View style={styles.row}>
-            <TouchableOpacity style={styles.photoBtn} onPress={addPhoto} accessibilityRole="button" accessibilityLabel={photo ? 'Change photo' : 'Add photo'}>
+            <TouchableOpacity style={styles.photoBtn} onPress={addPhoto} accessibilityRole="button" accessibilityLabel={photo ? t('createPost.changePhotoA11y') : t('createPost.addPhotoA11y')}>
               <Ionicons name="camera-outline" size={18} color={colors.primary} />
-              <Text style={styles.photoBtnText}>{photo ? 'Change Photo' : 'Add Photo'}</Text>
+              <Text style={styles.photoBtnText}>{photo ? t('createPost.changePhoto') : t('createPost.addPhoto')}</Text>
             </TouchableOpacity>
             {photo && isStory && (
-              <TouchableOpacity style={styles.photoBtn} onPress={() => setPhoto(null)} accessibilityRole="button" accessibilityLabel="Remove photo">
+              <TouchableOpacity style={styles.photoBtn} onPress={() => setPhoto(null)} accessibilityRole="button" accessibilityLabel={t('createPost.removePhoto')}>
                 <Ionicons name="trash-outline" size={18} color={colors.primary} />
-                <Text style={styles.photoBtnText}>Remove</Text>
+                <Text style={styles.photoBtnText}>{t('createPost.remove')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -153,27 +155,27 @@ export default function CreatePostScreen({ navigation, route }) {
           {isStory ? (
             !photo && (
               <>
-                <Text style={styles.label}>BACKGROUND</Text>
+                <Text style={styles.label}>{t('createPost.background')}</Text>
                 <View style={styles.chips}>
                   {STORY_COLORS.map((c) => (
                     <TouchableOpacity key={c} style={[styles.colorDot, { backgroundColor: c }, bg === c && styles.colorDotActive]}
-                      onPress={() => setBg(c)} accessibilityRole="button" accessibilityState={{ selected: bg === c }} accessibilityLabel={`Background ${c}`} />
+                      onPress={() => setBg(c)} accessibilityRole="button" accessibilityState={{ selected: bg === c }} accessibilityLabel={t('createPost.backgroundA11y', { color: c })} />
                   ))}
                 </View>
-                <Text style={styles.hint}>Stories are visible to your followers for 24 hours.</Text>
+                <Text style={styles.hint}>{t('createPost.storyHint')}</Text>
               </>
             )
           ) : (
             <>
-              <Text style={styles.label}>TAG (OPTIONAL)</Text>
+              <Text style={styles.label}>{t('createPost.tagOptional')}</Text>
               <View style={styles.chips}>
-                {POST_TAGS.map((t) => {
-                  const active = tag === t;
-                  const c = tagColors(t);
+                {POST_TAGS.map((value) => {
+                  const active = tag === value;
+                  const c = tagColors(value);
                   return (
-                    <TouchableOpacity key={t} style={[styles.tag, { backgroundColor: active ? c.color : c.bg }]}
-                      onPress={() => setTag(active ? null : t)} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`Tag ${t}`}>
-                      <Text style={[styles.tagText, { color: active ? colors.white : c.color }]}>{t}</Text>
+                    <TouchableOpacity key={value} style={[styles.tag, { backgroundColor: active ? c.color : c.bg }]}
+                      onPress={() => setTag(active ? null : value)} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={t('createPost.tagA11y', { tag: tagLabel(value) })}>
+                      <Text style={[styles.tagText, { color: active ? colors.white : c.color }]}>{tagLabel(value)}</Text>
                     </TouchableOpacity>
                   );
                 })}

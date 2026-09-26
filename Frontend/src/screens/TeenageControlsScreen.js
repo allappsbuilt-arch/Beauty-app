@@ -17,6 +17,7 @@ import ErrorBanner from '../components/ErrorBanner';
 import { usePreferences } from '../api/usePreferences';
 import { useAuth } from '../context/AuthContext';
 import InitialsAvatar from '../components/InitialsAvatar';
+import { useI18n } from '../i18n';
 
 function ToggleRow({ icon, label, desc, value, onChange }) {
   return (
@@ -40,6 +41,7 @@ function ToggleRow({ icon, label, desc, value, onChange }) {
 
 export default function TeenageControlsScreen({ navigation }) {
   const { user } = useAuth();
+  const { t } = useI18n();
   const { prefs, error, reload, save, saving } = usePreferences();
   const [enabled, setEnabled] = useState(false);
   const [publicProfile, setPublicProfile] = useState(false);
@@ -67,7 +69,7 @@ export default function TeenageControlsScreen({ navigation }) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      setSaveError(err.message || 'Could not save your changes.');
+      setSaveError(err.message || t('teen.saveFailed'));
     }
   };
 
@@ -76,7 +78,7 @@ export default function TeenageControlsScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <ScreenHeader
-        title="MyFace AI"
+        title={t('common.appName')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
@@ -91,10 +93,10 @@ export default function TeenageControlsScreen({ navigation }) {
             <View style={styles.activeDot} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.profileName}>{user?.name ? `${user.name}'s Account` : 'Your Account'}</Text>
+            <Text style={styles.profileName}>{user?.name ? t('teen.accountOf', { name: user.name }) : t('teen.yourAccount')}</Text>
             <View style={styles.protectionRow}>
               <Ionicons name="shield-checkmark-outline" size={13} color={colors.textLight} />
-              <Text style={styles.protectionText}>{enabled ? 'Protection Active' : 'Protection Off'}</Text>
+              <Text style={styles.protectionText}>{enabled ? t('teen.protectionOn') : t('teen.protectionOff')}</Text>
             </View>
           </View>
           <Switch
@@ -102,47 +104,47 @@ export default function TeenageControlsScreen({ navigation }) {
             onValueChange={setEnabled}
             trackColor={{ false: colors.borderLight, true: colors.primary }}
             thumbColor={colors.white}
-            accessibilityLabel="Teenage mode"
+            accessibilityLabel={t('teen.toggleA11y')}
           />
         </View>
 
         {/* ── Social permissions ── */}
-        <Text style={styles.sectionTitle}>SOCIAL PERMISSIONS</Text>
+        <Text style={styles.sectionTitle}>{t('teen.social')}</Text>
         <View style={styles.cardList}>
           <ToggleRow
             icon="globe-outline"
-            label="Public Profile"
-            desc="Visible to non-contacts"
+            label={t('teen.publicProfile')}
+            desc={t('teen.publicProfileDesc')}
             value={publicProfile}
             onChange={setPublicProfile}
           />
           <ToggleRow
             icon="chatbubble-ellipses-outline"
-            label="AI Interactions"
-            desc="Unrestricted AI chatting"
+            label={t('teen.aiInteractions')}
+            desc={t('teen.aiInteractionsDesc')}
             value={aiInteractions}
             onChange={setAiInteractions}
           />
         </View>
 
         {/* ── Content filters ── */}
-        <Text style={styles.sectionTitle}>CONTENT FILTERS</Text>
+        <Text style={styles.sectionTitle}>{t('teen.filters')}</Text>
         <View style={styles.statusRow}>
           <View style={styles.statusCard}>
             <Ionicons name="shield-outline" size={18} color={colors.primary} />
-            <Text style={styles.statusTitle}>Deep Filters</Text>
-            <Text style={styles.statusDesc}>Strict AI moderation active</Text>
+            <Text style={styles.statusTitle}>{t('teen.deepFilters')}</Text>
+            <Text style={styles.statusDesc}>{t('teen.deepFiltersDesc')}</Text>
           </View>
           <View style={styles.statusCard}>
             <Ionicons name="time-outline" size={18} color="#8870C0" />
-            <Text style={styles.statusTitle}>Quiet Hours</Text>
+            <Text style={styles.statusTitle}>{t('teen.quietHours')}</Text>
             <Text style={styles.statusDesc}>21:00 - 07:00</Text>
           </View>
         </View>
         <View style={styles.cardList}>
           <ToggleRow
             icon="alert-circle-outline"
-            label="Restrict Explicit Content"
+            label={t('teen.restrictExplicit')}
             desc=""
             value={restrictExplicit}
             onChange={setRestrictExplicit}
@@ -150,11 +152,11 @@ export default function TeenageControlsScreen({ navigation }) {
         </View>
 
         {/* ── Parental reporting ── */}
-        <Text style={styles.sectionTitle}>PARENTAL REPORTING</Text>
+        <Text style={styles.sectionTitle}>{t('teen.parental')}</Text>
         <View style={styles.emailCard}>
           <View style={styles.emailRow}>
             <Ionicons name="mail-outline" size={19} color={colors.primary} />
-            <Text style={styles.toggleLabel}>Weekly Summary Email</Text>
+            <Text style={styles.toggleLabel}>{t('teen.weeklyEmail')}</Text>
             <Switch
               value={weeklyEmail}
               onValueChange={setWeeklyEmail}
@@ -162,7 +164,7 @@ export default function TeenageControlsScreen({ navigation }) {
               thumbColor={colors.white}
             />
           </View>
-          <Text style={styles.emailDesc}>Sent every Sunday at 8:00 AM to {user?.email ?? 'your account email'}</Text>
+          <Text style={styles.emailDesc}>{t('teen.emailDesc', { email: user?.email ?? t('teen.yourEmail') })}</Text>
         </View>
 
         <ErrorBanner message={saveError} onDismiss={() => setSaveError(null)} />
@@ -172,10 +174,10 @@ export default function TeenageControlsScreen({ navigation }) {
           disabled={saving || !prefs}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Save all changes"
+          accessibilityLabel={t('teen.saveA11y')}
         >
           <Ionicons name={saved ? 'checkmark' : 'save-outline'} size={17} color={colors.white} />
-          <Text style={styles.saveBtnText}>{saved ? 'Saved!' : saving ? 'Saving…' : 'Save All Changes'}</Text>
+          <Text style={styles.saveBtnText}>{saved ? t('teen.saved') : saving ? t('common.saving') : t('teen.save')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 24 }} />

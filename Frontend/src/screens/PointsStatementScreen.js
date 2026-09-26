@@ -6,6 +6,8 @@ import ScreenHeader from '../components/ScreenHeader';
 import ErrorBanner from '../components/ErrorBanner';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { formatPoints, formatPointsDate, loadErrorMessage } from '../components/points/pointsUtils';
+import { useI18n, formatDate, formatNumber } from '../i18n';
+import { ledgerLabel } from '../utils/serverText';
 
 const PAGE = 30;
 
@@ -13,11 +15,12 @@ const monthKey = (iso) => {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
-const monthTitle = (iso) => new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+const monthTitle = (iso) => formatDate(iso, { month: 'long', year: 'numeric' });
 
 // Full points statement: every transaction, grouped by month with totals.
 export default function PointsStatementScreen({ navigation }) {
   const request = useAuthedRequest();
+  const { t, language } = useI18n();
   const [balance, setBalance] = useState(null);
   const [items, setItems] = useState([]);
   const [cursor, setCursor] = useState(null);
@@ -66,12 +69,12 @@ export default function PointsStatementScreen({ navigation }) {
       g.total += it.points;
     }
     return [...groups.values()];
-  }, [items]);
+  }, [items, language]);
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-      <ScreenHeader title="Points Statement" onBack={() => navigation?.goBack()} />
+      <ScreenHeader title={t('statement.title')} onBack={() => navigation?.goBack()} />
 
       {loading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
@@ -87,8 +90,8 @@ export default function PointsStatementScreen({ navigation }) {
               <ErrorBanner message={error} onRetry={items.length ? loadMore : loadFirst} onDismiss={() => setError(null)} />
               {balance !== null && (
                 <View style={styles.balanceCard}>
-                  <Text style={styles.balanceLabel}>CURRENT BALANCE</Text>
-                  <Text style={styles.balanceValue}>{balance.toLocaleString()} <Text style={styles.balanceUnit}>pts</Text></Text>
+                  <Text style={styles.balanceLabel}>{t('statement.currentBalance')}</Text>
+                  <Text style={styles.balanceValue}>{formatNumber(balance)} <Text style={styles.balanceUnit}>{t('common.points')}</Text></Text>
                 </View>
               )}
             </>
@@ -103,7 +106,7 @@ export default function PointsStatementScreen({ navigation }) {
             <View style={[styles.row, index === 0 && styles.rowFirst, index === section.data.length - 1 && styles.rowLast]}>
               <View style={styles.rowIcon}><Ionicons name="star" size={14} color={colors.primary} /></View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.rowLabel}>{item.label}</Text>
+                <Text style={styles.rowLabel}>{ledgerLabel(item.label)}</Text>
                 <Text style={styles.rowDate}>{formatPointsDate(item.createdAt)}</Text>
               </View>
               <Text style={[styles.rowPoints, item.points < 0 && { color: '#D03050' }]}>{formatPoints(item.points)}</Text>
@@ -112,10 +115,10 @@ export default function PointsStatementScreen({ navigation }) {
           ListEmptyComponent={!error ? (
             <View style={styles.empty}>
               <Ionicons name="receipt-outline" size={34} color={colors.primary} />
-              <Text style={styles.emptyTitle}>No points yet</Text>
-              <Text style={styles.emptyText}>Complete a routine, scan your face or log water to start earning.</Text>
-              <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation?.goBack()} accessibilityRole="button" accessibilityLabel="Ways to earn">
-                <Text style={styles.emptyBtnText}>Ways to Earn</Text>
+              <Text style={styles.emptyTitle}>{t('statement.noPoints')}</Text>
+              <Text style={styles.emptyText}>{t('statement.noPointsText')}</Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation?.goBack()} accessibilityRole="button" accessibilityLabel={t('statement.waysA11y')}>
+                <Text style={styles.emptyBtnText}>{t('statement.ways')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -124,10 +127,10 @@ export default function PointsStatementScreen({ navigation }) {
           ListFooterComponent={
             loadingMore ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
               : cursor ? (
-                <TouchableOpacity style={styles.more} onPress={loadMore} accessibilityRole="button" accessibilityLabel="Load older transactions">
-                  <Text style={styles.moreText}>Load older transactions</Text>
+                <TouchableOpacity style={styles.more} onPress={loadMore} accessibilityRole="button" accessibilityLabel={t('statement.loadOlder')}>
+                  <Text style={styles.moreText}>{t('statement.loadOlder')}</Text>
                 </TouchableOpacity>
-              ) : items.length ? <Text style={styles.end}>That’s everything — {items.length} transaction{items.length === 1 ? '' : 's'}.</Text> : null
+              ) : items.length ? <Text style={styles.end}>{t('statement.end', { count: items.length })}</Text> : null
           }
         />
       )}

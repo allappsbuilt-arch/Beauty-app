@@ -6,12 +6,14 @@ import { useAuthedRequest } from '../../api/useAuthedRequest';
 import { confirm, notify, shareText } from '../../utils/feedback';
 import { firstName } from './socialUtils';
 import { emitAuthorFollow, emitPostRemoved } from './socialEvents';
+import { sharePost } from './PostCard';
+import { useI18n } from '../../i18n';
 
 const REPORT_REASONS = [
-  { key: 'spam', label: 'Spam' },
-  { key: 'inappropriate', label: 'Inappropriate content' },
-  { key: 'harassment', label: 'Harassment or bullying' },
-  { key: 'other', label: 'Something else' },
+  { key: 'spam', labelKey: 'post.reportSpam' },
+  { key: 'inappropriate', labelKey: 'post.reportInappropriate' },
+  { key: 'harassment', labelKey: 'post.reportHarassment' },
+  { key: 'other', labelKey: 'post.reportOther' },
 ];
 
 function Row({ icon, label, onPress, danger, busy }) {
@@ -27,6 +29,7 @@ function Row({ icon, label, onPress, danger, busy }) {
 // The "…" menu on a post: delete your own, or follow / report someone else's.
 export default function PostMenu({ post, visible, onClose, navigation }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [mode, setMode] = useState('main'); // 'main' | 'report'
   const [busy, setBusy] = useState(null);
   const name = firstName(post.author.name);
@@ -35,12 +38,12 @@ export default function PostMenu({ post, visible, onClose, navigation }) {
 
   const run = async (key, fn) => {
     setBusy(key);
-    try { await fn(); } catch (err) { notify('Something went wrong', err.message); } finally { setBusy(null); }
+    try { await fn(); } catch (err) { notify(t('post.somethingWrong'), err.message); } finally { setBusy(null); }
   };
 
   const del = () => run('delete', async () => {
     close();
-    const ok = await confirm('Delete post?', 'This removes the post, its likes and comments for everyone.', 'Delete');
+    const ok = await confirm(t('post.deleteTitle'), t('post.deleteText'), t('common.delete'));
     if (!ok) return;
     await request(`/api/social/posts/${post.id}`, { method: 'DELETE' });
     emitPostRemoved(post.id);
@@ -57,49 +60,49 @@ export default function PostMenu({ post, visible, onClose, navigation }) {
     await request(`/api/social/posts/${post.id}/report`, { method: 'POST', body: { reason } });
     emitPostRemoved(post.id);
     close();
-    notify('Thanks for reporting', 'This post is now hidden from your feed.');
+    notify(t('post.reportThanks'), t('post.reportHidden'));
   });
 
   const share = () => {
     close();
-    shareText(`${post.author.name} on MyFace AI: ${post.caption ? `“${post.caption}”` : 'Check out this post'}`);
+    sharePost(post);
   };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
       <View style={s.backdrop}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} accessibilityLabel="Close menu" />
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} accessibilityLabel={t('post.closeMenu')} />
         <View style={s.sheet}>
           <View style={s.handle} />
           {mode === 'main' ? (
             <>
               {post.isMine ? (
-                <Row icon="trash-outline" label="Delete post" danger onPress={del} busy={busy === 'delete'} />
+                <Row icon="trash-outline" label={t('post.delete')} danger onPress={del} busy={busy === 'delete'} />
               ) : (
                 <>
                   <Row
                     icon={post.authorFollowed ? 'person-remove-outline' : 'person-add-outline'}
-                    label={post.authorFollowed ? `Unfollow ${name}` : `Follow ${name}`}
+                    label={post.authorFollowed ? t('post.unfollow', { name }) : t('post.follow', { name })}
                     onPress={follow}
                     busy={busy === 'follow'}
                   />
-                  <Row icon="person-circle-outline" label={`View ${name}'s profile`}
+                  <Row icon="person-circle-outline" label={t('post.viewProfile', { name })}
                     onPress={() => { close(); navigation?.navigate('UserProfile', { userId: post.author.id }); }} />
                 </>
               )}
-              <Row icon="share-outline" label="Share post" onPress={share} />
-              {!post.isMine && <Row icon="flag-outline" label="Report post" danger onPress={() => setMode('report')} />}
+              <Row icon="share-outline" label={t('post.sharePost')} onPress={share} />
+              {!post.isMine && <Row icon="flag-outline" label={t('post.report')} danger onPress={() => setMode('report')} />}
             </>
           ) : (
             <>
-              <Text style={s.title}>Why are you reporting this post?</Text>
+              <Text style={s.title}>{t('post.reportWhy')}</Text>
               {REPORT_REASONS.map((r) => (
-                <Row key={r.key} icon="flag-outline" label={r.label} onPress={() => report(r.key)} busy={busy === r.key} />
+                <Row key={r.key} icon="flag-outline" label={t(r.labelKey)} onPress={() => report(r.key)} busy={busy === r.key} />
               ))}
             </>
           )}
-          <TouchableOpacity style={s.cancel} onPress={close} accessibilityRole="button" accessibilityLabel="Cancel">
-            <Text style={s.cancelText}>Cancel</Text>
+          <TouchableOpacity style={s.cancel} onPress={close} accessibilityRole="button" accessibilityLabel={t('common.cancel')}>
+            <Text style={s.cancelText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </View>

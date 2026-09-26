@@ -17,9 +17,10 @@ import ScreenHeader from '../components/ScreenHeader';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { notify } from '../utils/feedback';
 import { stepsForPeriod, periodFromTitle } from '../data/routineSteps';
+import { useI18n } from '../i18n';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const FEELINGS = ['Fresh', 'Tired', 'Glowy', 'Oily', 'Dry'];
+const FEELINGS = ['routineStep.feelFresh', 'routineStep.feelTired', 'routineStep.feelGlowy', 'routineStep.feelOily', 'routineStep.feelDry'];
 
 // ─── Feeling chip ─────────────────────────────────────────────────────────────
 function FeelingChip({ label, active, onPress }) {
@@ -51,13 +52,14 @@ const chips = StyleSheet.create({
 
 // ─── Completed step (collapsed) ────────────────────────────────────────────────
 function CompletedStepRow({ title }) {
+  const { t } = useI18n();
   return (
     <View style={rows.done}>
       <View style={rows.doneCheck}>
         <Ionicons name="checkmark" size={14} color="#1EA868" />
       </View>
       <View>
-        <Text style={rows.doneLabel}>COMPLETED</Text>
+        <Text style={rows.doneLabel}>{t('routineStep.completed')}</Text>
         <Text style={rows.doneTitle}>{title}</Text>
       </View>
     </View>
@@ -119,6 +121,9 @@ const rows = StyleSheet.create({
 
 // ─── Active step card ───────────────────────────────────────────────────────
 function ActiveStepCard({ index, step, onComplete }) {
+  const { t } = useI18n();
+  const title = t(step.titleKey);
+  const instructions = t(step.instructionsKey);
   return (
     <View style={active.card}>
       <View style={active.header}>
@@ -127,21 +132,21 @@ function ActiveStepCard({ index, step, onComplete }) {
             <Text style={active.numText}>{index}</Text>
           </View>
           <View>
-            <Text style={active.category}>{step.category}</Text>
-            <Text style={active.title}>{step.title}</Text>
+            <Text style={active.category}>{t(step.categoryKey)}</Text>
+            <Text style={active.title}>{title}</Text>
           </View>
         </View>
         <TouchableOpacity
           style={active.infoBtn}
           accessibilityRole="button"
-          accessibilityLabel="Step info"
-          onPress={() => notify(step.title, step.instructions)}
+          accessibilityLabel={t('routineStep.stepInfo')}
+          onPress={() => notify(title, instructions)}
         >
           <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
-      <Text style={active.instructions}>{step.instructions}</Text>
+      <Text style={active.instructions}>{instructions}</Text>
 
       <Image source={{ uri: step.image }} style={active.image} resizeMode="cover" />
 
@@ -150,10 +155,10 @@ function ActiveStepCard({ index, step, onComplete }) {
         onPress={onComplete}
         activeOpacity={0.85}
         accessibilityRole="button"
-        accessibilityLabel="Mark step complete"
+        accessibilityLabel={t('routineStep.markCompleteA11y')}
       >
         <Ionicons name="checkmark-circle" size={18} color={colors.white} />
-        <Text style={active.completeBtnText}>Mark Step Complete</Text>
+        <Text style={active.completeBtnText}>{t('routineStep.markComplete')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -219,8 +224,10 @@ const active = StyleSheet.create({
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 export default function RoutineStepScreen({ navigation, route }) {
-  const routineTitle = route?.params?.routineTitle ?? 'AM Routine';
+  const routineTitle = route?.params?.routineTitle ?? 'AM Routine'; // i18n-ignore: routine id
   const period = periodFromTitle(routineTitle);
+  const { t } = useI18n();
+  const routineName = t(period === 'PM' ? 'routines.pm' : 'routines.am');
   const steps = stepsForPeriod(period);
   const request = useAuthedRequest();
 
@@ -228,7 +235,7 @@ export default function RoutineStepScreen({ navigation, route }) {
   // active step is always the first one not yet done.
   const [completedKeys, setCompletedKeys] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [feeling, setFeeling] = useState('Fresh');
+  const [feeling, setFeeling] = useState(FEELINGS[0]);
 
   useEffect(() => {
     request(`/api/routines/today?period=${period}`)
@@ -256,7 +263,7 @@ export default function RoutineStepScreen({ navigation, route }) {
         ? navigation.replace('RoutineComplete', params)
         : navigation?.navigate('RoutineComplete', params);
     } catch (err) {
-      notify('Could not save your routine', err?.message || 'Please check your connection and try again.');
+      notify(t('routineStep.saveRoutineFailed'), err?.message || t('routine.checkConnection'));
     } finally {
       setSaving(false);
     }
@@ -272,7 +279,7 @@ export default function RoutineStepScreen({ navigation, route }) {
       });
       setCompletedKeys(completedStepKeys || [...completedKeys, current.key]);
     } catch (err) {
-      notify('Could not save this step', err?.message || 'Please check your connection and try again.');
+      notify(t('routine.stepSaveFailed'), err?.message || t('routine.checkConnection'));
     } finally {
       setSaving(false);
     }
@@ -281,7 +288,7 @@ export default function RoutineStepScreen({ navigation, route }) {
   const handleFinish = () => {
     if (!allDone) {
       const left = total - doneCount;
-      notify('Almost there!', `Complete the remaining ${left} step${left === 1 ? '' : 's'} to finish your ${routineTitle}.`);
+      notify(t('routineStep.almostThere'), t('routineStep.remaining', { count: left, routine: routineName }));
       return;
     }
     finishRoutine();
@@ -297,14 +304,14 @@ export default function RoutineStepScreen({ navigation, route }) {
           style={styles.navBtn}
           onPress={() => (navigation?.canGoBack() ? navigation.goBack() : goToTab(navigation, 'Routine'))}
           accessibilityRole="button"
-          accessibilityLabel="Close routine"
+          accessibilityLabel={t('routineStep.closeRoutine')}
         >
           <Ionicons name="close" size={22} color={colors.primary} />
         </TouchableOpacity>
 
-        <Text style={styles.navTitle}>{routineTitle}</Text>
+        <Text style={styles.navTitle}>{routineName}</Text>
 
-        <Text style={styles.navStep}>{allDone ? 'All done' : `Step ${stepIndex + 1} of ${total}`}</Text>
+        <Text style={styles.navStep}>{allDone ? t('routineStep.allDone') : t('routineStep.stepOf', { step: stepIndex + 1, total })}</Text>
       </View>
 
       {/* Progress bar */}
@@ -318,10 +325,10 @@ export default function RoutineStepScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Feeling picker */}
-        <Text style={styles.sectionLabel}>HOW DO YOU FEEL?</Text>
+        <Text style={styles.sectionLabel}>{t('routineStep.howFeel')}</Text>
         <View style={styles.feelingRow}>
           {FEELINGS.map(f => (
-            <FeelingChip key={f} label={f} active={feeling === f} onPress={() => setFeeling(f)} />
+            <FeelingChip key={f} label={t(f)} active={feeling === f} onPress={() => setFeeling(f)} />
           ))}
         </View>
 
@@ -329,14 +336,14 @@ export default function RoutineStepScreen({ navigation, route }) {
 
         {/* Completed steps */}
         {steps.slice(0, doneCount).map(s => (
-          <CompletedStepRow key={s.key} title={s.title} />
+          <CompletedStepRow key={s.key} title={t(s.titleKey)} />
         ))}
 
         {allDone ? (
           <View style={styles.allDoneCard}>
             <Ionicons name="sparkles" size={20} color={colors.primary} />
             <Text style={styles.allDoneText}>
-              Every step is done — tap Finish Routine to log today toward your streak.
+              {t('routineStep.allDoneCard')}
             </Text>
           </View>
         ) : (
@@ -346,7 +353,7 @@ export default function RoutineStepScreen({ navigation, route }) {
 
             {/* Locked steps */}
             {steps.slice(stepIndex + 1).map((s, i) => (
-              <LockedStepRow key={s.key} index={stepIndex + 2 + i} category={s.category} title={s.title} />
+              <LockedStepRow key={s.key} index={stepIndex + 2 + i} category={t(s.categoryKey)} title={t(s.titleKey)} />
             ))}
           </>
         )}
@@ -359,11 +366,11 @@ export default function RoutineStepScreen({ navigation, route }) {
         <TouchableOpacity
           style={styles.askCoach}
           accessibilityRole="button"
-          accessibilityLabel="Ask coach"
+          accessibilityLabel={t('routineStep.askCoachA11y')}
           onPress={() => navigation?.navigate('Coach')}
         >
           <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
-          <Text style={styles.askCoachText}>ASK COACH</Text>
+          <Text style={styles.askCoachText}>{t('routineStep.askCoach')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -371,15 +378,15 @@ export default function RoutineStepScreen({ navigation, route }) {
           onPress={handleFinish}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Finish routine"
+          accessibilityLabel={t('routineStep.finishA11y')}
         >
-          <Text style={styles.finishBtnText}>Finish Routine</Text>
+          <Text style={styles.finishBtnText}>{t('routineStep.finish')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.moreBtn}
           accessibilityRole="button"
-          accessibilityLabel="More options"
+          accessibilityLabel={t('routineStep.moreOptions')}
           onPress={() => navigation?.navigate('Coach')}
         >
           <Ionicons name="ellipsis-vertical" size={18} color={colors.textMid} />

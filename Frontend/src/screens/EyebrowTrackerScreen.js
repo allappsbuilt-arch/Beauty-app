@@ -15,6 +15,8 @@ import { colors } from '../theme/colors';
 import ErrorBanner from '../components/ErrorBanner';
 import { useTracker, timeAgo } from '../api/useTracker';
 import { usePreferences } from '../api/usePreferences';
+import { useI18n, translate as tr, formatDate } from '../i18n';
+import { trackerItemLabel, browGoalLabel } from '../utils/serverText';
 
 const TIMELINE_SLOTS = 5;
 
@@ -29,25 +31,26 @@ function buildTimeline(history = []) {
   const recent = history.slice(-(TIMELINE_SLOTS - 1));
   const points = recent.map((h, i) => ({
     key: h.id,
-    label: new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    label: formatDate(h.date, { month: 'short', day: 'numeric' }),
     state: i === recent.length - 1 ? 'current' : 'done',
   }));
   while (points.length < TIMELINE_SLOTS) {
-    points.push({ key: `next${points.length}`, label: 'Next', state: 'future' });
+    points.push({ key: `next${points.length}`, label: tr('tracker.next'), state: 'future' });
   }
   return points;
 }
 
 function coachMessage(tracker) {
-  if (!tracker?.scanCount) return 'Take your first face scan and I will start tracking your brow fullness week by week.';
-  if (tracker.change == null) return `Your baseline fullness is ${tracker.score}%. Scan again next week so we can measure your progress.`;
-  if (tracker.change > 0) return `Great work! Your fullness score went up ${tracker.change}% since your last scan. Stay consistent with your nighttime serum.`;
-  if (tracker.change < 0) return `Your fullness dipped ${Math.abs(tracker.change)}% since your last scan. Avoid over-plucking and keep up your serum routine.`;
-  return 'Your fullness is holding steady. Consistency is key — keep logging your serum every night.';
+  if (!tracker?.scanCount) return tr('eyebrow.coachFirst');
+  if (tracker.change == null) return tr('eyebrow.coachBaseline', { score: tracker.score });
+  if (tracker.change > 0) return tr('eyebrow.coachUp', { change: tracker.change });
+  if (tracker.change < 0) return tr('eyebrow.coachDown', { change: Math.abs(tracker.change) });
+  return tr('eyebrow.coachSteady');
 }
 
 // ─── Ring progress ─────────────────────────────────────────────────────────────
 function RingProgress({ percent, size = 100 }) {
+  const { t } = useI18n();
   const RING = 9;
   const deg = Math.round(((percent ?? 0) / 100) * 360);
   const inner = size - RING * 2;
@@ -64,7 +67,7 @@ function RingProgress({ percent, size = 100 }) {
       }} />
       <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: colors.primaryBg, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={ring.pct}>{percent == null ? '—' : `${percent}%`}</Text>
-        <Text style={ring.label}>Fullness</Text>
+        <Text style={ring.label}>{t('tracker.fullness')}</Text>
       </View>
     </View>
   );
@@ -123,6 +126,8 @@ const tl = StyleSheet.create({
 
 // ─── Product row ────────────────────────────────────────────────────────────
 function ProductRow({ product, onToggle }) {
+  const { t } = useI18n();
+  const label = trackerItemLabel('eyebrow', product);
   const style = PRODUCT_STYLE[product.key] || PRODUCT_STYLE.revitabrow;
   const progress = Math.min(product.streak / 30, 1);
   return (
@@ -132,15 +137,15 @@ function ProductRow({ product, onToggle }) {
       activeOpacity={0.8}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: product.doneToday }}
-      accessibilityLabel={`${product.label}, ${product.doneToday ? 'used today' : 'not used today'}`}
+      accessibilityLabel={`${label}, ${product.doneToday ? t('tracker.usedTodayA11y') : t('tracker.notUsedToday')}`}
     >
       <View style={prod.iconWrap}>
         <Ionicons name={style.icon} size={18} color={style.color} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={prod.name}>{product.label}</Text>
+        <Text style={prod.name}>{label}</Text>
         <Text style={prod.usage}>
-          {product.doneToday ? 'Used today' : 'Tap to log today'} · {product.totalDays} {product.totalDays === 1 ? 'day' : 'days'} total
+          {product.doneToday ? t('tracker.usedToday') : t('tracker.tapToLog')} · {t('tracker.daysTotal', { count: product.totalDays })}
         </Text>
         <View style={prod.barTrack}>
           <View style={[prod.barFill, { width: `${progress * 100}%`, backgroundColor: style.color }]} />
@@ -184,6 +189,7 @@ const prod = StyleSheet.create({
 export default function EyebrowTrackerScreen({ navigation }) {
   const { tracker, error, reload, toggle } = useTracker('eyebrow');
   const { prefs } = usePreferences();
+  const { t } = useI18n();
   const timeline = buildTimeline(tracker?.history);
   const updated = timeAgo(tracker?.lastScanAt);
 
@@ -197,18 +203,18 @@ export default function EyebrowTrackerScreen({ navigation }) {
           style={styles.navBtn}
           onPress={() => navigation?.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.goBack')}
         >
           <Ionicons name="arrow-back" size={22} color={colors.primary} />
         </TouchableOpacity>
 
-        <Text style={styles.navTitle}>Eyebrow Tracker</Text>
+        <Text style={styles.navTitle}>{t('eyebrow.title')}</Text>
 
         <TouchableOpacity
           style={styles.navBtn}
           onPress={() => navigation?.popToTop()}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t('common.close')}
         >
           <Ionicons name="close" size={22} color={colors.textDark} />
         </TouchableOpacity>
@@ -227,14 +233,14 @@ export default function EyebrowTrackerScreen({ navigation }) {
             <RingProgress percent={tracker?.score ?? null} />
           </View>
           <View style={styles.goalCard}>
-            <Text style={styles.goalLabel}>GOAL</Text>
-            <Text style={styles.goalValue}>{prefs?.eyebrow.goal ?? '…'}</Text>
+            <Text style={styles.goalLabel}>{t('eyebrow.goal')}</Text>
+            <Text style={styles.goalValue}>{prefs?.eyebrow.goal ? browGoalLabel(prefs.eyebrow.goal) : '…'}</Text>
             <TouchableOpacity
               onPress={() => navigation?.navigate('BrowAnalysis')}
               accessibilityRole="button"
-              accessibilityLabel="Edit goal"
+              accessibilityLabel={t('eyebrow.editGoalA11y')}
             >
-              <Text style={styles.editGoal}>Edit Goal ✎</Text>
+              <Text style={styles.editGoal}>{t('eyebrow.editGoal')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -245,7 +251,7 @@ export default function EyebrowTrackerScreen({ navigation }) {
             <View style={[styles.photo, styles.scoreBox]}>
               <Text style={styles.scoreBig}>{tracker?.firstScore != null ? `${tracker.firstScore}%` : '—'}</Text>
             </View>
-            <Text style={styles.photoCaption}>FIRST SCAN</Text>
+            <Text style={styles.photoCaption}>{t('tracker.firstScan')}</Text>
           </View>
           <View style={styles.photoCol}>
             <View style={styles.photoLatestWrap}>
@@ -253,16 +259,16 @@ export default function EyebrowTrackerScreen({ navigation }) {
                 <Text style={[styles.scoreBig, styles.scoreBigActive]}>{tracker?.score != null ? `${tracker.score}%` : '—'}</Text>
               </View>
               <View style={styles.latestBadge}>
-                <Text style={styles.latestBadgeText}>LATEST</Text>
+                <Text style={styles.latestBadgeText}>{t('tracker.latest')}</Text>
               </View>
             </View>
-            <Text style={[styles.photoCaption, styles.photoCaptionActive]}>LATEST SCAN</Text>
+            <Text style={[styles.photoCaption, styles.photoCaptionActive]}>{t('tracker.latestScan')}</Text>
           </View>
         </View>
 
         {/* Growth timeline */}
         <View style={styles.timelineCard}>
-          <Text style={styles.timelineTitle}>GROWTH TIMELINE</Text>
+          <Text style={styles.timelineTitle}>{t('eyebrow.timeline')}</Text>
           <View style={styles.timelineRow}>
             {timeline.map((p, i) => (
               <TimelineDot key={p.key} point={p} isLast={i === timeline.length - 1} />
@@ -271,35 +277,35 @@ export default function EyebrowTrackerScreen({ navigation }) {
         </View>
 
         {/* Product routine */}
-        <Text style={styles.sectionTitle}>Product Routine</Text>
+        <Text style={styles.sectionTitle}>{t('eyebrow.productRoutine')}</Text>
         {(tracker?.items ?? []).map((p) => (
           <ProductRow key={p.key} product={p} onToggle={() => toggle(p.key)} />
         ))}
 
         {/* Photo logs */}
         <View style={styles.logsHeader}>
-          <Text style={styles.sectionTitle}>Scan Log</Text>
-          <Text style={styles.logsCount}>{tracker?.scanCount ?? 0} {tracker?.scanCount === 1 ? 'scan' : 'scans'}</Text>
+          <Text style={styles.sectionTitle}>{t('tracker.scanLog')}</Text>
+          <Text style={styles.logsCount}>{t('tracker.scans', { count: tracker?.scanCount ?? 0 })}</Text>
         </View>
         <View style={styles.logsRow}>
           {(tracker?.history ?? []).slice(-4).map((h, i, arr) => (
             <View key={h.id} style={[styles.logThumb, styles.scoreBox, i === arr.length - 1 && styles.logThumbActive]}>
               <Text style={styles.logScore}>{h.score}</Text>
-              <Text style={styles.logDate}>{new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}</Text>
+              <Text style={styles.logDate}>{formatDate(h.date, { month: 'short', day: 'numeric' }).toUpperCase()}</Text>
             </View>
           ))}
-          {!tracker?.history?.length && <Text style={styles.logDate}>Take a face scan to start your log.</Text>}
+          {!tracker?.history?.length && <Text style={styles.logDate}>{t('tracker.startLog')}</Text>}
         </View>
 
         {/* Coach analysis */}
         <View style={styles.coachCard}>
           <View style={styles.coachHeader}>
             <View style={styles.coachAvatar}>
-              <Text style={styles.coachAvatarText}>AI</Text>
+              <Text style={styles.coachAvatarText}>{t('tracker.aiBadge')}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.coachTitle}>Coach Analysis</Text>
-              <Text style={styles.coachUpdated}>{updated ? `UPDATED ${updated.toUpperCase()}` : 'NO SCANS YET'}</Text>
+              <Text style={styles.coachTitle}>{t('tracker.coachAnalysis')}</Text>
+              <Text style={styles.coachUpdated}>{updated ? t('tracker.updated', { time: updated.toUpperCase() }) : t('tracker.noScansYet')}</Text>
             </View>
             <Ionicons name="chatbubble-outline" size={16} color={colors.primary} />
           </View>
@@ -311,11 +317,11 @@ export default function EyebrowTrackerScreen({ navigation }) {
           style={styles.photoBtn}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Take this week's photo"
+          accessibilityLabel={t('tracker.weeklyPhotoA11y')}
           onPress={() => navigation?.navigate('ScanFace')}
         >
           <Ionicons name="camera-outline" size={17} color={colors.white} />
-          <Text style={styles.photoBtnText}>Take This Week's Photo</Text>
+          <Text style={styles.photoBtnText}>{t('tracker.weeklyPhoto')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 24 }} />

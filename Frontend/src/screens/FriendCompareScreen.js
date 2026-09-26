@@ -12,17 +12,22 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { useI18n } from '../i18n';
 
-const ME = { name: 'You', score: 88, uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&q=60' };
-const DEFAULT_FRIEND = { name: 'Sarah', score: 84, uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=300&q=60' };
+const ME = { score: 88, uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&q=60' };
+const DEFAULT_FRIEND = { name: 'Sarah', /* i18n-ignore: name */ score: 84, uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=300&q=60' };
 
-const RANGES = ['7 Days', '30 Days'];
+const RANGES = [
+  { id: '7d', labelKey: 'friendCompare.range7' },
+  { id: '30d', labelKey: 'friendCompare.range30' },
+];
 
 export default function FriendCompareScreen({ route, navigation }) {
   const friend = route?.params?.friend ?? DEFAULT_FRIEND;
   const day = route?.params?.day ?? 12;
   const total = route?.params?.total ?? 30;
-  const [range, setRange] = useState('7 Days');
+  const { t } = useI18n();
+  const [range, setRange] = useState('7d');
   const [cheered, setCheered] = useState(false);
   const [nudged, setNudged] = useState(false);
 
@@ -33,7 +38,7 @@ export default function FriendCompareScreen({ route, navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <ScreenHeader
-        title="MyFace AI"
+        title={t('common.appName')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
@@ -45,17 +50,17 @@ export default function FriendCompareScreen({ route, navigation }) {
             <View style={[styles.avatarRing, styles.avatarRingMe]}>
               <Image source={{ uri: ME.uri }} style={styles.avatar} />
               <View style={[styles.tag, styles.tagMe]}>
-                <Text style={styles.tagText}>YOU</Text>
+                <Text style={styles.tagText}>{t('friendCompare.you')}</Text>
               </View>
             </View>
-            <Text style={styles.scoreText}>Score: {ME.score}</Text>
+            <Text style={styles.scoreText}>{t('friendCompare.score', { score: ME.score })}</Text>
           </View>
 
           <View style={styles.vsCenter}>
             <View style={styles.vsBadge}>
-              <Text style={styles.vsBadgeText}>VS</Text>
+              <Text style={styles.vsBadgeText}>{t('friendCompare.vs')}</Text>
             </View>
-            <Text style={styles.dayText}>Day {day}/{total}</Text>
+            <Text style={styles.dayText}>{t('friendCompare.day', { day, total })}</Text>
           </View>
 
           <View style={styles.side}>
@@ -65,7 +70,7 @@ export default function FriendCompareScreen({ route, navigation }) {
                 <Text style={styles.tagText}>{friend.name.toUpperCase()}</Text>
               </View>
             </View>
-            <Text style={styles.scoreText}>Score: {friend.score}</Text>
+            <Text style={styles.scoreText}>{t('friendCompare.score', { score: friend.score })}</Text>
           </View>
         </View>
 
@@ -73,23 +78,23 @@ export default function FriendCompareScreen({ route, navigation }) {
         <View style={styles.rangeRow}>
           {RANGES.map((r) => (
             <TouchableOpacity
-              key={r}
-              style={[styles.rangeChip, range === r && styles.rangeChipActive]}
-              onPress={() => setRange(r)}
+              key={r.id}
+              style={[styles.rangeChip, range === r.id && styles.rangeChipActive]}
+              onPress={() => setRange(r.id)}
               accessibilityRole="button"
-              accessibilityLabel={r}
+              accessibilityLabel={t(r.labelKey)}
             >
-              <Text style={[styles.rangeText, range === r && styles.rangeTextActive]}>{r}</Text>
+              <Text style={[styles.rangeText, range === r.id && styles.rangeTextActive]}>{t(r.labelKey)}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* ── Growth card ── */}
         <View style={styles.growthCard}>
-          <Text style={styles.growthTitle}>Face Score Growth</Text>
+          <Text style={styles.growthTitle}>{t('friendCompare.growth')}</Text>
 
           <View style={styles.growthRow}>
-            <Text style={styles.growthLabelMe}>Your Improvement</Text>
+            <Text style={styles.growthLabelMe}>{t('friendCompare.yourImprovement')}</Text>
             <Text style={styles.growthValueMe}>+12%</Text>
           </View>
           <View style={styles.growthTrack}>
@@ -97,7 +102,7 @@ export default function FriendCompareScreen({ route, navigation }) {
           </View>
 
           <View style={[styles.growthRow, { marginTop: 18 }]}>
-            <Text style={styles.growthLabel}>{friend.name}'s Improvement</Text>
+            <Text style={styles.growthLabel}>{t('friendCompare.theirImprovement', { name: friend.name })}</Text>
             <Text style={styles.growthValue}>+8%</Text>
           </View>
           <View style={styles.growthTrack}>
@@ -113,10 +118,10 @@ export default function FriendCompareScreen({ route, navigation }) {
             disabled={cheered}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Cheer"
+            accessibilityLabel={t('friendCompare.cheer')}
           >
             <Ionicons name={cheered ? 'checkmark' : 'megaphone-outline'} size={17} color={colors.primary} />
-            <Text style={styles.actionText}>{cheered ? 'Cheered!' : 'Cheer'}</Text>
+            <Text style={styles.actionText}>{cheered ? t('friendCompare.cheered') : t('friendCompare.cheer')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -125,10 +130,10 @@ export default function FriendCompareScreen({ route, navigation }) {
             disabled={nudged}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Nudge"
+            accessibilityLabel={t('friendCompare.nudge')}
           >
             <Ionicons name={nudged ? 'checkmark' : 'notifications-outline'} size={17} color={colors.textMid} />
-            <Text style={styles.actionTextOutline}>{nudged ? 'Nudged!' : 'Nudge'}</Text>
+            <Text style={styles.actionTextOutline}>{nudged ? t('friendCompare.nudged') : t('friendCompare.nudge')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -136,7 +141,7 @@ export default function FriendCompareScreen({ route, navigation }) {
         <View style={styles.leaderCard}>
           <View style={styles.leaderPillWrap}>
             <View style={styles.leaderPill}>
-              <Text style={styles.leaderPillText}>CURRENT LEADER</Text>
+              <Text style={styles.leaderPillText}>{t('friendCompare.leader')}</Text>
             </View>
           </View>
 
@@ -147,10 +152,8 @@ export default function FriendCompareScreen({ route, navigation }) {
               <Ionicons name="trophy" size={22} color={colors.white} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.leaderTitle}>{iLead ? "You're winning!" : `${friend.name} is ahead!`}</Text>
-              <Text style={styles.leaderDesc}>
-                Keep up your daily routine to stay ahead of {friend.name}.
-              </Text>
+              <Text style={styles.leaderTitle}>{iLead ? t('friendCompare.youWin') : t('friendCompare.theyLead', { name: friend.name })}</Text>
+              <Text style={styles.leaderDesc}>{t('friendCompare.keepUp', { name: friend.name })}</Text>
             </View>
           </View>
 
@@ -159,10 +162,10 @@ export default function FriendCompareScreen({ route, navigation }) {
           <View style={styles.leaderFooter}>
             <View style={styles.leaderStreak}>
               <Ionicons name="flame" size={14} color={colors.primary} />
-              <Text style={styles.leaderStreakText}>5 Day Streak</Text>
+              <Text style={styles.leaderStreakText}>{t('friendCompare.streak', { count: 5 })}</Text>
             </View>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="View all stats">
-              <Text style={styles.viewAllStats}>VIEW ALL STATS ›</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('friendCompare.viewStatsA11y')}>
+              <Text style={styles.viewAllStats}>{t('friendCompare.viewStats')}</Text>
             </TouchableOpacity>
           </View>
         </View>

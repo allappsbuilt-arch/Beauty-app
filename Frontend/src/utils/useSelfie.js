@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { choosePhoto } from './photo';
 import { notify } from './feedback';
+import { translate as tr } from '../i18n';
 
 // The user's selfie for photo-based tools: pair `cameraRef` / `photo` with
 // <SelfieFrame>. `getPhoto()` reuses the current photo, else snaps the live
@@ -10,7 +11,7 @@ export function useSelfie() {
   const [photo, setPhoto] = useState(null);
 
   const pickFromGallery = useCallback(async () => {
-    const image = await choosePhoto('Choose a selfie');
+    const image = await choosePhoto(tr('camera.chooseSelfie'));
     if (image) setPhoto(image);
     return image;
   }, []);
@@ -23,7 +24,7 @@ export function useSelfie() {
         setPhoto(image);
         return image;
       } catch (err) {
-        notify('Could not take photo', err.message);
+        notify(tr('camera.takeFailed'), err.message);
         return null;
       }
     }

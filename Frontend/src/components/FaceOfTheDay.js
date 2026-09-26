@@ -2,8 +2,10 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
 export default function FaceOfTheDay({ onPress, streak = 0 }) {
+  const { t } = useI18n();
   return (
     <View style={styles.card}>
       {/* Decorative rings */}
@@ -18,9 +20,9 @@ export default function FaceOfTheDay({ onPress, streak = 0 }) {
       </View>
 
       {/* Text */}
-      <Text style={styles.title}>Face of the Day</Text>
+      <Text style={styles.title}>{t('home.faceOfDay')}</Text>
       <Text style={styles.subtitle}>
-        Tracking your daily progress is the{'\n'}best way to see results.
+        {t('home.faceOfDaySub')}
       </Text>
 
       {/* Streak badge */}
@@ -28,8 +30,8 @@ export default function FaceOfTheDay({ onPress, streak = 0 }) {
         <Ionicons name="flame" size={13} color="#FF8C42" />
         <Text style={styles.streakText}>
           {streak > 0
-            ? `${streak}-day streak — keep it up!`
-            : 'Start your streak today!'}
+            ? t('home.streakKeepUp', { count: streak })
+            : t('home.streakStart')}
         </Text>
       </View>
 
@@ -39,10 +41,10 @@ export default function FaceOfTheDay({ onPress, streak = 0 }) {
         onPress={onPress}
         activeOpacity={0.88}
         accessibilityRole="button"
-        accessibilityLabel="Show us your skin today"
+        accessibilityLabel={t('home.showSkin')}
       >
         <Ionicons name="camera-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-        <Text style={styles.btnText}>Show us your skin today</Text>
+        <Text style={styles.btnText}>{t('home.showSkin')}</Text>
       </TouchableOpacity>
     </View>
   );

@@ -3,16 +3,18 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../i18n';
 
 export default function Header({ navigation }) {
   const { user } = useAuth();
-  const firstName = user?.name?.split(' ')[0] || 'there';
+  const { t } = useI18n();
+  const firstName = user?.name?.split(' ')[0] || t('home.there');
 
   const greeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return 'Good morning,';
-    if (h < 17) return 'Good afternoon,';
-    return 'Good evening,';
+    if (h < 12) return t('home.greetingMorning');
+    if (h < 17) return t('home.greetingAfternoon');
+    return t('home.greetingEvening');
   };
 
   return (
@@ -20,7 +22,7 @@ export default function Header({ navigation }) {
       {/* Left — greeting + name */}
       <View style={styles.left}>
         <Text style={styles.greeting}>{greeting()}</Text>
-        <Text style={styles.name}>{firstName}!</Text>
+        <Text style={styles.name}>{t('home.nameExclaim', { name: firstName })}</Text>
       </View>
 
       {/* Right — bell + avatar */}
@@ -29,7 +31,7 @@ export default function Header({ navigation }) {
           style={styles.bellBtn}
           onPress={() => navigation?.navigate('Notifications')}
           accessibilityRole="button"
-          accessibilityLabel="Notifications"
+          accessibilityLabel={t('home.notifications')}
         >
           <Ionicons name="notifications-outline" size={21} color={colors.textMid} />
           <View style={styles.notifDot} />
@@ -39,7 +41,7 @@ export default function Header({ navigation }) {
           style={styles.avatarRing}
           onPress={() => navigation?.navigate('Settings')}
           accessibilityRole="button"
-          accessibilityLabel="Profile and settings"
+          accessibilityLabel={t('home.profileSettings')}
         >
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>

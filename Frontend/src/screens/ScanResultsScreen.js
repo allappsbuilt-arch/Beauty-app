@@ -14,7 +14,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import { goToTab } from '../utils/navigation';
 import SkinTrendChart from '../components/SkinTrendChart';
+import { useI18n } from '../i18n';
+import { zoneName, metricName, statusName } from '../utils/scanText';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -33,57 +36,12 @@ const STATUS_COLORS = {
   HIGH:      { bg: '#FDEAEA', text: '#D03030', border: '#F5AAAA' },
 };
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-const ZONES = [
-  {
-    key:   'skin',
-    title: 'Skin',
-    icon:  'leaf-outline',
-    score: 88,
-    // placeholder image bg colour
-    photoBg: '#B8906C',
-    photoAccent: 'rgba(200,150,100,0.30)',
-    metrics: [
-      { label: 'Hydration Level', status: 'OPTIMAL' },
-      { label: 'Pore Clarity',    status: 'FAIR'    },
-      { label: 'Elasticity',      status: 'EXCELLENT'},
-    ],
-    trend: {
-      label: '4-WEEK TREND',
-      value: '+4.2%',
-      // relative bar heights 0-1
-      bars: [0.40, 0.55, 0.80, 0.95],
-    },
-    quote: '"Your barrier function is remarkably strong this week. Focus on double-cleansing tonight to maintain that pore clarity score."',
-  },
-  {
-    key:   'eyes',
-    title: 'Eyes',
-    icon:  'eye-outline',
-    score: 72,
-    photoBg: '#7A5040',
-    photoAccent: 'rgba(140,90,60,0.25)',
-    metrics: [
-      { label: 'Dark Circles', status: 'MODERATE' },
-      { label: 'Puffiness',    status: 'LOW'      },
-    ],
-    trend: null,
-    quote: '"Visible fatigue patterns detected in the periorbital region. Ensure 7+ hours of sleep and use a caffeine-based serum."',
-  },
-];
-
-const ANCILLARY = [
-  { key: 'lips',  label: 'Lips',  score: 94, icon: 'happy-outline',   photoBg: '#C08080', metricLabel: 'Hydration', metricVal: 'Optimal'  },
-  { key: 'hair',  label: 'Hair',  score: 81, icon: 'cut-outline',     photoBg: '#806040', metricLabel: 'Density',   metricVal: 'Good'     },
-  { key: 'brows', label: 'Brows', score: 82, icon: 'brush-outline',   photoBg: '#7A6050', metricLabel: 'Fullness',  metricVal: 'Moderate' },
-];
-
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const cfg = STATUS_COLORS[status] ?? STATUS_COLORS.FAIR;
   return (
     <View style={[badge.wrap, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
-      <Text style={[badge.text, { color: cfg.text }]}>{status}</Text>
+      <Text style={[badge.text, { color: cfg.text }]}>{String(statusName(status)).toUpperCase()}</Text>
     </View>
   );
 }
@@ -181,10 +139,11 @@ const quoteStyles = StyleSheet.create({
 // ─── Zone photo placeholder ───────────────────────────────────────────────────
 // Shows the captured face when there is one; otherwise the placeholder.
 function ZonePhoto({ bg, accent, uri }) {
+  const { t } = useI18n();
   return (
     <View style={[zonePhoto.wrap, { backgroundColor: bg }]}>
       {uri ? (
-        <Image source={{ uri }} style={zonePhoto.image} resizeMode="cover" accessibilityLabel="Your scanned face" />
+        <Image source={{ uri }} style={zonePhoto.image} resizeMode="cover" accessibilityLabel={t('scanResults.facePhoto')} />
       ) : (
         <>
           <View style={[zonePhoto.glow, { backgroundColor: accent }]} />
@@ -277,7 +236,7 @@ function ZoneCard({ zone, photo }) {
           <View style={styles.zoneIconWrap}>
             <Ionicons name={zone.icon} size={18} color={colors.primary} />
           </View>
-          <Text style={styles.zoneTitle}>{zone.title}</Text>
+          <Text style={styles.zoneTitle}>{zoneName(zone)}</Text>
         </View>
         <ScorePill score={zone.score} />
       </View>
@@ -287,7 +246,7 @@ function ZoneCard({ zone, photo }) {
         {zone.metrics.map((m, i) => (
           <MetricRow
             key={m.label}
-            label={m.label}
+            label={metricName(m.label)}
             status={m.status}
             isLast={i === zone.metrics.length - 1}
           />
@@ -321,7 +280,7 @@ function AncillaryCard({ zone, onPress }) {
       style={[styles.ancCard, { width: MINI_W }]}
       activeOpacity={0.82}
       accessibilityRole="button"
-      accessibilityLabel={zone.label}
+      accessibilityLabel={zoneName(zone)}
       onPress={onPress}
     >
       {/* Mini photo */}
@@ -336,12 +295,12 @@ function AncillaryCard({ zone, onPress }) {
           <View style={styles.ancIconWrap}>
             <Ionicons name={zone.icon} size={12} color={colors.primary} />
           </View>
-          <Text style={styles.ancTitle}>{zone.label}</Text>
+          <Text style={styles.ancTitle}>{zoneName(zone)}</Text>
           <Text style={styles.ancScore}>{zone.score}</Text>
         </View>
         <View style={styles.ancFooter}>
-          <Text style={styles.ancMetricLabel}>{zone.metricLabel}</Text>
-          <Text style={styles.ancMetricVal}>{zone.metricVal}</Text>
+          <Text style={styles.ancMetricLabel}>{metricName(zone.metricLabel)}</Text>
+          <Text style={styles.ancMetricVal}>{statusName(zone.metricVal)}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -356,6 +315,7 @@ export default function ScanResultsScreen({ navigation, route }) {
   const pointsAwarded = route?.params?.pointsAwarded;
   // The captured face (data URL) — only present straight after a scan.
   const photo = route?.params?.photo;
+  const { t } = useI18n();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -363,7 +323,7 @@ export default function ScanResultsScreen({ navigation, route }) {
 
       {/* ── Nav bar ── */}
       <ScreenHeader
-        title="Full Scan Analysis"
+        title={t('scanResults.title')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
@@ -378,13 +338,13 @@ export default function ScanResultsScreen({ navigation, route }) {
         {pointsAwarded !== undefined && (
           <TouchableOpacity
             style={[styles.pointsBanner, !pointsAwarded && styles.pointsBannerMuted]}
-            onPress={() => navigation?.navigate('Tabs', { screen: 'Rewards' })}
+            onPress={() => goToTab(navigation, 'Rewards')}
             accessibilityRole="button"
-            accessibilityLabel={pointsAwarded ? `${pointsAwarded} points earned. View points` : 'View points'}
+            accessibilityLabel={pointsAwarded ? t('scanResults.pointsA11y', { count: pointsAwarded }) : t('scanResults.viewPoints')}
           >
             <Ionicons name={pointsAwarded ? 'trophy' : 'checkmark-circle-outline'} size={18} color={pointsAwarded ? '#1EA868' : colors.textLight} />
             <Text style={[styles.pointsBannerText, !pointsAwarded && { color: colors.textMid }]}>
-              {pointsAwarded ? `+${pointsAwarded} points earned for today’s scan!` : 'Scan saved. Today’s scan points were already earned.'}
+              {pointsAwarded ? t('scanResults.pointsEarned', { count: pointsAwarded }) : t('scanResults.pointsAlready')}
             </Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
           </TouchableOpacity>
@@ -392,9 +352,9 @@ export default function ScanResultsScreen({ navigation, route }) {
 
         {zones.length === 0 && (
           <View style={styles.noScan}>
-            <Text style={styles.noScanText}>No scan to show.</Text>
-            <TouchableOpacity style={styles.noScanBtn} onPress={() => navigation?.replace('ScanFace')} accessibilityRole="button" accessibilityLabel="Take a face scan">
-              <Text style={styles.noScanBtnText}>Take a Face Scan</Text>
+            <Text style={styles.noScanText}>{t('scanResults.noScan')}</Text>
+            <TouchableOpacity style={styles.noScanBtn} onPress={() => navigation?.replace('ScanFace')} accessibilityRole="button" accessibilityLabel={t('scanResults.takeScanA11y')}>
+              <Text style={styles.noScanBtnText}>{t('scanResults.takeScan')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -407,7 +367,7 @@ export default function ScanResultsScreen({ navigation, route }) {
         {/* Ancillary Zones section */}
         {ancillary.length > 0 && (
         <View style={styles.ancSection}>
-          <Text style={styles.ancHeader}>Ancillary Zones</Text>
+          <Text style={styles.ancHeader}>{t('scanResults.ancillary')}</Text>
           <View style={styles.ancRow}>
             {ancillary.map(z => (
               <AncillaryCard

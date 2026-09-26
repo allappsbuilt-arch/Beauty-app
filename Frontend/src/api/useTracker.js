@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useApiData } from './useApiData';
 import { notify } from '../utils/feedback';
+import { translate as tr } from '../i18n';
 
 // Tracker score/history (from the user's scans) plus today's checklist.
 // `toggle(itemKey)` flips an item optimistically and rolls back on failure.
@@ -19,7 +20,7 @@ export function useTracker(area) {
       reload(); // refresh the week strip
     } catch (err) {
       setData(previous);
-      notify('Could not save', err.message);
+      notify(tr('common.saveFailed'), err.message);
     }
   }, [area, data, setData, request, reload]);
 
@@ -32,9 +33,9 @@ export function useTracker(area) {
 export function timeAgo(iso) {
   if (!iso) return null;
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return tr('time.justNow');
+  if (mins < 60) return tr('time.mAgo', { count: mins });
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
+  if (hours < 24) return tr('time.hAgo', { count: hours });
+  return tr('time.dAgo', { count: Math.round(hours / 24) });
 }

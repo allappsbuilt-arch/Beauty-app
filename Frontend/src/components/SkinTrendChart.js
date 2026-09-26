@@ -1,6 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
+import { trendLabel, trendMessage } from '../utils/scanText';
 
 const BAR_H   = 52;
 const BAR_W   = 36;
@@ -9,6 +11,7 @@ const BAR_GAP = 10;
 // Skin "3-SCAN TREND": one bar per real scan (oldest → latest), latest
 // highlighted. `trend` is built by the backend from the user's scan history.
 function Bars({ bars, scores }) {
+  const { t } = useI18n();
   const anim = useRef(bars.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
@@ -35,7 +38,7 @@ function Bars({ bars, scores }) {
             <View
               style={[chart.barTrack, { width: BAR_W, height: BAR_H }]}
               accessible
-              accessibilityLabel={`${isLast ? 'Latest scan' : 'Earlier scan'}${score != null ? `, skin score ${score}` : ''}`}
+              accessibilityLabel={`${isLast ? t('trend.latest') : t('trend.earlier')}${score != null ? t('trend.scoreA11y', { score }) : ''}`}
             >
               <Animated.View
                 style={[
@@ -68,14 +71,14 @@ export default function SkinTrendChart({ trend }) {
   return (
     <View style={chart.wrap}>
       <View style={chart.header}>
-        <Text style={chart.trendLabel}>{trend.label}</Text>
+        <Text style={chart.trendLabel}>{trendLabel(trend.label)}</Text>
         {trend.value ? <Text style={chart.trendVal}>{trend.value}</Text> : null}
       </View>
 
       {/* Remount when the scan window changes so every bar gets its own animation. */}
       <Bars key={(trend.scores || bars).join(',')} bars={bars} scores={trend.scores} />
 
-      {trend.message ? <Text style={chart.message}>{trend.message}</Text> : null}
+      {trend.message ? <Text style={chart.message}>{trendMessage(trend.message)}</Text> : null}
     </View>
   );
 }

@@ -9,26 +9,30 @@ import ScreenHeader from '../components/ScreenHeader';
 import ErrorBanner from '../components/ErrorBanner';
 import { usePreferences } from '../api/usePreferences';
 import { StepDots, PillButton, FormError, OB_RED, TOTAL_STEPS, useOnboardingNav } from '../components/onboarding/OnboardingKit';
+import { useI18n } from '../i18n';
 
 const PRODUCTS = require('../../assets/onboarding/allergy-products.jpg');
 
 // Keys are how the ingredient catalog names them (see Backend productCatalog),
 // so the Ingredient Scanner and Product Shelf flag matching products.
 export const COMMON_SENSITIVITIES = [
-  { key: 'fragrance', label: 'Fragrance' },
-  { key: 'linalool', label: 'Linalool' },
-  { key: 'parabens', label: 'Parabens' },
-  { key: 'sulfates', label: 'Sulfates' },
-  { key: 'nickel', label: 'Nickel' },
-  { key: 'latex', label: 'Latex' },
-  { key: 'formaldehyde', label: 'Formaldehyde' },
-  { key: 'essentialoils', label: 'Essential Oils' },
+  { key: 'fragrance', labelKey: 'sensitivities.fragrance' },
+  { key: 'linalool', labelKey: 'sensitivities.linalool' },
+  { key: 'parabens', labelKey: 'sensitivities.parabens' },
+  { key: 'sulfates', labelKey: 'sensitivities.sulfates' },
+  { key: 'nickel', labelKey: 'sensitivities.nickel' },
+  { key: 'latex', labelKey: 'sensitivities.latex' },
+  { key: 'formaldehyde', labelKey: 'sensitivities.formaldehyde' },
+  { key: 'essentialoils', labelKey: 'sensitivities.essentialoils' },
 ];
 const MAX_ALLERGIES = 30;
 
 export const toIngredientKey = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
-const labelFor = (key, custom) => COMMON_SENSITIVITIES.find((s) => s.key === key)?.label
-  || custom[key] || key.charAt(0).toUpperCase() + key.slice(1);
+// Display name for a saved ingredient key; typed-in ingredients show as entered.
+export const sensitivityLabel = (key, t, custom = {}) => {
+  const known = COMMON_SENSITIVITIES.find((s) => s.key === key);
+  return known ? t(known.labelKey) : custom[key] || key.charAt(0).toUpperCase() + key.slice(1);
+};
 
 function Chip({ label, selected, onPress }) {
   return (
@@ -55,6 +59,7 @@ function Chip({ label, selected, onPress }) {
 export default function OnboardingAllergiesScreen({ navigation }) {
   const { back, skip, skipping } = useOnboardingNav(navigation);
   const { prefs, error, reload, save, saving } = usePreferences();
+  const { t } = useI18n();
   const [selected, setSelected] = useState(null); // null until prefs load
   const [custom, setCustom] = useState({}); // key → label typed this session
   const [query, setQuery] = useState('');
@@ -78,9 +83,9 @@ export default function OnboardingAllergiesScreen({ navigation }) {
   const addCustom = () => {
     const name = query.trim();
     const key = toIngredientKey(name);
-    if (key.length < 2) { setFormError('Type an ingredient name (at least 2 letters) to add it.'); return; }
+    if (key.length < 2) { setFormError(t('onboarding.allergies.errTooShort')); return; }
     if (picked.includes(key)) { setQuery(''); return; }
-    if (picked.length >= MAX_ALLERGIES) { setFormError(`You can flag up to ${MAX_ALLERGIES} ingredients.`); return; }
+    if (picked.length >= MAX_ALLERGIES) { setFormError(t('onboarding.allergies.errMax', { max: MAX_ALLERGIES })); return; }
     setCustom((c) => ({ ...c, [key]: name.slice(0, 40) }));
     setSelected([...picked, key]);
     setQuery('');
@@ -95,11 +100,11 @@ export default function OnboardingAllergiesScreen({ navigation }) {
   const handleContinue = async () => {
     if (query.trim()) { addCustom(); return; }
     if (picked.length === 0) {
-      setFormError('Select at least one ingredient, or tap “I don\'t have any allergies”.');
+      setFormError(t('onboarding.allergies.errSelect'));
       return;
     }
     setFormError(null);
-    try { await persist(picked); } catch (err) { setFormError(err.message || 'Could not save. Please try again.'); }
+    try { await persist(picked); } catch (err) { setFormError(err.message || t('onboarding.allergies.saveFailed')); }
   };
 
   const handleNone = async () => {
@@ -109,7 +114,7 @@ export default function OnboardingAllergiesScreen({ navigation }) {
       setSelected([]);
       await persist([]);
     } catch (err) {
-      setFormError(err.message || 'Could not save. Please try again.');
+      setFormError(err.message || t('onboarding.allergies.saveFailed'));
     } finally {
       setSavingNone(false);
     }
@@ -126,10 +131,10 @@ export default function OnboardingAllergiesScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.inner}>
             <StepDots step={4} style={styles.dots} />
-            <Text style={styles.stepText}>STEP 4 OF {TOTAL_STEPS}</Text>
+            <Text style={styles.stepText}>{t('onboarding.stepUpper', { step: 4, total: TOTAL_STEPS })}</Text>
 
-            <Text style={styles.heading} accessibilityRole="header">Any Allergies or Sensitivities?</Text>
-            <Text style={styles.sub}>We'll flag ingredients that might cause irritation or reactions based on your profile.</Text>
+            <Text style={styles.heading} accessibilityRole="header">{t('onboarding.allergies.heading')}</Text>
+            <Text style={styles.sub}>{t('onboarding.allergies.sub')}</Text>
 
             <ErrorBanner message={error} onRetry={reload} />
 
@@ -137,7 +142,7 @@ export default function OnboardingAllergiesScreen({ navigation }) {
               <Ionicons name="search-outline" size={24} color="#5A4A4E" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search other ingredients..."
+                placeholder={t('onboarding.allergies.searchPlaceholder')}
                 placeholderTextColor="#8A7A80"
                 value={query}
                 onChangeText={(v) => { setQuery(v); setFormError(null); }}
@@ -145,20 +150,20 @@ export default function OnboardingAllergiesScreen({ navigation }) {
                 returnKeyType="done"
                 autoCorrect={false}
                 maxLength={40}
-                accessibilityLabel="Add another ingredient"
+                accessibilityLabel={t('onboarding.allergies.searchA11y')}
               />
               {query.trim() ? (
-                <TouchableOpacity onPress={addCustom} style={styles.addBtn} accessibilityRole="button" accessibilityLabel={`Add ${query.trim()}`}>
-                  <Text style={styles.addBtnText}>Add</Text>
+                <TouchableOpacity onPress={addCustom} style={styles.addBtn} accessibilityRole="button" accessibilityLabel={t('onboarding.allergies.addNamed', { name: query.trim() })}>
+                  <Text style={styles.addBtnText}>{t('onboarding.allergies.add')}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
 
-            <Text style={styles.section}>COMMON SENSITIVITIES</Text>
+            <Text style={styles.section}>{t('onboarding.allergies.section')}</Text>
             <View style={styles.grid}>
               {chips.map((key) => (
                 <View key={key} style={styles.cell}>
-                  <Chip label={labelFor(key, custom)} selected={picked.includes(key)} onPress={() => toggle(key)} />
+                  <Chip label={sensitivityLabel(key, t, custom)} selected={picked.includes(key)} onPress={() => toggle(key)} />
                 </View>
               ))}
             </View>
@@ -166,7 +171,7 @@ export default function OnboardingAllergiesScreen({ navigation }) {
             <View style={styles.quote}>
               <Image source={PRODUCTS} style={styles.quoteImg} />
               <Text style={styles.quoteText}>
-                "We'll check every product you scan or add to your shelf against these ingredients."
+                {t('onboarding.allergies.quote')}
               </Text>
             </View>
           </View>
@@ -174,9 +179,9 @@ export default function OnboardingAllergiesScreen({ navigation }) {
 
         <View style={styles.footer}>
           <FormError message={formError} />
-          <PillButton label="Continue" icon="arrow-forward" onPress={handleContinue} loading={saving && !savingNone} disabled={busy || (!prefs && !error)} />
-          <TouchableOpacity onPress={handleNone} disabled={busy} style={styles.noneBtn} accessibilityRole="button" accessibilityLabel="I don't have any allergies">
-            <Text style={styles.noneText}>{savingNone ? 'Saving…' : "I don't have any allergies"}</Text>
+          <PillButton label={t('common.continue')} icon="arrow-forward" onPress={handleContinue} loading={saving && !savingNone} disabled={busy || (!prefs && !error)} />
+          <TouchableOpacity onPress={handleNone} disabled={busy} style={styles.noneBtn} accessibilityRole="button" accessibilityLabel={t('onboarding.allergies.none')}>
+            <Text style={styles.noneText}>{savingNone ? t('common.saving') : t('onboarding.allergies.none')}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

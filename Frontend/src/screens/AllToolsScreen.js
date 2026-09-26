@@ -13,135 +13,138 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { goToTab } from '../utils/navigation';
+import { useI18n } from '../i18n';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 // Each chip filters the list to one SECTIONS key.
 const QUICK_ACCESS = [
-  { key: 'analysis', icon: 'scan-outline', label: 'Analysis', section: 'face' },
-  { key: 'makeup', icon: 'color-palette-outline', label: 'Makeup', section: 'makeup' },
-  { key: 'serums', icon: 'flask-outline', label: 'Serums', section: 'products' },
-  { key: 'progress', icon: 'stats-chart-outline', label: 'Progress', section: 'progress' },
-  { key: 'coach', icon: 'sparkles-outline', label: 'Coach', section: 'coach' },
+  { key: 'analysis', icon: 'scan-outline', labelKey: 'toolChips.analysis', section: 'face' },
+  { key: 'makeup', icon: 'color-palette-outline', labelKey: 'toolChips.makeup', section: 'makeup' },
+  { key: 'serums', icon: 'flask-outline', labelKey: 'toolChips.serums', section: 'products' },
+  { key: 'progress', icon: 'stats-chart-outline', labelKey: 'toolChips.progress', section: 'progress' },
+  { key: 'coach', icon: 'sparkles-outline', labelKey: 'toolChips.coach', section: 'coach' },
 ];
 
 // `route` is a root-stack screen; `tab` is a bottom tab (reached through the
-// Tabs navigator). `keywords` widen search beyond the label/description.
+// Tabs navigator). `keywords` widen search beyond the label/description; they
+// stay in English so English search terms keep working in every language.
 const SECTIONS = [
   {
     key: 'face',
-    title: 'FACE ANALYSIS',
+    titleKey: 'toolSections.face',
     tools: [
-      { key: 'deep-scan', icon: 'scan-outline', label: 'Deep Scan AI', desc: 'Complete map of skin texture and tone', route: 'ScanFace', keywords: 'camera selfie skin analysis' },
-      { key: 'full-analysis', icon: 'analytics-outline', label: 'Full Scan Analysis', desc: 'Every zone from your latest scan in detail', route: 'FullScanAnalysis', keywords: 'results report zones' },
-      { key: 'symmetry', icon: 'body-outline', label: 'Symmetry Check', desc: 'Analyze facial proportions and balance', route: 'SymmetryCheck', keywords: 'balance proportions face shape' },
-      { key: 'scan-history', icon: 'time-outline', label: 'Scan History', desc: 'Review your past face scans', route: 'ScanHistory', keywords: 'past previous scans' },
+      { key: 'deep-scan', icon: 'scan-outline', labelKey: 'tools.deepScan.label', descKey: 'tools.deepScan.desc', route: 'ScanFace', keywords: 'camera selfie skin analysis' },
+      { key: 'full-analysis', icon: 'analytics-outline', labelKey: 'tools.fullAnalysis.label', descKey: 'tools.fullAnalysis.desc', route: 'FullScanAnalysis', keywords: 'results report zones' },
+      { key: 'symmetry', icon: 'body-outline', labelKey: 'tools.symmetry.label', descKey: 'tools.symmetry.desc', route: 'SymmetryCheck', keywords: 'balance proportions face shape' },
+      { key: 'scan-history', icon: 'time-outline', labelKey: 'tools.scanHistory.label', descKey: 'tools.scanHistory.desc', route: 'ScanHistory', keywords: 'past previous scans' },
     ],
   },
   {
     key: 'routines',
-    title: 'ROUTINES & CARE',
+    titleKey: 'toolSections.routines',
     tools: [
-      { key: 'routine-builder', icon: 'calendar-outline', label: 'Daily Routine Builder', desc: 'Customized AM/PM skincare flows', tab: 'Routine', keywords: 'morning evening steps skincare' },
-      { key: 'eyebrow-tracker', icon: 'brush-outline', label: 'Eyebrow Tracker', desc: 'Track fullness and growth over time', route: 'EyebrowTracker', keywords: 'brows' },
-      { key: 'eyelash-tracker', icon: 'eye-outline', label: 'Eyelash Tracker', desc: 'Track length, density and aftercare', route: 'EyelashTracker', keywords: 'lashes' },
-      { key: 'undereye-tracker', icon: 'moon-outline', label: 'Undereye Tracker', desc: 'Monitor dark circles and depuffing habits', route: 'UndereyeTracker', keywords: 'dark circles puffiness eyes' },
-      { key: 'lip-vitality', icon: 'happy-outline', label: 'Lip Vitality', desc: 'Hydration, surface health and routine', route: 'LipVitality', keywords: 'lips' },
-      { key: 'scalp-tracker', icon: 'analytics-outline', label: 'Scalp & Hair Tracker', desc: 'Scalp health, wash cycle and hairline log', route: 'ScalpTracker', keywords: 'hair scalp' },
+      { key: 'routine-builder', icon: 'calendar-outline', labelKey: 'tools.routineBuilder.label', descKey: 'tools.routineBuilder.desc', tab: 'Routine', keywords: 'morning evening steps skincare' },
+      { key: 'eyebrow-tracker', icon: 'brush-outline', labelKey: 'tools.eyebrowTracker.label', descKey: 'tools.eyebrowTracker.desc', route: 'EyebrowTracker', keywords: 'brows' },
+      { key: 'eyelash-tracker', icon: 'eye-outline', labelKey: 'tools.eyelashTracker.label', descKey: 'tools.eyelashTracker.desc', route: 'EyelashTracker', keywords: 'lashes' },
+      { key: 'undereye-tracker', icon: 'moon-outline', labelKey: 'tools.undereyeTracker.label', descKey: 'tools.undereyeTracker.desc', route: 'UndereyeTracker', keywords: 'dark circles puffiness eyes' },
+      { key: 'lip-vitality', icon: 'happy-outline', labelKey: 'tools.lipVitality.label', descKey: 'tools.lipVitality.desc', route: 'LipVitality', keywords: 'lips' },
+      { key: 'scalp-tracker', icon: 'analytics-outline', labelKey: 'tools.scalpTracker.label', descKey: 'tools.scalpTracker.desc', route: 'ScalpTracker', keywords: 'hair scalp' },
     ],
   },
   {
     key: 'visualizers',
-    title: 'AI VISUALIZERS',
+    titleKey: 'toolSections.visualizers',
     tools: [
-      { key: 'aging', icon: 'hourglass-outline', label: 'Aging Simulator', desc: 'Predict skin health over 10–20 years', route: 'AgingSimulator', keywords: 'age future wrinkles' },
-      { key: 'hairstylist', icon: 'color-wand-outline', label: 'AI Hairstylist', desc: 'Generate and preview new hairstyles', route: 'AIHairstylist', keywords: 'hair cut style' },
-      { key: 'lash-styler', icon: 'eye-outline', label: 'Lash Styler', desc: 'Preview lash styles with the AI visualizer', route: 'LashStyler', keywords: 'lashes extensions' },
+      { key: 'aging', icon: 'hourglass-outline', labelKey: 'tools.aging.label', descKey: 'tools.aging.desc', route: 'AgingSimulator', keywords: 'age future wrinkles' },
+      { key: 'hairstylist', icon: 'color-wand-outline', labelKey: 'tools.hairstylist.label', descKey: 'tools.hairstylist.desc', route: 'AIHairstylist', keywords: 'hair cut style' },
+      { key: 'lash-styler', icon: 'eye-outline', labelKey: 'tools.lashStyler.label', descKey: 'tools.lashStyler.desc', route: 'LashStyler', keywords: 'lashes extensions' },
     ],
   },
   {
     key: 'makeup',
-    title: 'MAKEUP & GROOMING',
+    titleKey: 'toolSections.makeup',
     tools: [
-      { key: 'tryon', icon: 'glasses-outline', label: 'Virtual Try-On', desc: 'AR makeup and grooming placement', route: 'VirtualTryOn', keywords: 'makeup look selfie apply' },
-      { key: 'occasion-looks', icon: 'sparkles-outline', label: 'Looks for an Occasion', desc: 'AI makeup looks for any event', route: 'OccasionPicker', keywords: 'makeup wedding party event' },
-      { key: 'saved-looks', icon: 'images-outline', label: 'My Makeup Looks', desc: 'Your latest AI-generated looks', route: 'MakeupResults', keywords: 'makeup results saved' },
-      { key: 'brow-styling', icon: 'brush-outline', label: 'Brow Styling', desc: 'Find the brow shape that suits your face', route: 'BrowAnalysis', keywords: 'eyebrows grooming shape' },
+      { key: 'tryon', icon: 'glasses-outline', labelKey: 'tools.tryon.label', descKey: 'tools.tryon.desc', route: 'VirtualTryOn', keywords: 'makeup look selfie apply' },
+      { key: 'occasion-looks', icon: 'sparkles-outline', labelKey: 'tools.occasionLooks.label', descKey: 'tools.occasionLooks.desc', route: 'OccasionPicker', keywords: 'makeup wedding party event' },
+      { key: 'saved-looks', icon: 'images-outline', labelKey: 'tools.savedLooks.label', descKey: 'tools.savedLooks.desc', route: 'MakeupResults', keywords: 'makeup results saved' },
+      { key: 'brow-styling', icon: 'brush-outline', labelKey: 'tools.browStyling.label', descKey: 'tools.browStyling.desc', route: 'BrowAnalysis', keywords: 'eyebrows grooming shape' },
     ],
   },
   {
     key: 'products',
-    title: 'PRODUCTS & INGREDIENTS',
+    titleKey: 'toolSections.products',
     tools: [
-      { key: 'ingredients', icon: 'barcode-outline', label: 'Ingredient Analyzer', desc: 'Scan labels for irritants and actives', route: 'IngredientScanner', keywords: 'serum label scan' },
-      { key: 'product-shelf', icon: 'file-tray-stacked-outline', label: 'Product Shelf', desc: 'Track your routine and monitor results', route: 'ProductShelf', keywords: 'serums products' },
-      { key: 'ingredient-guide', icon: 'book-outline', label: 'Ingredient Guide', desc: 'Learn what’s in your products, weekly', route: 'IngredientGuide', keywords: 'serums actives retinol niacinamide vitamin' },
-      { key: 'dupe-finder', icon: 'swap-horizontal-outline', label: 'Dupe Finder', desc: 'Find affordable alternatives to products', route: 'DupeFinder', keywords: 'cheaper alternative serum budget' },
-      { key: 'product-reviews', icon: 'chatbox-ellipses-outline', label: 'Product Reviews', desc: 'Read and write reviews from the community', route: 'ProductReviews', keywords: 'ratings serum' },
+      { key: 'ingredients', icon: 'barcode-outline', labelKey: 'tools.ingredients.label', descKey: 'tools.ingredients.desc', route: 'IngredientScanner', keywords: 'serum label scan' },
+      { key: 'product-shelf', icon: 'file-tray-stacked-outline', labelKey: 'tools.productShelf.label', descKey: 'tools.productShelf.desc', route: 'ProductShelf', keywords: 'serums products' },
+      { key: 'ingredient-guide', icon: 'book-outline', labelKey: 'tools.ingredientGuide.label', descKey: 'tools.ingredientGuide.desc', route: 'IngredientGuide', keywords: 'serums actives retinol niacinamide vitamin' },
+      { key: 'dupe-finder', icon: 'swap-horizontal-outline', labelKey: 'tools.dupeFinder.label', descKey: 'tools.dupeFinder.desc', route: 'DupeFinder', keywords: 'cheaper alternative serum budget' },
+      { key: 'product-reviews', icon: 'chatbox-ellipses-outline', labelKey: 'tools.productReviews.label', descKey: 'tools.productReviews.desc', route: 'ProductReviews', keywords: 'ratings serum' },
     ],
   },
   {
     key: 'progress',
-    title: 'PROGRESS & RECAPS',
+    titleKey: 'toolSections.progress',
     tools: [
-      { key: 'timelapse', icon: 'trending-up-outline', label: 'Transformation Timelapse', desc: 'Compare your skin over weeks or months', route: 'TransformationTimelapse', keywords: 'before after compare' },
-      { key: 'weekly-report', icon: 'bar-chart-outline', label: 'Weekly Report', desc: 'Your routine consistency and zone trends', route: 'WeeklyReport', keywords: 'audit stats recap' },
-      { key: 'rewards', icon: 'trophy-outline', label: 'Points & Rewards', desc: 'Track your balance and earn more', tab: 'Rewards', keywords: 'earn points' },
-      { key: 'leaderboard', icon: 'podium-outline', label: 'Leaderboard', desc: 'See how you rank against others', route: 'Leaderboard', keywords: 'rank' },
-      { key: 'communities', icon: 'people-outline', label: 'Communities', desc: 'Join groups and share your journey', route: 'Communities', keywords: 'groups social' },
-      { key: 'challenges', icon: 'flag-outline', label: 'Challenges', desc: 'Join challenges and compare with friends', route: 'Challenges', keywords: 'friends' },
+      { key: 'timelapse', icon: 'trending-up-outline', labelKey: 'tools.timelapse.label', descKey: 'tools.timelapse.desc', route: 'TransformationTimelapse', keywords: 'before after compare' },
+      { key: 'weekly-report', icon: 'bar-chart-outline', labelKey: 'tools.weeklyReport.label', descKey: 'tools.weeklyReport.desc', route: 'WeeklyReport', keywords: 'audit stats recap' },
+      { key: 'rewards', icon: 'trophy-outline', labelKey: 'tools.rewards.label', descKey: 'tools.rewards.desc', tab: 'Rewards', keywords: 'earn points' },
+      { key: 'leaderboard', icon: 'podium-outline', labelKey: 'tools.leaderboard.label', descKey: 'tools.leaderboard.desc', route: 'Leaderboard', keywords: 'rank' },
+      { key: 'communities', icon: 'people-outline', labelKey: 'tools.communities.label', descKey: 'tools.communities.desc', route: 'Communities', keywords: 'groups social' },
+      { key: 'challenges', icon: 'flag-outline', labelKey: 'tools.challenges.label', descKey: 'tools.challenges.desc', route: 'Challenges', keywords: 'friends' },
     ],
   },
   {
     key: 'coach',
-    title: 'AI COACH',
+    titleKey: 'toolSections.coach',
     tools: [
-      { key: 'coach-chat', icon: 'chatbubbles-outline', label: 'Chat with AI Coach', desc: 'Ask anything about your skin and routine', route: 'Coach', keywords: 'ask question help advice' },
-      { key: 'coach-style', icon: 'options-outline', label: 'Coach Style', desc: 'Choose how your coach talks to you', route: 'CoachStyle', keywords: 'personality reminders' },
+      { key: 'coach-chat', icon: 'chatbubbles-outline', labelKey: 'tools.coachChat.label', descKey: 'tools.coachChat.desc', route: 'Coach', keywords: 'ask question help advice' },
+      { key: 'coach-style', icon: 'options-outline', labelKey: 'tools.coachStyle.label', descKey: 'tools.coachStyle.desc', route: 'CoachStyle', keywords: 'personality reminders' },
     ],
   },
   {
     key: 'settings',
-    title: 'SETTINGS & PERSONALIZATION',
+    titleKey: 'toolSections.settings',
     tools: [
-      { key: 'app-settings', icon: 'settings-outline', label: 'Settings', desc: 'Profile, reminders, and account options', route: 'Settings', keywords: 'account profile' },
-      { key: 'notifications', icon: 'notifications-outline', label: 'Notifications', desc: 'Choose which alerts you receive', route: 'Notifications', keywords: 'alerts reminders' },
-      { key: 'privacy', icon: 'shield-checkmark-outline', label: 'Data Privacy', desc: 'Manage your scan and routine data', route: 'Privacy', keywords: 'export delete data' },
-      { key: 'teen-controls', icon: 'lock-closed-outline', label: 'Teen Controls', desc: 'Safety settings for younger users', route: 'TeenageControls', keywords: 'parental teenage' },
+      { key: 'app-settings', icon: 'settings-outline', labelKey: 'tools.appSettings.label', descKey: 'tools.appSettings.desc', route: 'Settings', keywords: 'account profile' },
+      { key: 'notifications', icon: 'notifications-outline', labelKey: 'tools.notifications.label', descKey: 'tools.notifications.desc', route: 'Notifications', keywords: 'alerts reminders' },
+      { key: 'privacy', icon: 'shield-checkmark-outline', labelKey: 'tools.privacy.label', descKey: 'tools.privacy.desc', route: 'Privacy', keywords: 'export delete data' },
+      { key: 'teen-controls', icon: 'lock-closed-outline', labelKey: 'tools.teenControls.label', descKey: 'tools.teenControls.desc', route: 'TeenageControls', keywords: 'parental teenage' },
     ],
   },
 ];
 
 // Case-insensitive partial match on every word of the query against the
-// tool's label, description, keywords and section title.
-function matchesQuery(tool, section, query) {
+// tool's (translated) label, description and section title, plus keywords.
+function matchesQuery(tool, section, query, t) {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return true;
-  const haystack = `${tool.label} ${tool.desc} ${tool.keywords || ''} ${section.title}`.toLowerCase();
+  const haystack = `${t(tool.labelKey)} ${t(tool.descKey)} ${tool.keywords || ''} ${t(section.titleKey)}`.toLowerCase();
   return words.every((w) => haystack.includes(w));
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function PageHeader({ onBack, onClose }) {
+  const { t } = useI18n();
   return (
     <View style={styles.pageHeader}>
       <TouchableOpacity
         style={styles.headerBtn}
         onPress={onBack}
         accessibilityRole="button"
-        accessibilityLabel="Go back"
+        accessibilityLabel={t('common.goBack')}
       >
         <Ionicons name="chevron-back" size={22} color={colors.textDark} />
       </TouchableOpacity>
 
-      <Text style={styles.pageTitle}>MyFace AI</Text>
+      <Text style={styles.pageTitle}>{t('common.appName')}</Text>
 
       <TouchableOpacity
         style={styles.headerBtn}
         onPress={onClose}
         accessibilityRole="button"
-        accessibilityLabel="Close"
+        accessibilityLabel={t('common.close')}
       >
         <Ionicons name="close" size={22} color={colors.textDark} />
       </TouchableOpacity>
@@ -150,6 +153,7 @@ function PageHeader({ onBack, onClose }) {
 }
 
 function SearchBar({ value, onChangeText, placeholder }) {
+  const { t } = useI18n();
   return (
     <View style={styles.searchWrap}>
       <Ionicons name="search-outline" size={17} color={colors.textPlaceholder} style={styles.searchIcon} />
@@ -162,11 +166,11 @@ function SearchBar({ value, onChangeText, placeholder }) {
         returnKeyType="search"
         autoCorrect={false}
         autoCapitalize="none"
-        accessibilityLabel="Search tools"
+        accessibilityLabel={t('allTools.searchA11y')}
       />
       {value.length > 0 && (
         <TouchableOpacity onPress={() => onChangeText('')} style={styles.searchClear}
-          accessibilityRole="button" accessibilityLabel="Clear search text">
+          accessibilityRole="button" accessibilityLabel={t('allTools.clearSearchText')}>
           <Ionicons name="close-circle" size={18} color={colors.textPlaceholder} />
         </TouchableOpacity>
       )}
@@ -191,12 +195,13 @@ function QuickChip({ icon, label, active, onPress }) {
 }
 
 function SectionHeader({ title, onSeeAll }) {
+  const { t } = useI18n();
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {onSeeAll && (
-        <TouchableOpacity onPress={onSeeAll} accessibilityRole="button" accessibilityLabel={`See all ${title}`}>
-          <Text style={styles.seeAll}>See All</Text>
+        <TouchableOpacity onPress={onSeeAll} accessibilityRole="button" accessibilityLabel={t('allTools.seeAllA11y', { section: title })}>
+          <Text style={styles.seeAll}>{t('allTools.seeAll')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -237,6 +242,7 @@ function ToolRow({ icon, label, desc, isLast, onPress }) {
 }
 
 function ToolSection({ title, tools, onToolPress, onSeeAll }) {
+  const { t } = useI18n();
   return (
     <View style={styles.section}>
       <SectionHeader title={title} onSeeAll={onSeeAll} />
@@ -245,8 +251,8 @@ function ToolSection({ title, tools, onToolPress, onSeeAll }) {
           <ToolRow
             key={tool.key}
             icon={tool.icon}
-            label={tool.label}
-            desc={tool.desc}
+            label={t(tool.labelKey)}
+            desc={t(tool.descKey)}
             isLast={i === tools.length - 1}
             onPress={() => onToolPress(tool)}
           />
@@ -264,6 +270,7 @@ export default function AllToolsScreen({ navigation, route }) {
   const categoryKey = route?.params?.section ?? null;
   const category = SECTIONS.find((s) => s.key === categoryKey) ?? null;
 
+  const { t } = useI18n();
   const [search, setSearch] = useState('');
   const [activeChip, setActiveChip] = useState(null);
   const query = search.trim();
@@ -272,7 +279,7 @@ export default function AllToolsScreen({ navigation, route }) {
   // and the search query.
   const visibleSections = category ? [category] : SECTIONS.filter((s) => !activeChip || s.key === activeChip);
   const filteredSections = visibleSections
-    .map((s) => ({ ...s, tools: s.tools.filter((t) => matchesQuery(t, s, query)) }))
+    .map((s) => ({ ...s, tools: s.tools.filter((tool) => matchesQuery(tool, s, query, t)) }))
     .filter((s) => s.tools.length > 0);
 
   const openTool = (tool) => {
@@ -302,14 +309,14 @@ export default function AllToolsScreen({ navigation, route }) {
           <SearchBar
             value={search}
             onChangeText={setSearch}
-            placeholder={category ? `Search ${category.title.toLowerCase()}...` : 'Search tools...'}
+            placeholder={category ? t('allTools.searchSection', { section: t(category.titleKey).toLowerCase() }) : t('allTools.searchPlaceholder')}
           />
         </View>
 
         {/* ── Quick Access ── */}
         {!category && query === '' && (
           <View style={styles.quickSection}>
-            <Text style={styles.quickLabel}>QUICK ACCESS</Text>
+            <Text style={styles.quickLabel}>{t('allTools.quickAccess')}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -319,7 +326,7 @@ export default function AllToolsScreen({ navigation, route }) {
                 <QuickChip
                   key={c.key}
                   icon={c.icon}
-                  label={c.label}
+                  label={t(c.labelKey)}
                   active={activeChip === c.section}
                   onPress={() => setActiveChip(activeChip === c.section ? null : c.section)}
                 />
@@ -332,7 +339,7 @@ export default function AllToolsScreen({ navigation, route }) {
         {filteredSections.map((s) => (
           <ToolSection
             key={s.key}
-            title={s.title}
+            title={t(s.titleKey)}
             tools={s.tools}
             onToolPress={openTool}
             onSeeAll={category ? null : () => navigation?.navigate('ToolCategory', { section: s.key })}
@@ -343,15 +350,15 @@ export default function AllToolsScreen({ navigation, route }) {
         {filteredSections.length === 0 && (
           <View style={styles.noResults}>
             <Ionicons name="search-outline" size={30} color={colors.textPlaceholder} />
-            <Text style={styles.noResultsTitle}>No tools found</Text>
-            <Text style={styles.noResultsText}>Nothing matches “{query}”. Try a different word.</Text>
+            <Text style={styles.noResultsTitle}>{t('allTools.noResults')}</Text>
+            <Text style={styles.noResultsText}>{t('allTools.noResultsText', { query })}</Text>
             <TouchableOpacity
               style={styles.noResultsBtn}
               onPress={() => setSearch('')}
               accessibilityRole="button"
-              accessibilityLabel="Clear search"
+              accessibilityLabel={t('allTools.clearSearch')}
             >
-              <Text style={styles.noResultsBtnText}>Clear search</Text>
+              <Text style={styles.noResultsBtnText}>{t('allTools.clearSearch')}</Text>
             </TouchableOpacity>
           </View>
         )}

@@ -1,6 +1,8 @@
 // Production backend deployed on Render.
 // For local development, set EXPO_PUBLIC_API_URL in a .env.local file:
 // EXPO_PUBLIC_API_URL=http://192.168.1.x:4000
+import { translate as tr } from '../i18n';
+
 const PRODUCTION_URL = 'https://beauty-app-g16l.onrender.com';
 
 // Render's free tier sleeps when idle and can take ~50s to wake up, so allow
@@ -62,9 +64,9 @@ export async function apiRequest(path, { method = 'GET', body, token, timeoutMs 
     });
   } catch (err) {
     if (err?.name === 'AbortError') {
-      throw new ApiError('The server is taking too long to respond. Please try again.', 0, null);
+      throw new ApiError(tr('errors.timeout'), 0, null);
     }
-    throw new ApiError('Could not reach the server. Check your connection and try again.', 0, null);
+    throw new ApiError(tr('errors.offline'), 0, null);
   } finally {
     clearTimeout(timer);
   }
@@ -76,7 +78,7 @@ export async function apiRequest(path, { method = 'GET', body, token, timeoutMs 
     if (response.status === 401 && token && unauthorizedHandler) {
       unauthorizedHandler(token);
     }
-    throw new ApiError(data?.error || 'Something went wrong', response.status, data);
+    throw new ApiError(data?.error || tr('errors.generic'), response.status, data);
   }
 
   return data;

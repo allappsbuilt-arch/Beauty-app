@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useI18n, richText } from '../i18n';
 
-export default function UVAlertBanner({
-  level = 'High',
-  message = 'Apply SPF 50+ before heading out.',
-}) {
+export default function UVAlertBanner({ level, message }) {
+  const { t } = useI18n();
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
 
@@ -23,10 +22,11 @@ export default function UVAlertBanner({
       {/* Text */}
       <View style={styles.textWrap}>
         <Text style={styles.title}>
-          UV Alert:{' '}
-          <Text style={styles.levelBadge}>{level}</Text>
+          {richText(t('home.uvTitle', { level: level ?? t('home.uvHigh') }), (tag, text, i) => (
+            <Text key={i} style={styles.levelBadge}>{text}</Text>
+          ))}
         </Text>
-        <Text style={styles.message}>{message}</Text>
+        <Text style={styles.message}>{message ?? t('home.uvMessage')}</Text>
       </View>
 
       {/* Dismiss */}
@@ -34,7 +34,7 @@ export default function UVAlertBanner({
         style={styles.dismissBtn}
         onPress={() => setDismissed(true)}
         accessibilityRole="button"
-        accessibilityLabel="Dismiss UV alert"
+        accessibilityLabel={t('home.dismissUv')}
       >
         <Ionicons name="close" size={14} color="#A07020" />
       </TouchableOpacity>

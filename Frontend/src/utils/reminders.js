@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { translate as tr } from '../i18n';
 
 // Daily routine reminders as local notifications, scheduled on the device
 // from the times saved in the user's preferences (reminders.morning/evening).
@@ -9,22 +10,23 @@ export const remindersSupported = Platform.OS !== 'web';
 export const REMINDER_DEFAULTS = { morning: '07:30', evening: '22:00' };
 
 const CHANNEL_ID = 'routine-reminders';
+// Text is looked up when reminders are scheduled, in the app's language.
 const SLOTS = {
   morning: {
     id: 'routine-reminder-morning',
-    content: {
-      title: 'Time for your AM routine ☀️',
-      body: 'Your morning skincare steps are ready — it only takes a few minutes.',
-      data: { routineTitle: 'AM Routine' },
-    },
+    content: () => ({
+      title: tr('reminders.amTitle'),
+      body: tr('reminders.amBody'),
+      data: { routineTitle: 'AM Routine' }, // i18n-ignore: routine id
+    }),
   },
   evening: {
     id: 'routine-reminder-evening',
-    content: {
-      title: 'Time for your PM routine 🌙',
-      body: 'Wind down with your evening skincare routine.',
-      data: { routineTitle: 'PM Routine' },
-    },
+    content: () => ({
+      title: tr('reminders.pmTitle'),
+      body: tr('reminders.pmBody'),
+      data: { routineTitle: 'PM Routine' }, // i18n-ignore: routine id
+    }),
   },
 };
 
@@ -45,7 +47,7 @@ export function parseTime(hhmm) {
 async function ensureChannel() {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-    name: 'Routine reminders',
+    name: tr('reminders.channel'),
     importance: Notifications.AndroidImportance.HIGH,
     sound: 'default',
   });
@@ -81,7 +83,7 @@ export async function scheduleReminders({ reminders, enabled = true, ask = false
     if (!time) continue;
     await Notifications.scheduleNotificationAsync({
       identifier: id,
-      content: { ...content, sound: 'default' },
+      content: { ...content(), sound: 'default' },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour: time.hour,

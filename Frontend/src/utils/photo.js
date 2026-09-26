@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import { notify } from './feedback';
+import { translate as tr } from '../i18n';
 
 const MAX_SIDE = 1024;
 
@@ -28,10 +29,7 @@ export async function pickPhoto(source = 'camera') {
     ? await ImagePicker.requestCameraPermissionsAsync()
     : await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) {
-    notify(
-      'Permission needed',
-      useCamera ? 'Allow camera access in your settings to take a photo.' : 'Allow photo access in your settings to choose a photo.'
-    );
+    notify(tr('photo.permissionTitle'), useCamera ? tr('photo.cameraPermission') : tr('photo.libraryPermission'));
     return null;
   }
 
@@ -45,20 +43,20 @@ export async function pickPhoto(source = 'camera') {
     const asset = result.assets[0];
     return await toUploadable(asset.uri, asset.width, asset.height);
   } catch (err) {
-    notify('Could not load that photo', err?.message || 'Please try a different photo.');
+    notify(tr('photo.loadFailed'), err?.message || tr('photo.tryDifferent'));
     return null;
   }
 }
 
 // Lets the user choose camera or library (web has no native camera picker,
 // so it goes straight to file selection).
-export async function choosePhoto(title = 'Add a photo') {
+export async function choosePhoto(title = tr('photo.addTitle')) {
   if (Platform.OS === 'web') return pickPhoto('library');
   const source = await new Promise((resolve) => {
-    Alert.alert(title, 'Take a new photo or choose one from your library.', [
-      { text: 'Take Photo', onPress: () => resolve('camera') },
-      { text: 'Choose from Library', onPress: () => resolve('library') },
-      { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+    Alert.alert(title, tr('photo.sourcePrompt'), [
+      { text: tr('photo.take'), onPress: () => resolve('camera') },
+      { text: tr('photo.library'), onPress: () => resolve('library') },
+      { text: tr('common.cancel'), style: 'cancel', onPress: () => resolve(null) },
     ], { cancelable: true, onDismiss: () => resolve(null) });
   });
   return source ? pickPhoto(source) : null;
@@ -81,6 +79,6 @@ export async function saveImage(dataUrl, name = 'myface-ai') {
     await FileSystem.writeAsStringAsync(uri, dataUrl.split(',')[1], { encoding: FileSystem.EncodingType.Base64 });
     await Share.share({ url: uri, message: Platform.OS === 'android' ? uri : undefined });
   } catch (err) {
-    notify('Could not save image', err?.message || 'Please try again.');
+    notify(tr('photo.saveFailed'), err?.message || tr('common.tryAgainPlease'));
   }
 }

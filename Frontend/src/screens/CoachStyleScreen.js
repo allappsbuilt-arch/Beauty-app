@@ -14,6 +14,7 @@ import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import ErrorBanner from '../components/ErrorBanner';
 import { usePreferences } from '../api/usePreferences';
+import { useI18n } from '../i18n';
 
 const PERSONALITIES = [
   {
@@ -21,36 +22,37 @@ const PERSONALITIES = [
     icon: 'flash',
     color: colors.primary,
     bg: colors.primaryPale,
-    label: 'Motivational',
-    sample: '"Push your limits today! Your 3-day streak is waiting to become 4. Let\'s get moving!"',
+    labelKey: 'coachStyle.motivational',
+    sampleKey: 'coachStyle.motivationalSample',
   },
   {
     key: 'gentle',
     icon: 'leaf',
     color: '#1EA868',
     bg: '#E7F7EE',
-    label: 'Gentle',
-    sample: '"Whenever you\'re ready, let\'s take a small step forward together today. No pressure."',
+    labelKey: 'coachStyle.gentle',
+    sampleKey: 'coachStyle.gentleSample',
   },
   {
     key: 'clinical',
     icon: 'flask',
     color: '#8870C0',
     bg: '#F0EEFF',
-    label: 'Clinical',
-    sample: '"Scheduled activity reminder: Engagement required to maintain metabolic rhythm and focus."',
+    labelKey: 'coachStyle.clinical',
+    sampleKey: 'coachStyle.clinicalSample',
   },
   {
     key: 'witty',
     icon: 'happy',
     color: colors.primary,
     bg: colors.primaryPale,
-    label: 'Witty',
-    sample: '"Your streak called. It misses you. Don\'t ghost your progress, it\'s a bad look."',
+    labelKey: 'coachStyle.witty',
+    sampleKey: 'coachStyle.wittySample',
   },
 ];
 
 function PersonalityCard({ item, active, onPress }) {
+  const { t } = useI18n();
   return (
     <TouchableOpacity
       style={[styles.card, active && styles.cardActive]}
@@ -64,20 +66,20 @@ function PersonalityCard({ item, active, onPress }) {
           <View style={[styles.cardIcon, { backgroundColor: item.bg }]}>
             <Ionicons name={item.icon} size={18} color={item.color} />
           </View>
-          <Text style={styles.cardLabel}>{item.label}</Text>
+          <Text style={styles.cardLabel}>{t(item.labelKey)}</Text>
         </View>
         {active && (
           <View style={styles.activePill}>
-            <Text style={styles.activePillText}>ACTIVE</Text>
+            <Text style={styles.activePillText}>{t('coachStyle.active')}</Text>
           </View>
         )}
       </View>
       <View style={styles.sampleBox}>
         <View style={styles.sampleHeader}>
           <Ionicons name="notifications-outline" size={12} color={colors.textLight} />
-          <Text style={styles.sampleLabel}>Sample Notification</Text>
+          <Text style={styles.sampleLabel}>{t('coachStyle.sampleLabel')}</Text>
         </View>
-        <Text style={styles.sampleText}>{item.sample}</Text>
+        <Text style={styles.sampleText}>{t(item.sampleKey)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -85,6 +87,7 @@ function PersonalityCard({ item, active, onPress }) {
 
 export default function CoachStyleScreen({ navigation }) {
   const { prefs, error, reload, save, saving } = usePreferences();
+  const { t } = useI18n();
   const [active, setActive] = useState('motivational');
   const [dailyReminders, setDailyReminders] = useState(true);
   const [morningInsight, setMorningInsight] = useState(false);
@@ -105,7 +108,7 @@ export default function CoachStyleScreen({ navigation }) {
       await save({ coachStyle: { personality: active, dailyReminders, morningInsight } });
       navigation?.goBack();
     } catch (err) {
-      setSaveError(err.message || 'Could not save your preferences.');
+      setSaveError(err.message || t('coachStyle.saveFailed'));
     }
   };
 
@@ -114,17 +117,15 @@ export default function CoachStyleScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <ScreenHeader
-        title="Coach Style"
+        title={t('coachStyle.title')}
         onBack={() => navigation?.goBack()}
         onClose={() => navigation?.goBack()}
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <ErrorBanner message={error} onRetry={reload} />
-        <Text style={styles.heading}>Personality</Text>
-        <Text style={styles.subheading}>
-          Choose how MyFace AI interacts with you and encourages your daily routine.
-        </Text>
+        <Text style={styles.heading}>{t('coachStyle.personality')}</Text>
+        <Text style={styles.subheading}>{t('coachStyle.personalitySub')}</Text>
 
         <View style={styles.cardList}>
           {PERSONALITIES.map((item) => (
@@ -137,12 +138,12 @@ export default function CoachStyleScreen({ navigation }) {
           ))}
         </View>
 
-        <Text style={styles.heading}>Frequency</Text>
+        <Text style={styles.heading}>{t('coachStyle.frequency')}</Text>
         <View style={styles.freqCard}>
           <View style={styles.freqRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.freqLabel}>Daily Reminders</Text>
-              <Text style={styles.freqSub}>Three times per day</Text>
+              <Text style={styles.freqLabel}>{t('coachStyle.dailyReminders')}</Text>
+              <Text style={styles.freqSub}>{t('coachStyle.dailyRemindersSub')}</Text>
             </View>
             <Switch
               value={dailyReminders}
@@ -154,8 +155,8 @@ export default function CoachStyleScreen({ navigation }) {
           <View style={styles.freqDivider} />
           <View style={styles.freqRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.freqLabel}>Morning Insight</Text>
-              <Text style={styles.freqSub}>Sent at 8:00 AM</Text>
+              <Text style={styles.freqLabel}>{t('coachStyle.morningInsight')}</Text>
+              <Text style={styles.freqSub}>{t('coachStyle.morningInsightSub')}</Text>
             </View>
             <Switch
               value={morningInsight}
@@ -173,9 +174,9 @@ export default function CoachStyleScreen({ navigation }) {
           onPress={handleSave}
           disabled={saving || !prefs}
           accessibilityRole="button"
-          accessibilityLabel="Save preferences"
+          accessibilityLabel={t('coachStyle.saveA11y')}
         >
-          <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save Preferences'}</Text>
+          <Text style={styles.saveBtnText}>{saving ? t('common.saving') : t('coachStyle.save')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 24 }} />

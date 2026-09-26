@@ -7,12 +7,13 @@ import ScreenHeader from '../components/ScreenHeader';
 import ErrorBanner from '../components/ErrorBanner';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { confirm } from '../utils/feedback';
+import { useI18n } from '../i18n';
 
 // Box-style paced breathing, repeated for the session length.
 const PHASES = [
-  { label: 'Breathe in', secs: 4, scale: 1 },
-  { label: 'Hold', secs: 4, scale: 1 },
-  { label: 'Breathe out', secs: 6, scale: 0.6 },
+  { labelKey: 'mindfulness.breatheIn', secs: 4, scale: 1 },
+  { labelKey: 'mindfulness.hold', secs: 4, scale: 1 },
+  { labelKey: 'mindfulness.breatheOut', secs: 6, scale: 0.6 },
 ];
 const CYCLE = PHASES.reduce((n, p) => n + p.secs, 0);
 
@@ -29,6 +30,7 @@ const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 export default function MindfulnessSessionScreen({ navigation }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [live, setLive] = useState(null);
   const [error, setError] = useState(null);
   const [stage, setStage] = useState('intro'); // intro | running | done
@@ -47,8 +49,8 @@ export default function MindfulnessSessionScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => {
     loadLive();
-    const t = setInterval(loadLive, 30000); // keep the live count fresh
-    return () => clearInterval(t);
+    const timer = setInterval(loadLive, 30000); // keep the live count fresh
+    return () => clearInterval(timer);
   }, [loadLive]));
 
   // Leaving mid-session (back button / closing) stops counting as live.
@@ -64,7 +66,7 @@ export default function MindfulnessSessionScreen({ navigation }) {
       setStage('done');
       loadLive();
     } catch (err) {
-      setError(err.message || 'Could not save your session.');
+      setError(err.message || t('mindfulness.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -73,8 +75,8 @@ export default function MindfulnessSessionScreen({ navigation }) {
   // Session clock.
   useEffect(() => {
     if (stage !== 'running' || paused) return undefined;
-    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(timer);
   }, [stage, paused]);
 
   useEffect(() => {
@@ -88,7 +90,7 @@ export default function MindfulnessSessionScreen({ navigation }) {
     Animated.timing(scale, {
       toValue: phase.scale, duration: phase.left * 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: false,
     }).start();
-  }, [phase.label, stage, paused]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase.labelKey, stage, paused]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const start = async () => {
     setError(null);
@@ -102,7 +104,7 @@ export default function MindfulnessSessionScreen({ navigation }) {
       setStage('running');
       loadLive();
     } catch (err) {
-      setError(err.message || 'Could not start the session.');
+      setError(err.message || t('mindfulness.startFailed'));
     } finally {
       setBusy(false);
     }
@@ -110,7 +112,7 @@ export default function MindfulnessSessionScreen({ navigation }) {
 
   const endEarly = async () => {
     setPaused(true);
-    const ok = await confirm('End session?', 'Your progress in this session won’t be saved.', 'End');
+    const ok = await confirm(t('mindfulness.endTitle'), t('mindfulness.endText'), t('mindfulness.end'));
     if (!ok) { setPaused(false); return; }
     request(`/api/social/live/${session.id}/leave`, { method: 'POST' }).catch(() => {});
     setStage('intro');
@@ -123,34 +125,32 @@ export default function MindfulnessSessionScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-      <ScreenHeader title="Mindfulness" onBack={() => navigation?.goBack()} />
+      <ScreenHeader title={t('mindfulness.title')} onBack={() => navigation?.goBack()} />
       <ErrorBanner message={error} onRetry={stage === 'intro' ? start : loadLive} onDismiss={() => setError(null)} />
 
       <View style={styles.body}>
         <View style={styles.livePill}>
           <View style={[styles.liveDot, others > 0 && styles.liveDotOn]} />
           <Text style={styles.livePillText}>
-            {others > 0 ? `${others} other${others === 1 ? '' : 's'} breathing with you now` : `${live?.todayCount ?? 0} joined today`}
+            {others > 0 ? t('mindfulness.othersNow', { count: others }) : t('mindfulness.joinedToday', { count: live?.todayCount ?? 0 })}
           </Text>
         </View>
 
-        <Text style={styles.title}>{live?.title ?? 'Daily Mindfulness Routine'}</Text>
+        <Text style={styles.title}>{t('social.sessionTitle')}</Text>
 
         {stage === 'intro' && (
           <>
-            <Text style={styles.subtitle}>
-              A {live?.minutes ?? 5}-minute guided breathing session to reset before your routine. Follow the circle: breathe in as it grows, hold, and breathe out as it shrinks.
-            </Text>
+            <Text style={styles.subtitle}>{t('mindfulness.intro', { minutes: live?.minutes ?? 5 })}</Text>
             <View style={[styles.circleOuter]}>
               <View style={[styles.circle, { transform: [{ scale: 0.6 }] }]}>
                 <Ionicons name="leaf" size={40} color={colors.white} />
               </View>
             </View>
-            {live?.completedToday && <Text style={styles.doneNote}>You’ve already completed today’s session ✓</Text>}
+            {live?.completedToday && <Text style={styles.doneNote}>{t('mindfulness.alreadyDone')}</Text>}
             <TouchableOpacity style={styles.primaryBtn} onPress={start} disabled={busy} accessibilityRole="button"
-              accessibilityLabel={live?.liveCount ? 'Join live session' : 'Start session'}>
+              accessibilityLabel={live?.liveCount ? t('mindfulness.joinLiveA11y') : t('mindfulness.startA11y')}>
               {busy ? <ActivityIndicator color={colors.white} /> : (
-                <Text style={styles.primaryBtnText}>{live?.liveCount ? 'Join Live Session' : 'Start Session'}</Text>
+                <Text style={styles.primaryBtnText}>{live?.liveCount ? t('mindfulness.joinLive') : t('mindfulness.start')}</Text>
               )}
             </TouchableOpacity>
           </>
@@ -161,18 +161,18 @@ export default function MindfulnessSessionScreen({ navigation }) {
             <Text style={styles.timer}>{mmss(Math.max(0, session.total - elapsed))}</Text>
             <View style={styles.circleOuter}>
               <Animated.View style={[styles.circle, { transform: [{ scale }] }]}>
-                <Text style={styles.phase}>{paused ? 'Paused' : phase.label}</Text>
+                <Text style={styles.phase}>{paused ? t('mindfulness.paused') : t(phase.labelKey)}</Text>
                 {!paused && <Text style={styles.phaseCount}>{phase.left}</Text>}
               </Animated.View>
             </View>
             <View style={styles.row}>
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPaused((p) => !p)} accessibilityRole="button" accessibilityLabel={paused ? 'Resume' : 'Pause'}>
+              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPaused((p) => !p)} accessibilityRole="button" accessibilityLabel={paused ? t('mindfulness.resume') : t('mindfulness.pause')}>
                 <Ionicons name={paused ? 'play' : 'pause'} size={17} color={colors.primary} />
-                <Text style={styles.secondaryBtnText}>{paused ? 'Resume' : 'Pause'}</Text>
+                <Text style={styles.secondaryBtnText}>{paused ? t('mindfulness.resume') : t('mindfulness.pause')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryBtn} onPress={endEarly} accessibilityRole="button" accessibilityLabel="End session">
+              <TouchableOpacity style={styles.secondaryBtn} onPress={endEarly} accessibilityRole="button" accessibilityLabel={t('mindfulness.endA11y')}>
                 <Ionicons name="stop" size={16} color={colors.primary} />
-                <Text style={styles.secondaryBtnText}>End</Text>
+                <Text style={styles.secondaryBtnText}>{t('mindfulness.end')}</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -185,15 +185,15 @@ export default function MindfulnessSessionScreen({ navigation }) {
                 <Ionicons name="checkmark" size={54} color={colors.white} />
               </View>
             </View>
-            <Text style={styles.doneTitle}>Session complete</Text>
-            <Text style={styles.subtitle}>{pointsAwarded > 0 ? `+${pointsAwarded} points earned. ` : ''}Nice work taking a moment for yourself.</Text>
+            <Text style={styles.doneTitle}>{t('mindfulness.complete')}</Text>
+            <Text style={styles.subtitle}>{pointsAwarded > 0 ? t('mindfulness.pointsEarned', { count: pointsAwarded }) : ''}{t('mindfulness.niceWork')}</Text>
             <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation?.navigate('CreatePost', { mode: 'post' })}
-              accessibilityRole="button" accessibilityLabel="Share to Socials">
-              <Text style={styles.primaryBtnText}>Share to Socials</Text>
+              accessibilityRole="button" accessibilityLabel={t('mindfulness.shareA11y')}>
+              <Text style={styles.primaryBtnText}>{t('mindfulness.share')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.secondaryBtn, { alignSelf: 'center', marginTop: 10 }]} onPress={() => navigation?.goBack()}
-              accessibilityRole="button" accessibilityLabel="Done">
-              <Text style={styles.secondaryBtnText}>Done</Text>
+              accessibilityRole="button" accessibilityLabel={t('common.done')}>
+              <Text style={styles.secondaryBtnText}>{t('common.done')}</Text>
             </TouchableOpacity>
           </>
         )}

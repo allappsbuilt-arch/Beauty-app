@@ -6,6 +6,7 @@ import { useAuthedRequest } from '../api/useAuthedRequest';
 import UserAvatar from '../components/social/UserAvatar';
 import { timeAgo } from '../components/social/socialUtils';
 import { confirm, notify } from '../utils/feedback';
+import { useI18n } from '../i18n';
 
 const STORY_MS = 5000;
 const TICK_MS = 50;
@@ -14,6 +15,7 @@ const TICK_MS = 50;
 // automatically and moves on to the next person's stories.
 export default function StoryViewerScreen({ navigation, route }) {
   const request = useAuthedRequest();
+  const { t } = useI18n();
   const [groups, setGroups] = useState(route?.params?.groups ?? []);
   const startIdx = Math.max(0, groups.findIndex((g) => g.user.id === route?.params?.startUserId));
   const [g, setG] = useState(startIdx);
@@ -44,17 +46,17 @@ export default function StoryViewerScreen({ navigation, route }) {
 
   useEffect(() => {
     if (paused || !item) return undefined;
-    const t = setInterval(() => {
+    const timer = setInterval(() => {
       elapsed.current += TICK_MS;
-      if (elapsed.current >= STORY_MS) { clearInterval(t); next(); } else setProgress(elapsed.current / STORY_MS);
+      if (elapsed.current >= STORY_MS) { clearInterval(timer); next(); } else setProgress(elapsed.current / STORY_MS);
     }, TICK_MS);
-    return () => clearInterval(t);
+    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [g, i, paused, item]);
 
   const remove = async () => {
     setPaused(true);
-    const ok = await confirm('Delete story?', 'It will be removed for everyone.', 'Delete');
+    const ok = await confirm(t('story.deleteTitle'), t('story.deleteText'), t('common.delete'));
     if (!ok) { setPaused(false); return; }
     try {
       await request(`/api/social/stories/${item.id}`, { method: 'DELETE' });
@@ -63,7 +65,7 @@ export default function StoryViewerScreen({ navigation, route }) {
       setGroups((list) => list.map((x, idx) => (idx === g ? { ...x, items } : x)));
       setI(Math.min(i, items.length - 1));
     } catch (err) {
-      notify('Could not delete story', err.message);
+      notify(t('story.deleteFailed'), err.message);
     } finally {
       setPaused(false);
     }
@@ -72,9 +74,9 @@ export default function StoryViewerScreen({ navigation, route }) {
   if (!item) {
     return (
       <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={styles.gone}>This story is no longer available.</Text>
-        <TouchableOpacity onPress={close} style={styles.goneBtn} accessibilityRole="button" accessibilityLabel="Close">
-          <Text style={styles.goneBtnText}>Close</Text>
+        <Text style={styles.gone}>{t('story.gone')}</Text>
+        <TouchableOpacity onPress={close} style={styles.goneBtn} accessibilityRole="button" accessibilityLabel={t('common.close')}>
+          <Text style={styles.goneBtnText}>{t('common.close')}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -87,8 +89,8 @@ export default function StoryViewerScreen({ navigation, route }) {
 
       {/* Tap zones */}
       <View style={styles.zones}>
-        <TouchableOpacity style={{ flex: 1 }} onPress={prev} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Previous story" />
-        <TouchableOpacity style={{ flex: 2 }} onPress={next} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Next story" />
+        <TouchableOpacity style={{ flex: 1 }} onPress={prev} activeOpacity={1} accessibilityRole="button" accessibilityLabel={t('story.previous')} />
+        <TouchableOpacity style={{ flex: 2 }} onPress={next} activeOpacity={1} accessibilityRole="button" accessibilityLabel={t('story.next')} />
       </View>
 
       {/* Progress + header */}
@@ -102,23 +104,23 @@ export default function StoryViewerScreen({ navigation, route }) {
         </View>
         <View style={styles.header}>
           <TouchableOpacity style={styles.author} onPress={() => { close(); navigation?.navigate('UserProfile', { userId: group.user.id }); }}
-            accessibilityRole="button" accessibilityLabel={`Open ${group.user.name}'s profile`}>
+            accessibilityRole="button" accessibilityLabel={t('story.openProfile', { name: group.user.name })}>
             <UserAvatar user={group.user} size={36} />
             <View>
-              <Text style={styles.authorName}>{group.isMine ? 'Your story' : group.user.name}</Text>
+              <Text style={styles.authorName}>{group.isMine ? t('story.yours') : group.user.name}</Text>
               <Text style={styles.authorTime}>{timeAgo(item.createdAt)}</Text>
             </View>
           </TouchableOpacity>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => setPaused((p) => !p)} accessibilityRole="button" accessibilityLabel={paused ? 'Play' : 'Pause'}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => setPaused((p) => !p)} accessibilityRole="button" accessibilityLabel={paused ? t('story.play') : t('story.pause')}>
               <Ionicons name={paused ? 'play' : 'pause'} size={18} color={colors.white} />
             </TouchableOpacity>
             {group.isMine && (
-              <TouchableOpacity style={styles.iconBtn} onPress={remove} accessibilityRole="button" accessibilityLabel="Delete story">
+              <TouchableOpacity style={styles.iconBtn} onPress={remove} accessibilityRole="button" accessibilityLabel={t('story.delete')}>
                 <Ionicons name="trash-outline" size={18} color={colors.white} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.iconBtn} onPress={close} accessibilityRole="button" accessibilityLabel="Close stories">
+            <TouchableOpacity style={styles.iconBtn} onPress={close} accessibilityRole="button" accessibilityLabel={t('story.close')}>
               <Ionicons name="close" size={22} color={colors.white} />
             </TouchableOpacity>
           </View>

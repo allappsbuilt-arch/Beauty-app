@@ -12,31 +12,37 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
 const DEFAULT_GROUP = {
-  name: 'AI Pioneers Guild',
+  nameKey: 'communityGroup.defaultName',
   members: '12.4k',
   joined: true,
-  description: 'Sharing insights on the future of personal growth through AI.',
+  descriptionKey: 'communities.glowUpDesc',
   banner: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&q=60',
 };
 
-const TABS = ['Feed', 'Q&A', 'Members'];
+const TABS = [
+  { id: 'feed', labelKey: 'communityGroup.tabFeed' },
+  { id: 'qa', labelKey: 'communityGroup.tabQa' },
+  { id: 'members', labelKey: 'communityGroup.tabMembers' },
+];
 
 const LEADERBOARD = [
-  { key: 'alex', name: 'Alex R.', pts: '2.4k', rank: 2, uri: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&q=60' },
-  { key: 'sarah', name: 'Sarah J.', pts: '3.1k', rank: 1, uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=60' },
-  { key: 'davidk', name: 'David K.', pts: '2.1k', rank: 3, uri: 'https://images.unsplash.com/photo-1500336624523-d727130c3328?w=100&q=60' },
+  { key: 'alex', name: 'Alex R.', pts: '2.4k', rank: 2, uri: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&q=60' }, // i18n-ignore: name
+  { key: 'sarah', name: 'Sarah J.', pts: '3.1k', rank: 1, uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=60' }, // i18n-ignore: name
+  { key: 'davidk', name: 'David K.', pts: '2.1k', rank: 3, uri: 'https://images.unsplash.com/photo-1500336624523-d727130c3328?w=100&q=60' }, // i18n-ignore: name
 ];
 const LEADERBOARD_REST = [
-  { key: 'lisa', name: 'Lisa Mayer', pts: '1.8k', rank: 4, initials: 'LM', color: '#8870C0', bg: '#F0EEFF' },
-  { key: 'brian', name: 'Brian Tan', pts: '1.5k', rank: 5, initials: 'BT', color: '#1EA868', bg: '#E7F7EE' },
+  { key: 'lisa', name: 'Lisa Mayer', pts: '1.8k', rank: 4, initials: 'LM', color: '#8870C0', bg: '#F0EEFF' }, // i18n-ignore: name
+  { key: 'brian', name: 'Brian Tan', pts: '1.5k', rank: 5, initials: 'BT', color: '#1EA868', bg: '#E7F7EE' }, // i18n-ignore: name
 ];
 
 export default function CommunityGroupScreen({ route, navigation }) {
   const group = route?.params?.group ?? DEFAULT_GROUP;
   const [joined, setJoined] = useState(!!group.joined);
-  const [activeTab, setActiveTab] = useState('Feed');
+  const [activeTab, setActiveTab] = useState('feed');
+  const { t } = useI18n();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -53,7 +59,7 @@ export default function CommunityGroupScreen({ route, navigation }) {
               style={styles.navBtn}
               onPress={() => navigation?.goBack()}
               accessibilityRole="button"
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('common.goBack')}
             >
               <Ionicons name="arrow-back" size={22} color={colors.white} />
             </TouchableOpacity>
@@ -61,58 +67,58 @@ export default function CommunityGroupScreen({ route, navigation }) {
               style={styles.navBtn}
               onPress={() => navigation?.goBack()}
               accessibilityRole="button"
-              accessibilityLabel="Close"
+              accessibilityLabel={t('common.close')}
             >
               <Ionicons name="close" size={22} color={colors.white} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.bannerText}>
-            <Text style={styles.groupName}>{group.name}</Text>
+            <Text style={styles.groupName}>{group.nameKey ? t(group.nameKey) : group.name}</Text>
             <View style={styles.membersRow}>
               <Ionicons name="people" size={13} color="rgba(255,255,255,0.85)" />
-              <Text style={styles.membersText}>{group.members} Members</Text>
+              <Text style={styles.membersText}>{t('communityGroup.membersCount', { members: group.members })}</Text>
             </View>
           </View>
         </View>
 
         {/* ── Description + join ── */}
         <View style={styles.descRow}>
-          <Text style={styles.descText}>{group.description ?? DEFAULT_GROUP.description}</Text>
+          <Text style={styles.descText}>{t(group.descriptionKey ?? DEFAULT_GROUP.descriptionKey)}</Text>
           <TouchableOpacity
             style={[styles.joinBtn, joined && styles.joinBtnActive]}
             onPress={() => setJoined((v) => !v)}
             activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel={joined ? 'Leave group' : 'Join group'}
+            accessibilityLabel={joined ? t('communityGroup.leave') : t('communityGroup.joinA11y')}
           >
             <Text style={[styles.joinBtnText, joined && styles.joinBtnTextActive]}>
-              {joined ? 'Joined' : 'Join'}
+              {joined ? t('communities.joined') : t('communities.join')}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* ── Tabs ── */}
         <View style={styles.tabBar}>
-          {TABS.map((t) => (
+          {TABS.map((tab) => (
             <TouchableOpacity
-              key={t}
+              key={tab.id}
               style={styles.tabItem}
-              onPress={() => setActiveTab(t)}
+              onPress={() => setActiveTab(tab.id)}
               accessibilityRole="tab"
-              accessibilityState={{ selected: activeTab === t }}
+              accessibilityState={{ selected: activeTab === tab.id }}
             >
-              <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>{t}</Text>
-              {activeTab === t && <View style={styles.tabIndicator} />}
+              <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>{t(tab.labelKey)}</Text>
+              {activeTab === tab.id && <View style={styles.tabIndicator} />}
             </TouchableOpacity>
           ))}
         </View>
 
-        {activeTab !== 'Feed' ? (
+        {activeTab !== 'feed' ? (
           <View style={styles.emptyTab}>
             <Ionicons name="construct-outline" size={28} color={colors.textFaint} />
             <Text style={styles.emptyTabText}>
-              {activeTab === 'Q&A' ? 'Q&A threads coming soon.' : 'Member list coming soon.'}
+              {activeTab === 'qa' ? t('communityGroup.qaSoon') : t('communityGroup.membersSoon')}
             </Text>
           </View>
         ) : (
@@ -122,8 +128,8 @@ export default function CommunityGroupScreen({ route, navigation }) {
               <View style={styles.streakLeft}>
                 <Ionicons name="flame" size={18} color={colors.white} />
                 <View>
-                  <Text style={styles.streakTitle}>Group Streak: 18 Days</Text>
-                  <Text style={styles.streakSub}>Only 2 days left for the Gold badge!</Text>
+                  <Text style={styles.streakTitle}>{t('communityGroup.streakTitle')}</Text>
+                  <Text style={styles.streakSub}>{t('communityGroup.streakSub')}</Text>
                 </View>
               </View>
               <View style={styles.streakPct}>
@@ -132,26 +138,24 @@ export default function CommunityGroupScreen({ route, navigation }) {
             </View>
 
             {/* ── Pinned posts ── */}
-            <Text style={styles.sectionTitle}>PINNED POSTS</Text>
+            <Text style={styles.sectionTitle}>{t('communityGroup.pinned')}</Text>
             <View style={styles.pinnedCard}>
               <Ionicons name="pin" size={14} color={colors.primary} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.pinnedTitle}>Weekly Challenge: AI Habit Tracking</Text>
-                <Text style={styles.pinnedDesc}>
-                  Join us this week as we explore the best ways to integrate AI into your daily morning routine.
-                </Text>
+                <Text style={styles.pinnedTitle}>{t('communityGroup.pinnedTitle')}</Text>
+                <Text style={styles.pinnedDesc}>{t('communityGroup.pinnedDesc')}</Text>
               </View>
             </View>
 
             {/* ── Mini leaderboard ── */}
             <View style={styles.miniHeader}>
-              <Text style={styles.sectionTitle}>TOP 10 LEADERBOARD</Text>
+              <Text style={styles.sectionTitle}>{t('communityGroup.top10')}</Text>
               <TouchableOpacity
                 onPress={() => navigation?.navigate('Leaderboard')}
                 accessibilityRole="button"
-                accessibilityLabel="See full leaderboard"
+                accessibilityLabel={t('communityGroup.seeFull')}
               >
-                <Text style={styles.seeAll}>SEE ALL</Text>
+                <Text style={styles.seeAll}>{t('communityGroup.seeAllCaps')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -163,7 +167,7 @@ export default function CommunityGroupScreen({ route, navigation }) {
                     <Ionicons name="trophy" size={12} color="#F0B429" />
                   </View>
                   <Text style={styles.miniName} numberOfLines={1}>{u.name}</Text>
-                  <Text style={styles.miniPts}>{u.pts} pts</Text>
+                  <Text style={styles.miniPts}>{t('communityGroup.pts', { points: u.pts })}</Text>
                 </View>
               ))}
             </View>
@@ -176,13 +180,13 @@ export default function CommunityGroupScreen({ route, navigation }) {
                     <Text style={[styles.miniInitialsText, { color: u.color }]}>{u.initials}</Text>
                   </View>
                   <Text style={styles.miniRowName}>{u.name}</Text>
-                  <Text style={styles.miniRowPts}>{u.pts} pts</Text>
+                  <Text style={styles.miniRowPts}>{t('communityGroup.pts', { points: u.pts })}</Text>
                 </View>
               ))}
             </View>
 
             {/* ── Latest discussions ── */}
-            <Text style={styles.sectionTitle}>LATEST DISCUSSIONS</Text>
+            <Text style={styles.sectionTitle}>{t('communityGroup.latest')}</Text>
             <View style={styles.discussionCard}>
               <View style={styles.discussionHeader}>
                 <Image
@@ -190,13 +194,11 @@ export default function CommunityGroupScreen({ route, navigation }) {
                   style={styles.discussionAvatar}
                 />
                 <View>
-                  <Text style={styles.discussionName}>Marcus Chen</Text>
-                  <Text style={styles.discussionTime}>2 hours ago</Text>
+                  <Text style={styles.discussionName}>Marcus Chen</Text>{/* i18n-ignore: name */}
+                  <Text style={styles.discussionTime}>{t('communityGroup.hoursAgo')}</Text>
                 </View>
               </View>
-              <Text style={styles.discussionText}>
-                How are you all using the new MyFace AI vision module to track your fitness routines? I'm finding it incredibly helpful for form correction!
-              </Text>
+              <Text style={styles.discussionText}>{t('communityGroup.discussion')}</Text>
               <View style={styles.discussionFooter}>
                 <View style={styles.discussionAction}>
                   <Ionicons name="heart-outline" size={17} color={colors.textMid} />
