@@ -130,7 +130,17 @@ export default function OnboardingAllSetScreen({ navigation }) {
       <View style={styles.footer}>
         <FormError message={finishError} />
         <PillButton label="Enter MyFace Dashboard" onPress={finish} loading={finishing} />
-        <Text style={styles.terms}>By continuing, you agree to our terms of service.</Text>
+        <Text style={styles.terms}>
+          By continuing, you agree to our{' '}
+          <Text
+            style={styles.termsLink}
+            onPress={() => navigation.navigate('Terms')}
+            accessibilityRole="link"
+            accessibilityLabel="Read the Terms of Service"
+          >
+            terms of service
+          </Text>.
+        </Text>
       </View>
     </SafeAreaView>
   );
@@ -179,4 +189,5 @@ const styles = StyleSheet.create({
 
   footer: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16, width: '100%', maxWidth: 592, alignSelf: 'center' },
   terms: { marginTop: 14, textAlign: 'center', fontSize: 13.5, color: '#7A6A6E', letterSpacing: 0.3 },
+  termsLink: { color: OB_RED, fontWeight: '700', textDecorationLine: 'underline' },
 });

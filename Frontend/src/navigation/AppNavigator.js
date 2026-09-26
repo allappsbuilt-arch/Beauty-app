@@ -14,6 +14,7 @@ import OnboardingProfileScreen   from '../screens/OnboardingProfileScreen';
 import OnboardingVoiceScreen     from '../screens/OnboardingVoiceScreen';
 import OnboardingAllergiesScreen from '../screens/OnboardingAllergiesScreen';
 import OnboardingAllSetScreen    from '../screens/OnboardingAllSetScreen';
+import TermsScreen               from '../screens/TermsScreen';
 
 import HomeScreen     from '../screens/HomeScreen';
 import RoutineScreen  from '../screens/RoutineScreen';
@@ -227,6 +228,7 @@ export default function AppNavigator() {
             <Stack.Screen name="OnboardingWelcome" component={OnboardingWelcomeScreen} options={{ animation: 'fade' }} />
             <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} options={ONBOARDING_ANIMATION} />
             <Stack.Screen name="Login" component={LoginScreen} options={{ animation: 'fade' }} />
+            <Stack.Screen name="Terms" component={TermsScreen} options={ONBOARDING_ANIMATION} />
           </>
         ) : phase === 'onboarding' ? (
           <>
@@ -236,6 +238,7 @@ export default function AppNavigator() {
             {/* Reached with Back from the voice step. */}
             <Stack.Screen name="OnboardingWelcome" component={OnboardingWelcomeScreen} options={ONBOARDING_ANIMATION} />
             <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} options={ONBOARDING_ANIMATION} />
+            <Stack.Screen name="Terms" component={TermsScreen} options={ONBOARDING_ANIMATION} />
           </>
         ) : (
         <>
@@ -403,6 +406,11 @@ export default function AppNavigator() {
         <Stack.Screen
           name="Privacy"
           component={PrivacyScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="Terms"
+          component={TermsScreen}
           options={{ animation: 'slide_from_right' }}
         />
         <Stack.Screen

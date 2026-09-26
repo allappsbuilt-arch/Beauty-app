@@ -215,7 +215,8 @@ export default function SettingsScreen({ navigation }) {
         {/* ── System ── */}
         <Text style={styles.sectionTitle}>SYSTEM</Text>
         <View style={styles.card}>
-          <SettingsRow icon="server-outline" label="Data & Storage" isLast onPress={() => navigation?.navigate('Privacy')} />
+          <SettingsRow icon="server-outline" label="Data & Storage" onPress={() => navigation?.navigate('Privacy')} />
+          <SettingsRow icon="document-text-outline" label="Terms of Service" isLast onPress={() => navigation?.navigate('Terms')} />
         </View>
 
         <TouchableOpacity

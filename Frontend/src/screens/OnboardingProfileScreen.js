@@ -223,7 +223,15 @@ export default function OnboardingProfileScreen({ navigation }) {
             </TouchableOpacity>
           )}
           <Text style={styles.terms}>
-            By signing up, you agree to our <Text style={styles.termsStrong}>Terms</Text>.
+            By signing up, you agree to our{' '}
+            <Text
+              style={styles.termsStrong}
+              onPress={() => navigation.navigate('Terms')}
+              accessibilityRole="link"
+              accessibilityLabel="Read the Terms of Service"
+            >
+              Terms
+            </Text>.
           </Text>
         </View>
       </KeyboardAvoidingView>
