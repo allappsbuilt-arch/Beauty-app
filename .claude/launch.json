@@ -6,6 +6,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "Frontend", "run", "web", "--", "--port", "8085"],
       "port": 8085
+    },
+    {
+      "name": "beauty-backend-local",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["-e", "process.chdir('Backend');require(process.cwd()+'/src/server.js')"],
+      "port": 4000
+    },
+    {
+      "name": "beauty-web-local-api",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["-e", "process.env.EXPO_PUBLIC_API_URL='http://localhost:4000';require('child_process').spawn('npx',['expo','start','--web','--port','8086'],{cwd:'Frontend',stdio:'inherit',shell:true,env:process.env})"],
+      "port": 8086
     }
   ]
 }

@@ -28,8 +28,11 @@ export default function ScreenHeader({
   bordered = true,
   absolute = false, // overlay atop full-bleed imagery (camera/analysis screens)
   progress, // optional 0–1 value; renders a thin progress bar under the header
+  center, // optional element shown instead of the title (e.g. step dots)
+  iconColor, // optional override for the back/close icons
 }) {
   const isDark = variant === 'dark';
+  const iconTint = iconColor || (isDark ? colors.white : colors.textDark);
 
   return (
     <View style={absolute && styles.absoluteWrap}>
@@ -48,22 +51,26 @@ export default function ScreenHeader({
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <Ionicons name="arrow-back" size={22} color={isDark ? colors.white : colors.textDark} />
+            <Ionicons name="arrow-back" size={22} color={iconTint} />
           </TouchableOpacity>
         ) : (
           <View style={styles.iconBtn} />
         )}
 
-        <Text
-          style={[
-            styles.title,
-            isDark ? styles.titleDark : styles.titleLight,
-            titleColor && { color: titleColor },
-          ]}
-          numberOfLines={1}
-        >
-          {title}
-        </Text>
+        {center ? (
+          <View style={styles.centerSlot}>{center}</View>
+        ) : (
+          <Text
+            style={[
+              styles.title,
+              isDark ? styles.titleDark : styles.titleLight,
+              titleColor && { color: titleColor },
+            ]}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+        )}
 
         {right ? (
           <View style={styles.rightSlot}>{right}</View>
@@ -74,7 +81,7 @@ export default function ScreenHeader({
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <Ionicons name="close" size={22} color={isDark ? colors.white : colors.textDark} />
+            <Ionicons name="close" size={22} color={iconTint} />
           </TouchableOpacity>
         ) : (
           <View style={styles.iconBtn} />
@@ -116,6 +123,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
 
+  centerSlot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   iconBtn: {
     width: 38,
     height: 38,

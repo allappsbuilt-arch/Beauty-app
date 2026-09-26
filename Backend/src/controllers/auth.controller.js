@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const store = require('../db/usersRepo');
 const rewards = require('../services/rewards.service');
+const { savePreferences } = require('./preferences.controller');
 const { jwtSecret, jwtExpiresIn } = require('../config');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -45,6 +46,12 @@ async function signup(req, res) {
   };
   await store.insertUser(user);
   if (referrer) await rewards.recordReferral(user.id, referrer.id);
+  // New accounts go through the in-app onboarding (coach voice, allergies)
+  // and start with no allergies picked for them.
+  await savePreferences(user.id, {
+    onboarding: { completed: false, completedAt: null },
+    allergies: { ingredients: [] },
+  });
 
   const token = signToken(user);
   return res.status(201).json({ token, user: toPublicUser(user) });

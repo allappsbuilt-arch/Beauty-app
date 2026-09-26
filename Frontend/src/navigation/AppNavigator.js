@@ -9,7 +9,11 @@ import { useAuth } from '../context/AuthContext';
 import { useAuthedRequest } from '../api/useAuthedRequest';
 import { remindersSupported, syncRemindersFromServer, cancelReminders } from '../utils/reminders';
 import LoginScreen  from '../screens/LoginScreen';
-import SignupScreen from '../screens/SignupScreen';
+import OnboardingWelcomeScreen   from '../screens/OnboardingWelcomeScreen';
+import OnboardingProfileScreen   from '../screens/OnboardingProfileScreen';
+import OnboardingVoiceScreen     from '../screens/OnboardingVoiceScreen';
+import OnboardingAllergiesScreen from '../screens/OnboardingAllergiesScreen';
+import OnboardingAllSetScreen    from '../screens/OnboardingAllSetScreen';
 
 import HomeScreen     from '../screens/HomeScreen';
 import RoutineScreen  from '../screens/RoutineScreen';
@@ -193,9 +197,20 @@ function useRoutineReminders({ isAuthenticated }) {
   return flushPending; // NavigationContainer onReady
 }
 
+const ONBOARDING_ANIMATION = { animation: 'slide_from_right' };
+
 export default function AppNavigator() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, onboardingPending, isReturningDevice } = useAuth();
   const onNavigationReady = useRoutineReminders({ isAuthenticated });
+
+  // New devices start at the welcome step; a new account continues at the
+  // coach-voice step; everyone else lands on Home.
+  const phase = !isAuthenticated ? 'guest' : onboardingPending ? 'onboarding' : 'app';
+  const initialRoute = {
+    guest: isReturningDevice ? 'Login' : 'OnboardingWelcome',
+    onboarding: 'OnboardingVoice',
+    app: 'Tabs',
+  }[phase];
 
   if (isLoading) {
     return <AuthLoadingScreen />;
@@ -203,11 +218,24 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef} onReady={onNavigationReady}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
+      {/* Keyed by phase so signing in/out or finishing onboarding starts a
+          fresh stack at that phase's first screen (e.g. a new account moves
+          on to the coach-voice step rather than staying on the profile step). */}
+      <Stack.Navigator key={phase} screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
+        {phase === 'guest' ? (
           <>
+            <Stack.Screen name="OnboardingWelcome" component={OnboardingWelcomeScreen} options={{ animation: 'fade' }} />
+            <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} options={ONBOARDING_ANIMATION} />
             <Stack.Screen name="Login" component={LoginScreen} options={{ animation: 'fade' }} />
-            <Stack.Screen name="Signup" component={SignupScreen} options={{ animation: 'fade' }} />
+          </>
+        ) : phase === 'onboarding' ? (
+          <>
+            <Stack.Screen name="OnboardingVoice" component={OnboardingVoiceScreen} options={ONBOARDING_ANIMATION} />
+            <Stack.Screen name="OnboardingAllergies" component={OnboardingAllergiesScreen} options={ONBOARDING_ANIMATION} />
+            <Stack.Screen name="OnboardingAllSet" component={OnboardingAllSetScreen} options={ONBOARDING_ANIMATION} />
+            {/* Reached with Back from the voice step. */}
+            <Stack.Screen name="OnboardingWelcome" component={OnboardingWelcomeScreen} options={ONBOARDING_ANIMATION} />
+            <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} options={ONBOARDING_ANIMATION} />
           </>
         ) : (
         <>

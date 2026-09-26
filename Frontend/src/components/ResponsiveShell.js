@@ -45,6 +45,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#2A1620',
     overflow: 'hidden',
+    // The glows hang off the edges; 'clip' (unlike 'hidden') also stops the
+    // browser scrolling the backdrop when a focused input is near them.
+    ...(Platform.OS === 'web' ? { overflow: 'clip' } : null),
   },
   ambientGlowLeft: {
     position: 'absolute',

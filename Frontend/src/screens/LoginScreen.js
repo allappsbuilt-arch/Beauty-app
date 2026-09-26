@@ -123,7 +123,7 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.footerRow}>
             <Text style={styles.footerText}>Don't have an account?</Text>
             <TouchableOpacity
-              onPress={() => navigation?.replace('Signup')}
+              onPress={() => navigation?.replace('OnboardingWelcome')}
               accessibilityRole="button"
               accessibilityLabel="Create account"
             >
