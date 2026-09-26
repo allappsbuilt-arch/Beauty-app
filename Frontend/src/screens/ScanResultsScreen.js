@@ -8,12 +8,12 @@ import {
   TouchableOpacity,
   StatusBar,
   Animated,
-  Easing,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
+import SkinTrendChart from '../components/SkinTrendChart';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -130,109 +130,6 @@ const metricRow = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.borderUltraLight,
     marginHorizontal: 16,
-  },
-});
-
-// ─── Trend Bar Chart ──────────────────────────────────────────────────────────
-function TrendChart({ trend }) {
-  const BAR_H    = 52;
-  const BAR_W    = 36;
-  const BAR_GAP  = 10;
-  const anim = useRef(trend.bars.map(() => new Animated.Value(0))).current;
-
-  useEffect(() => {
-    Animated.stagger(
-      120,
-      anim.map(a =>
-        Animated.timing(a, {
-          toValue: 1,
-          duration: 420,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: false,  // height is a layout prop — cannot use native driver
-        })
-      )
-    ).start();
-  }, []);
-
-  return (
-    <View style={chart.wrap}>
-      {/* Header row */}
-      <View style={chart.header}>
-        <Text style={chart.trendLabel}>{trend.label}</Text>
-        <Text style={chart.trendVal}>{trend.value}</Text>
-      </View>
-
-      {/* Bars */}
-      <View style={chart.bars}>
-        {trend.bars.map((h, i) => {
-          const isLast = i === trend.bars.length - 1;
-          const scaleY = anim[i].interpolate({
-            inputRange: [0, 1], outputRange: [0, 1],
-          });
-          return (
-            <View
-              key={i}
-              style={[chart.barTrack, { width: BAR_W, height: BAR_H, marginRight: isLast ? 0 : BAR_GAP }]}
-            >
-              {/* Animate height directly instead of scaleY to avoid transformOrigin */}
-              <Animated.View
-                style={[
-                  chart.barFill,
-                  {
-                    width: BAR_W,
-                    height: anim[i].interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, BAR_H * h],
-                    }),
-                    backgroundColor: isLast ? colors.primary : colors.primaryPaleDeep,
-                  },
-                ]}
-              />
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-const chart = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    paddingTop: 4,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  trendLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.textFaint,
-    letterSpacing: 1.3,
-    textTransform: 'uppercase',
-  },
-  trendVal: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.textDark,
-    letterSpacing: -0.1,
-  },
-  bars: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  barTrack: {
-    justifyContent: 'flex-end',
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: colors.sectionBg,
-  },
-  barFill: {
-    borderRadius: 6,
   },
 });
 
@@ -392,7 +289,7 @@ function ZoneCard({ zone }) {
       {zone.trend && (
         <>
           <View style={styles.internalDivider} />
-          <TrendChart trend={zone.trend} />
+          <SkinTrendChart trend={zone.trend} />
         </>
       )}
 

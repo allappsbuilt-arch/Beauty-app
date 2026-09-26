@@ -55,11 +55,9 @@ const PROMPT = 'Analyse this selfie. Score each area 0-100 and fill every field.
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
 
 // Maps the AI result onto the scan shape the app already renders.
-function toScan(ai, skinHistory) {
+// The skin trend is filled in from scan history by skinTrend.service.
+function toScan(ai) {
   const skinScore = clamp(ai.skin.score);
-  const recent = [...skinHistory.slice(0, 3).reverse(), skinScore];
-  const base = recent[0];
-  const delta = base ? ((skinScore - base) / base) * 100 : 0;
 
   return {
     id: crypto.randomUUID(),
@@ -73,11 +71,7 @@ function toScan(ai, skinHistory) {
           { label: 'Pore Clarity', status: ai.skin.poreClarity },
           { label: 'Elasticity', status: ai.skin.elasticity },
         ],
-        trend: {
-          label: recent.length > 1 ? `${recent.length}-SCAN TREND` : 'FIRST SCAN',
-          value: `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`,
-          bars: recent.map((s) => s / 100),
-        },
+        trend: null,
         quote: `"${ai.skin.insight}"`,
       },
       {
@@ -104,13 +98,12 @@ function toScan(ai, skinHistory) {
   };
 }
 
-// `skinHistory` = the user's previous skin scores, newest first.
-async function analyzeFace(image, skinHistory = []) {
+async function analyzeFace(image) {
   const ai = await analyzeImage({ system: SYSTEM, prompt: PROMPT, image, schemaName: 'face_analysis', schema: SCHEMA });
   if (!ai.faceDetected) {
     throw new HttpError(422, ai.problem || 'No face found. Make sure your whole face is visible and well lit.');
   }
-  return toScan(ai, skinHistory);
+  return toScan(ai);
 }
 
 module.exports = { analyzeFace, SCHEMA };
