@@ -415,7 +415,8 @@ export default function ScanAnalyzingScreen({ navigation, route }) {
     Promise.all([scanPromise, minDelay])
       .then(([scan]) => {
         if (cancelled) return;
-        navigation?.replace('ScanResults', { zones: scan.zones, ancillary: scan.ancillary, pointsAwarded: scan.pointsAwarded ?? 0 });
+        // `photo` is the captured face, shown on the results cards.
+        navigation?.replace('ScanResults', { zones: scan.zones, ancillary: scan.ancillary, pointsAwarded: scan.pointsAwarded ?? 0, photo: image });
       })
       .catch((err) => {
         if (cancelled) return;

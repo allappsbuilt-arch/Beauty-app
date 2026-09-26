@@ -9,6 +9,7 @@ import {
   StatusBar,
   Animated,
   Dimensions,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -178,13 +179,20 @@ const quoteStyles = StyleSheet.create({
 });
 
 // ─── Zone photo placeholder ───────────────────────────────────────────────────
-function ZonePhoto({ bg, accent }) {
+// Shows the captured face when there is one; otherwise the placeholder.
+function ZonePhoto({ bg, accent, uri }) {
   return (
     <View style={[zonePhoto.wrap, { backgroundColor: bg }]}>
-      <View style={[zonePhoto.glow, { backgroundColor: accent }]} />
-      <View style={zonePhoto.iconRing}>
-        <Ionicons name="person-outline" size={32} color="rgba(255,255,255,0.28)" />
-      </View>
+      {uri ? (
+        <Image source={{ uri }} style={zonePhoto.image} resizeMode="cover" accessibilityLabel="Your scanned face" />
+      ) : (
+        <>
+          <View style={[zonePhoto.glow, { backgroundColor: accent }]} />
+          <View style={zonePhoto.iconRing}>
+            <Ionicons name="person-outline" size={32} color="rgba(255,255,255,0.28)" />
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -205,6 +213,7 @@ const zonePhoto = StyleSheet.create({
     top: SW * 0.055,
     left: SW * 0.125,
   },
+  image: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   iconRing: {
     width: 64,
     height: 64,
@@ -245,7 +254,7 @@ const scorePill = StyleSheet.create({
 });
 
 // ─── Zone Section Card ────────────────────────────────────────────────────────
-function ZoneCard({ zone }) {
+function ZoneCard({ zone, photo }) {
   const scaleAnim = useRef(new Animated.Value(0.97)).current;
   useEffect(() => {
     Animated.spring(scaleAnim, {
@@ -260,7 +269,7 @@ function ZoneCard({ zone }) {
     <Animated.View style={[styles.zoneCard, { transform: [{ scale: scaleAnim }] }]}>
 
       {/* ── Photo ── */}
-      <ZonePhoto bg={zone.photoBg} accent={zone.photoAccent} />
+      <ZonePhoto bg={zone.photoBg} accent={zone.photoAccent} uri={photo} />
 
       {/* ── Title row (overlaps bottom of photo) ── */}
       <View style={styles.zoneTitleRow}>
@@ -345,6 +354,8 @@ export default function ScanResultsScreen({ navigation, route }) {
   const ancillary = route?.params?.ancillary ?? [];
   // Set only when arriving straight from a new scan.
   const pointsAwarded = route?.params?.pointsAwarded;
+  // The captured face (data URL) — only present straight after a scan.
+  const photo = route?.params?.photo;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -390,7 +401,7 @@ export default function ScanResultsScreen({ navigation, route }) {
 
         {/* Primary zones: Skin, Eyes */}
         {zones.map(zone => (
-          <ZoneCard key={zone.key} zone={zone} />
+          <ZoneCard key={zone.key} zone={zone} photo={photo} />
         ))}
 
         {/* Ancillary Zones section */}
